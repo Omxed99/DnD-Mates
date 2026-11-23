@@ -6651,6 +6651,7 @@ MG_GEN.ship=(G,rng,o)=>{G.out=true;mgRect(G,0,0,G.w,G.h,'deep');const sw=Math.mi
   if(two){const s2y=sy+sh+2;if(s2y+sh<G.h){hull(sx+2,s2y,sw-4,sh);for(let k=0;k<3;k++){const x=sx+5+k*4;for(let y=sy+Math.floor(sh*.6);y<s2y+Math.floor(sh*.4);y++)if(mgGet(G,x,y)!=='deck')mgSet(G,x,y,'deck')}}}
   else{mgRect(G,0,G.h-4,G.w,4,'deck');for(let x=0;x<G.w;x++)mgEdge(G,'h',x,G.h-4,'fence');for(let x=sx+3;x<sx+5;x++)for(let y=sy+sh;y<G.h-4;y++)mgSet(G,x,y,'deck');mgEdge(G,'h',sx+3,G.h-4,'wall');for(let x=sx+3;x<sx+5;x++)delete G.e['h:'+x+','+(G.h-4)];
     for(let k=0;k<8;k++)mgObj(G,mgPick(rng,['crate','barrel','hay']),Math.floor(rng()*G.w),G.h-1-Math.floor(rng()*3))}
+  Object.keys(G.e).forEach(k=>{if(G.e[k]!=='fence')return;const[d,xy]=k.split(':'),[x,y]=xy.split(',').map(Number);const a=mgGet(G,x,y),b=d==='h'?mgGet(G,x,y-1):mgGet(G,x-1,y);if(a==='deck'&&b==='deck')delete G.e[k]});
   const dk=mgCells(G,(x,y)=>mgGet(G,x,y)==='deck');dk.sort((a,b)=>b[1]-a[1]);G.sp.p=[dk[0]];G.sp.m=[[sx+Math.floor(sw*.5),sy+Math.floor(sh/2)],[sx+Math.floor(sw*.8),sy+Math.floor(sh/2)]]};
 MG_GEN.desert=(G,rng,o)=>{const nz=mgFbm(G.w,G.h,rng,7);G.out=true;for(let y=0;y<G.h;y++)for(let x=0;x<G.w;x++){const v=nz(x,y);mgSet(G,x,y,v>.66?'rubble':'sand')}
   const ox=Math.floor(G.w*(.3+rng()*.4)),oy=Math.floor(G.h*(.3+rng()*.4));mgDisk(G,ox,oy,3.2,'grass',rng,1.2);mgDisk(G,ox,oy,2,'shallow',rng,.8);mgDisk(G,ox,oy,1.2,'deep');
@@ -7158,14 +7159,14 @@ const hex=h=>{const n=parseInt(h.slice(1),16);return[n>>16,n>>8&255,n&255]};
 const PALS={
   pastel:{grass:['#bfe3ae','#a9d79b','#d3edc2'],dirt:['#e6d0b0','#d9bf98','#efdcc0'],sand:['#f5e5b7','#ead49a'],snow:['#f7fafd','#e3ebf5'],ice:['#d0ebf7','#b4dcee'],mud:['#c4ad90','#a98f72'],shallow:['#b5e2f2'],deep:['#6fb0dc'],
     stone:['#dcd6ea','#cec6e0','#b5acc9'],tiles:['#ece7f5','#d9d1ea','#b9b0cc'],wood:['#ecd0aa','#ddb98b','#b98f63'],deck:['#e3bf96','#cfa679','#a87f57'],road:['#ddd5cb','#c7bdb0','#a79c8f'],carpet:['#e8a7b8','#d48aa0','#f3cfd9'],
-    rubble:['#d9d0c6','#bfb3a6'],brush:['#b2dba3','#8fc583'],lava:['#ff9a52','#7a2f20'],chasm:['#3f3a55'],rock:['#9a92b4','#8a82a6','#b4add0'],cliff:['#a59cbe','#8f87a8','#c2bbdb'],brick:['#a79fc0','#958cb2','#c3bcda'],roof:['#e9aaa2'],
+    rubble:['#d9d0c6','#bfb3a6'],brush:['#b2dba3','#8fc583'],field:['#d9bf98','#a9d38f','#c2a57d'],lava:['#ff9a52','#7a2f20'],chasm:['#3f3a55'],rock:['#9a92b4','#8a82a6','#b4add0'],cliff:['#a59cbe','#8f87a8','#c2bbdb'],brick:['#a79fc0','#958cb2','#c3bcda'],roof:['#e9aaa2'],
     ink:'#4d4660',wall:'#5d5675',amb:{day:1,dusk:.82,night:.66,under:.6},lightA:.55},
   board:{grass:['#6f9a4d','#5e8a40','#86ad5f'],dirt:['#8c6c48','#7a5c3b','#a2825c'],sand:['#d7b979','#c4a564'],snow:['#eef2f6','#d6dee8'],ice:['#a9d2e3','#8bbfd6'],mud:['#5f4a35','#4d3b2a'],shallow:['#5a9fc2'],deep:['#1f5a85'],
     stone:['#8f8b84','#7d7972','#5f5b55'],tiles:['#b8b1a6','#9f988d','#7c766d'],wood:['#a87a4d','#94673d','#6e4a29'],deck:['#9a6f45','#855c36','#5f3f22'],road:['#8a8172','#776e60','#5c5448'],carpet:['#8e2f3a','#74222d','#b8864a'],
-    rubble:['#7d776f','#625c55'],brush:['#5d8740','#4a7032'],lava:['#ff6b2b','#3a120a'],chasm:['#101014'],rock:['#3d3833','#332f2b','#5c564f'],cliff:['#5d564e','#4a443e','#7a7268'],brick:['#5a524c','#4a433e','#7a716a'],roof:['#9b4d3a'],
+    rubble:['#7d776f','#625c55'],brush:['#5d8740','#4a7032'],field:['#7a5c3b','#5e8a40','#5f4830'],lava:['#ff6b2b','#3a120a'],chasm:['#101014'],rock:['#3d3833','#332f2b','#5c564f'],cliff:['#5d564e','#4a443e','#7a7268'],brick:['#5a524c','#4a433e','#7a716a'],roof:['#9b4d3a'],
     ink:'#1e1a16',wall:'#2b2622',amb:{day:1,dusk:.72,night:.45,under:.36},lightA:.75},
   parch:{grass:['#efe4c6'],dirt:['#efe2c6'],sand:['#f2e6c6'],snow:['#f5ecd6'],ice:['#ece6d4'],mud:['#e5d6b6'],shallow:['#e6e4d2'],deep:['#d9dacb'],stone:['#f1e6cc'],tiles:['#f1e6cc'],wood:['#efe1c2'],deck:['#ecdcbb'],road:['#ece0c3'],carpet:['#e9d6bb'],
-    rubble:['#e9dcbd'],brush:['#e9dfbf'],lava:['#e9c3a0'],chasm:['#3b3125'],rock:['#f6eedb'],cliff:['#f6eedb'],brick:['#f6eedb'],roof:['#e2d2b0'],ink:'#2b2118',wall:'#2b2118',amb:{day:1,dusk:.95,night:.9,under:.9},lightA:.15}};
+    rubble:['#e9dcbd'],brush:['#e9dfbf'],field:['#ece0c3'],lava:['#e9c3a0'],chasm:['#3b3125'],rock:['#f6eedb'],cliff:['#f6eedb'],brick:['#f6eedb'],roof:['#e2d2b0'],ink:'#2b2118',wall:'#2b2118',amb:{day:1,dusk:.95,night:.9,under:.9},lightA:.15}};
 const PC={};Object.keys(PALS).forEach(s=>{PC[s]={};Object.keys(PALS[s]).forEach(k=>{if(Array.isArray(PALS[s][k]))PC[s][k]=PALS[s][k].map(hex)})});
 const mix=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
 /* ---------- tekstura materiału w pikselu ---------- */
@@ -7214,6 +7215,8 @@ function texel(m,S,x,y,g,ctx){const C=PC[S][m]||PC[S].stone,u=x/g,v=y/g,cx=Math.
       const sh=.2,rv=(v*5)%1,ru=(u*4+(Math.floor(v*5)%2)*.5)%1;if(rv<.12)c=mix(c,[0,0,0],.25);else if(ru<.06)c=mix(c,[0,0,0],.15);c=mix(c,[255,255,255],(1-rv)*.08);
       if(hb){const vert=hb[3]>=hb[2],mid=vert?hb[0]+hb[2]/2:hb[1]+hb[3]/2,s=vert?u:v;if(s>mid)c=mix(c,[0,0,0],.14);if(Math.abs(s-mid)<.05)c=mix(c,[0,0,0],.35);
         const eu=Math.min(u-hb[0],hb[0]+hb[2]-u),ev=Math.min(v-hb[1],hb[1]+hb[3]-v);if(Math.min(eu,ev)<.06)c=mix(c,[0,0,0],.4)}return c}
+    case 'field':{const fr=(v*3)%1,ridge=Math.abs(fr-.5)<.22;c=ridge?mix(C[0],[255,255,255],.06):C[2]||C[0];const n=N(x*.3,y*.3);c=[c[0]+(n-.5)*14,c[1]+(n-.5)*14,c[2]+(n-.5)*12];
+      if(ridge&&C[1]){const p=N(x*.35+3,y*.9);if(p>.55)c=mix(c,C[1],sm(.55,.75,p))}return c}
     case 'rock':case 'cliff':case 'brick':{const n=F3(x*.02,y*.02),r=Math.abs(N(x*.05,y*.05)-.5);c=mix(C[0],C[1],n);if(r<.04)c=mix(c,C[1],.6*(1-r/.04));const s=(N(x*.3,y*.3)-.5)*10;return[c[0]+s,c[1]+s,c[2]+s]}
   }
   return(PC[S].stone||[[200,200,200]])[0]}
@@ -7228,7 +7231,7 @@ mgRender=function(G,g,style){
   const SW=G.w*SUB,SH=G.h*SUB,blk=new Uint8Array(SW*SH),flr=new Uint8Array(SW*SH),wat=new Uint8Array(SW*SH),nwat=new Uint8Array(SW*SH),nch=new Uint8Array(SW*SH);
   for(let y=0;y<G.h;y++)for(let x=0;x<G.w;x++){const m=mats[y*G.w+x],s=solid(m),w=water(m);for(let j=0;j<SUB;j++)for(let i=0;i<SUB;i++){const k=(y*SUB+j)*SW+x*SUB+i;blk[k]=s?1:0;flr[k]=s?0:1;wat[k]=w?1:0;nwat[k]=w?0:1;nch[k]=m==='chasm'?0:1}}
   const mark=(sx,sy)=>{if(sx>=0&&sy>=0&&sx<SW&&sy<SH)blk[sy*SW+sx]=1};
-  Object.entries(G.e).forEach(([k,v])=>{const[d,xy]=k.split(':'),[x,y]=xy.split(',').map(Number);for(let i=0;i<SUB;i++){if(d==='h'){mark(x*SUB+i,y*SUB-1);mark(x*SUB+i,y*SUB)}else{mark(x*SUB-1,y*SUB+i);mark(x*SUB,y*SUB+i)}}});
+  Object.entries(G.e).forEach(([k,v])=>{if(v==='fence'||v==='cliff'||v==='bars')return;const[d,xy]=k.split(':'),[x,y]=xy.split(',').map(Number);for(let i=0;i<SUB;i++){if(d==='h'){mark(x*SUB+i,y*SUB-1);mark(x*SUB+i,y*SUB)}else{mark(x*SUB-1,y*SUB+i);mark(x*SUB,y*SUB+i)}}});
   G.o.forEach(o=>{if((MOBJ[o.t]||{}).b==='all')for(let j=1;j<SUB-1;j++)for(let i=1;i<SUB-1;i++)mark(o.x*SUB+i,o.y*SUB+j)});
   const Dblk=edt(blk,SW,SH),Dflr=edt(flr,SW,SH),Dnw=edt(nwat,SW,SH),Dw=edt(wat,SW,SH),Dch=edt(nch,SW,SH);
   let Dhi=null,Dlo=null;const RAMP=(G.ramps||[]).map(([x,y])=>[x,y]);if(G.lv){const hi=new Uint8Array(SW*SH),lo=new Uint8Array(SW*SH);for(let y=0;y<G.h;y++)for(let x=0;x<G.w;x++){const l=G.lv[y*G.w+x];for(let j=0;j<SUB;j++)for(let i=0;i<SUB;i++){const k=(y*SUB+j)*SW+x*SUB+i;hi[k]=l;lo[k]=l?0:1}}Dhi=edt(hi,SW,SH);Dlo=edt(lo,SW,SH)}
@@ -7299,7 +7302,18 @@ function mgEdges2(c,G,g,S,P){
       const gr=d==='h'?c.createLinearGradient(0,y0,0,y0+h):c.createLinearGradient(x0,0,x0+w,0);gr.addColorStop(dir>0?0:1,RC[0]);gr.addColorStop(dir>0?1:0,RC[1]);c.fillStyle=gr;c.fillRect(x0,y0,w,h);
       c.strokeStyle=RC[2];c.lineWidth=Math.max(1,g/30);for(let i=0;i<4;i++){const t=(i+.3+H(x,y,i)*.4)/4;c.beginPath();if(d==='h'){c.moveTo(x0+t*w,y0);c.lineTo(x0+t*w+(H(x,y,i+5)-.5)*g*.1,y0+h)}else{c.moveTo(x0,y0+t*h);c.lineTo(x0+w,y0+t*h+(H(x,y,i+5)-.5)*g*.1)}c.stroke()}
       c.lineWidth=Math.max(1.5,g/22);c.beginPath();if(d==='h'){c.moveTo(x0,y*g);c.lineTo(x0+w,y*g)}else{c.moveTo(x*g,y0);c.lineTo(x*g,y0+h)}c.stroke()})}
-  const ed=G.e,used=new Set(),runs=[];Object.keys(ed).forEach(k=>{if(used.has(k)||ed[k]==='cliff')return;const v=ed[k],[d,xy]=k.split(':'),[x,y]=xy.split(',').map(Number);used.add(k);
+  /* płoty: łańcuchy krawędzi wygładzone (Chaikin), z palikami */
+  {const adj=new Map(),add=(a,b)=>{(adj.get(a)||adj.set(a,[]).get(a)).push(b)};Object.entries(G.e).forEach(([k,v])=>{if(v!=='fence')return;const[d,xy]=k.split(':'),[x,y]=xy.split(',').map(Number),a=x+','+y,b=d==='h'?(x+1)+','+y:x+','+(y+1);add(a,b);add(b,a)});
+    const usedE=new Set(),ek=(a,b)=>a<b?a+'|'+b:b+'|'+a,chains=[];
+    const starts=[...adj.keys()].sort((a,b)=>(adj.get(a).length===1?0:1)-(adj.get(b).length===1?0:1));
+    starts.forEach(s0=>{adj.get(s0).forEach(n0=>{if(usedE.has(ek(s0,n0)))return;const ch=[s0];let a=s0,b=n0;while(b&&!usedE.has(ek(a,b))){usedE.add(ek(a,b));ch.push(b);const nx=(adj.get(b)||[]).find(n=>n!==a&&!usedE.has(ek(b,n)));a=b;b=nx}chains.push(ch)})});
+    const WC=S==='board'?['#6e4a29','#9a6a3e']:S==='parch'?['#2b2118','#2b2118']:['#a87b52','#d9ae7e'];
+    chains.forEach(ch=>{let pts=ch.map(k=>k.split(',').map(Number)).map(([x,y])=>[x*g,y*g]);const closed=ch[0]===ch[ch.length-1];
+      for(let it=0;it<2;it++){const o=[];if(!closed)o.push(pts[0]);for(let i=0;i<pts.length-1;i++){const[a1,b1]=pts[i],[a2,b2]=pts[i+1];o.push([a1*.75+a2*.25,b1*.75+b2*.25],[a1*.25+a2*.75,b1*.25+b2*.75])}if(!closed)o.push(pts[pts.length-1]);else o.push(o[0]);pts=o}
+      c.save();c.lineCap='round';c.lineJoin='round';if(S!=='parch'){c.strokeStyle='rgba(20,10,30,.25)';c.lineWidth=Math.max(2,g*.07);c.beginPath();pts.forEach(([x,y],i)=>i?c.lineTo(x+g*.04,y+g*.06):c.moveTo(x+g*.04,y+g*.06));c.stroke()}
+      c.strokeStyle=WC[1];c.lineWidth=Math.max(1.5,g*.06);c.beginPath();pts.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.stroke();
+      let acc=0;for(let i=1;i<pts.length;i++){const d=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);acc+=d;if(acc>=g*.5){acc=0;c.fillStyle=WC[0];c.beginPath();c.arc(pts[i][0],pts[i][1],g*.06,0,7);c.fill()}}c.restore()})}
+  const ed=G.e,used=new Set(),runs=[];Object.keys(ed).forEach(k=>{if(used.has(k)||ed[k]==='cliff'||ed[k]==='fence')return;const v=ed[k],[d,xy]=k.split(':'),[x,y]=xy.split(',').map(Number);used.add(k);
     if(v==='door'||v==='locked'){runs.push({d,a:d==='h'?x:y,b:d==='h'?x:y,f:d==='h'?y:x,v});return}const kind=v==='secret'?'wall':v,K=i=>d==='h'?'h:'+i+','+y:'v:'+x+','+i,same=i=>{const w=ed[K(i)];return w&&(w==='secret'?'wall':w)===kind&&!used.has(K(i))};
     let a=d==='h'?x:y,b=a;while(same(a-1)){a--;used.add(K(a))}while(same(b+1)){b++;used.add(K(b))}runs.push({d,a,b,f:d==='h'?y:x,v:kind})});
   const ww=Math.max(4,g*.24),seg=r=>r.d==='h'?[r.a*g,r.f*g,(r.b+1)*g,r.f*g]:[r.f*g,r.a*g,r.f*g,(r.b+1)*g];
@@ -7369,7 +7383,7 @@ function lightPoly(o,segs,R){const box=[{x1:o.x-R,y1:o.y-R,x2:o.x+R,y2:o.y-R},{x
   const pts=[];angs.sort((a,b)=>a-b).forEach(a=>{const e={x:o.x+Math.cos(a)*R*2,y:o.y+Math.sin(a)*R*2};let best=null;all.forEach(s=>{const h=segX(o,e,{x:s.x1,y:s.y1},{x:s.x2,y:s.y2});if(h&&(!best||h.u<best.u))best=h});if(best)pts.push(best)});return pts}
 })();
 /* ================= obiekty 2: cieniowane, ze światłem z lewej góry ================= */
-Object.assign(MOBJ,{throne:{b:'move',cov:'half'},bench:{d:1,cov:'half'},rack:{b:'move',cov:'half'},cauldron:{b:'move',cov:'half'},bookpile:{d:1},rubblepile:{d:1,cov:'half'},cage:{b:'move',cov:'tq'},banner:{},candles:{L:'candle'},pew:{d:1,cov:'half'}});
+Object.assign(MOBJ,{opengrave:{d:1},fireplace:{b:'move',L:'torch'},woodpile:{b:'move',cov:'half'},throne:{b:'move',cov:'half'},bench:{d:1,cov:'half'},rack:{b:'move',cov:'half'},cauldron:{b:'move',cov:'half'},bookpile:{d:1},rubblepile:{d:1,cov:'half'},cage:{b:'move',cov:'tq'},banner:{},candles:{L:'candle'},pew:{d:1,cov:'half'}});
 (()=>{
 const H=(a,b,k)=>{let h=(a*374761393+b*668265263+k*1274126177)|0;h=Math.imul(h^h>>>13,1274126177);return((h^h>>>16)>>>0)/4294967296};
 const SH=(hex,f)=>shade(hex,f);
@@ -7431,7 +7445,14 @@ mgDrawObj=function(c,Pm,o,g){if(Pm&&Pm.line)return old(c,Pm,o,g);const S=Pm===MG
     c.strokeStyle=SH(P.woodD,0);c.lineWidth=lw;for(let i=1;i<4;i++){c.beginPath();c.moveTo(X-w+i*w/2,Y-h);c.lineTo(X-w+i*w/2,Y+h);c.stroke()}c.lineWidth=lw*2;c.beginPath();c.moveTo(X+w,Y-h*.4);c.lineTo(X+w+g*.3,Y-h*.4);c.moveTo(X+w,Y+h*.4);c.lineTo(X+w+g*.3,Y+h*.4);c.stroke();if(r(3)<.6){ball(c,X-w*.4,Y,g*.1,'#e6c98f');ball(c,X+w*.3,Y-h*.2,g*.09,P.cloth[1])}break}
   case 'stall':{const w=g*.46,h=g*.4,col=P.cloth[Math.floor(r(6)*5)];shadowEll(c,X,Y,w,h,g);for(let i=0;i<6;i++){c.fillStyle=i%2?'#f6f3fb':col;c.fillRect(X-w+i*w/3,Y-h,w/3,h*2)}c.strokeStyle=SH(col,-.4);c.lineWidth=lw;c.strokeRect(X-w,Y-h,w*2,h*2);c.fillStyle='rgba(255,255,255,.2)';c.fillRect(X-w,Y-h,w*2,h*.5);
     for(let i=0;i<6;i++){c.fillStyle=i%2?'#f6f3fb':col;c.beginPath();c.arc(X-w+(i+.5)*w/3,Y+h,w/6,0,Math.PI);c.fill()}break}
-  case 'grave':{const w=g*.22;shadowEll(c,X,Y,w,g*.32,g,.25);c.fillStyle=S==='board'?'#6a5a40':'#cdb89a';c.beginPath();c.ellipse(X,Y+g*.12,w*1.05,g*.3,0,0,7);c.fill();boxShade(c,X-w*.9,Y-g*.4,w*1.8,g*.22,g*.08,P.stone,g);c.strokeStyle=SH(P.stoneD,-.3);c.beginPath();c.moveTo(X,Y-g*.36);c.lineTo(X,Y-g*.22);c.moveTo(X-g*.05,Y-g*.3);c.lineTo(X+g*.05,Y-g*.3);c.stroke();break}
+  case 'opengrave':{shadowEll(c,X,Y,g*.25,g*.4,g,.2);c.fillStyle=S==='board'?'#3a2a1a':'#5a4636';rrect(c,X-g*.2,Y-g*.38,g*.4,g*.76,g*.04);c.fill();c.fillStyle=S==='board'?'#7a5c3b':'#c9ad8a';c.beginPath();c.ellipse(X+g*.33,Y,g*.14,g*.36,0,0,7);c.fill();break}
+  case 'fireplace':{const w=g*.42;shadowEll(c,X,Y,w,g*.25,g,.4);boxShade(c,X-w,Y-g*.3,w*2,g*.6,g*.04,P.stoneD,g);c.fillStyle='#2a1a12';c.fillRect(X-w*.6,Y-g*.12,w*1.2,g*.32);flame(c,X,Y+g*.05,g*.22,P);break}
+  case 'woodpile':{for(let i=0;i<5;i++){const yy=Y-g*.25+i*g*.12;c.fillStyle=SH(P.trunk,(i%2?-.1:.05));rrect(c,X-g*.38,yy,g*.76,g*.1,g*.05);c.fill();c.fillStyle=SH(P.wood,.15);c.beginPath();c.arc(X+g*.36,yy+g*.05,g*.05,0,7);c.fill()}break}
+  case 'grave':{const vt=Math.floor(r(77)*4),w=g*.22;if(vt===1){shadowEll(c,X,Y,g*.2,g*.3,g,.25);c.fillStyle=S==='board'?'#6a5a40':'#cdb89a';c.beginPath();c.ellipse(X,Y+g*.1,g*.2,g*.3,0,0,7);c.fill();c.fillStyle=SH(P.stone,-.05);c.fillRect(X-g*.04,Y-g*.42,g*.08,g*.36);c.fillRect(X-g*.15,Y-g*.32,g*.3,g*.08);c.strokeStyle=SH(P.stoneD,-.3);c.lineWidth=lw;c.strokeRect(X-g*.04,Y-g*.42,g*.08,g*.36);break}
+    if(vt===2){shadowEll(c,X,Y,g*.2,g*.2,g,.35);boxShade(c,X-g*.16,Y-g*.16,g*.32,g*.32,g*.02,P.stone,g);c.fillStyle=SH(P.stone,.15);c.beginPath();c.moveTo(X-g*.16,Y-g*.16);c.lineTo(X,Y);c.lineTo(X+g*.16,Y-g*.16);c.closePath();c.fill();break}
+    if(vt===3){shadowEll(c,X,Y,g*.22,g*.38,g,.25);boxShade(c,X-g*.2,Y-g*.38,g*.4,g*.76,g*.04,SH(P.stone,-.05),g);c.strokeStyle=SH(P.stoneD,-.25);c.lineWidth=lw;c.beginPath();c.moveTo(X,Y-g*.28);c.lineTo(X,Y+g*.1);c.moveTo(X-g*.1,Y-g*.16);c.lineTo(X+g*.1,Y-g*.16);c.stroke();break}
+    shadowEll(c,X,Y,w,g*.32,g,.25);c.fillStyle=S==='board'?'#6a5a40':'#cdb89a';c.beginPath();c.ellipse(X,Y+g*.12,w*1.05,g*.3,0,0,7);c.fill();boxShade(c,X-w*.9,Y-g*.4,w*1.8,g*.22,g*.08,P.stone,g);break}
+  case 'grave_old':{const w=g*.22;shadowEll(c,X,Y,w,g*.32,g,.25);c.fillStyle=S==='board'?'#6a5a40':'#cdb89a';c.beginPath();c.ellipse(X,Y+g*.12,w*1.05,g*.3,0,0,7);c.fill();boxShade(c,X-w*.9,Y-g*.4,w*1.8,g*.22,g*.08,P.stone,g);c.strokeStyle=SH(P.stoneD,-.3);c.beginPath();c.moveTo(X,Y-g*.36);c.lineTo(X,Y-g*.22);c.moveTo(X-g*.05,Y-g*.3);c.lineTo(X+g*.05,Y-g*.3);c.stroke();break}
   case 'log':{const w=g*.45,h=g*.13;c.save();c.translate(X,Y);c.rotate((r(1)-.5)*1.2);shadowEll(c,0,0,w,h,g,.3);const gr=c.createLinearGradient(0,-h,0,h);gr.addColorStop(0,SH(P.trunk,.2));gr.addColorStop(1,SH(P.trunk,-.25));c.fillStyle=gr;rrect(c,-w,-h,w*2,h*2,h);c.fill();
     c.strokeStyle=SH(P.trunk,-.35);c.lineWidth=lw;for(let i=0;i<4;i++){c.beginPath();c.moveTo(-w*.7+i*w*.45,-h*.6);c.lineTo(-w*.5+i*w*.45,h*.5);c.stroke()}c.fillStyle=SH(P.wood,.15);c.beginPath();c.ellipse(w-h*.4,0,h*.4,h*.95,0,0,7);c.fill();c.strokeStyle=SH(P.woodD,0);c.beginPath();c.ellipse(w-h*.4,0,h*.2,h*.5,0,0,7);c.stroke();c.restore();break}
   case 'hay':{const w=g*.38,h=g*.27;shadowEll(c,X,Y,w,h,g);boxShade(c,X-w,Y-h,w*2,h*2,g*.08,S==='board'?'#c9a94a':'#f3dc8a',g);c.strokeStyle='rgba(120,90,30,.45)';c.lineWidth=lw;for(let i=0;i<9;i++){c.beginPath();c.moveTo(X-w+r(i)*w*2,Y-h);c.lineTo(X-w+r(i+9)*w*2,Y+h);c.stroke()}c.strokeStyle=SH(P.woodD,-.2);c.lineWidth=lw*1.5;c.beginPath();c.moveTo(X-w*.4,Y-h);c.lineTo(X-w*.4,Y+h);c.moveTo(X+w*.4,Y-h);c.lineTo(X+w*.4,Y+h);c.stroke();break}
@@ -7444,8 +7465,8 @@ mgDrawObj=function(c,Pm,o,g){if(Pm&&Pm.line)return old(c,Pm,o,g);const S=Pm===MG
   case 'bones':{c.strokeStyle='#f4f0e6';c.lineCap='round';c.lineWidth=lw*2.2;for(let i=0;i<3;i++){const a=r(i)*3.14,cx=X+(r(i+3)-.5)*g*.4,cy=Y+(r(i+6)-.5)*g*.4;c.beginPath();c.moveTo(cx-Math.cos(a)*g*.13,cy-Math.sin(a)*g*.13);c.lineTo(cx+Math.cos(a)*g*.13,cy+Math.sin(a)*g*.13);c.stroke()}ball(c,X+g*.12,Y-g*.1,g*.08,'#f4f0e6','#cfc8b8');c.fillStyle='#3a3040';c.beginPath();c.arc(X+g*.1,Y-g*.11,g*.018,0,7);c.arc(X+g*.15,Y-g*.11,g*.018,0,7);c.fill();break}
   default:c.restore();return old(c,Pm,o,g)}
   c.restore()};
-addI18n({mo_throne:'Throne',mo_bench:'Bench',mo_rack:'Weapon rack',mo_cauldron:'Cauldron',mo_bookpile:'Pile of books',mo_rubblepile:'Rubble pile',mo_cage:'Cage',mo_banner:'Banner',mo_candles:'Candles',mo_pew:'Pew'},
- {mo_throne:'Tron',mo_bench:'Ława',mo_rack:'Stojak na broń',mo_cauldron:'Kocioł',mo_bookpile:'Stos ksiąg',mo_rubblepile:'Kupa gruzu',mo_cage:'Klatka',mo_banner:'Sztandar',mo_candles:'Świece',mo_pew:'Ławka kościelna'});
+addI18n({mo_opengrave:'Open grave',mo_fireplace:'Fireplace',mo_woodpile:'Woodpile',mo_throne:'Throne',mo_bench:'Bench',mo_rack:'Weapon rack',mo_cauldron:'Cauldron',mo_bookpile:'Pile of books',mo_rubblepile:'Rubble pile',mo_cage:'Cage',mo_banner:'Banner',mo_candles:'Candles',mo_pew:'Pew'},
+ {mo_opengrave:'Otwarty grób',mo_fireplace:'Kominek',mo_woodpile:'Stos drewna',mo_throne:'Tron',mo_bench:'Ława',mo_rack:'Stojak na broń',mo_cauldron:'Kocioł',mo_bookpile:'Stos ksiąg',mo_rubblepile:'Kupa gruzu',mo_cage:'Klatka',mo_banner:'Sztandar',mo_candles:'Świece',mo_pew:'Ławka kościelna'});
 })();
 
 /* ================= v22: kreator map — mądrzejsze generatory (loch z komnatami, jaskinia z rzeką i przepaścią, plener z klifami, budynki z rozkładem) ================= */
@@ -7594,6 +7615,185 @@ function building2(G,rng,o,kind){mgOutdoorBase(G,rng,o);const m=2,bw=Math.min(G.
   mgTrees(G,rng,.32,r=>r()<.3?'bush':'tree',(x,y)=>x>=bx-1&&x<=bx+bw&&y>=by-1&&y<=by+bh+1||Math.abs(x-ex)<2);if(kind!=='temple'&&rng()<.7){mgObj(G,'well',bx-1>1?bx-1:bx+bw+1,by+bh+1);mgObj(G,'hay',bx+bw+1,by+2)}if(kind==='temple')for(let k=0;k<6;k++)mgObj(G,'grave',bx+bw+1+(k%2),by+1+k*2);
   G.rooms=rooms;G.sp.p=[[ex,G.h-1]];G.sp.m=[[main.x+Math.floor(main.w/2),main.y+Math.floor(main.h/2)],...rest.slice(0,2).map(r=>[r.x+Math.floor(r.w/2),r.y+Math.floor(r.h/2)])]}
 MG_GEN.house=(G,rng,o)=>building2(G,rng,o,'house');MG_GEN.building=(G,rng,o)=>building2(G,rng,o,'building');MG_GEN.tavern=(G,rng,o)=>building2(G,rng,o,'tavern');MG_GEN.temple=(G,rng,o)=>building2(G,rng,o,'temple');
+})();
+
+/* ================= v23: budynki z kilku skrzydeł (L, T, U, krzyż), różne wnętrza, nieregularny cmentarz, miasto z rynkiem i kamienicami ================= */
+if(!MAT_IDS.includes('field')){MM.field={out:1};MAT_IDS.push('field');MG_MI.field=MAT_IDS.length-1}
+(()=>{
+const pick=mgPick,shuf=mgShuffle,EK=(x,y,dx,dy)=>dx===1?'v:'+(x+1)+','+y:dx===-1?'v:'+x+','+y:dy===1?'h:'+x+','+(y+1):'h:'+x+','+y;
+const inR=(r,x,y)=>r.cells.has(x+','+y);
+function wallCells(G,r){const out=[];r.cells.forEach(k=>{const[x,y]=k.split(',').map(Number);let wall=false,door=false;[[0,-1],[0,1],[-1,0],[1,0]].forEach(([dx,dy])=>{const e=G.e[EK(x,y,dx,dy)];if(e==='door'||e==='locked'||e==='secret')door=true;else if(e||!inR(r,x+dx,y+dy))wall=true});
+  if(wall&&!door&&!G.o.some(o=>o.x===x&&o.y===y))out.push([x,y])});return out}
+const freeIn=(G,r)=>[...r.cells].map(k=>k.split(',').map(Number)).filter(([x,y])=>!G.o.some(o=>o.x===x&&o.y===y));
+function along(G,r,t,n,rng,side){let c=wallCells(G,r);if(side==='top')c=c.filter(([x,y])=>y===r.y);if(side==='bottom')c=c.filter(([x,y])=>y===r.y+r.h-1);if(side==='left')c=c.filter(([x,y])=>x===r.x);if(side==='right')c=c.filter(([x,y])=>x===r.x+r.w-1);shuf(rng,c).slice(0,n).forEach(([x,y])=>mgObj(G,t,x,y))}
+/* ---------- budowniczy: skrzydła → obrys → pokoje → połączenia ---------- */
+function bld(G,rng,wings,o){o=o||{};const W=G.w,id=new Int16Array(W*G.h).fill(-1);
+  wings.forEach((r,i)=>{for(let y=r.y;y<r.y+r.h;y++)for(let x=r.x;x<r.x+r.w;x++)if(mgIn(G,x,y)&&id[y*W+x]<0){id[y*W+x]=i;mgSet(G,x,y,r.mat||o.mat||'wood')}});
+  const inB=(x,y)=>mgIn(G,x,y)&&id[y*W+x]>=0,wid=(x,y)=>inB(x,y)?id[y*W+x]:-1;
+  for(let y=0;y<G.h;y++)for(let x=0;x<W;x++){if(!inB(x,y))continue;[[1,0],[-1,0],[0,1],[0,-1]].forEach(([dx,dy])=>{if(!inB(x+dx,y+dy))G.e[EK(x,y,dx,dy)]='wall';else if(wid(x+dx,y+dy)!==wid(x,y)&&(dx>0||dy>0))G.e[EK(x,y,dx,dy)]='wall'})}
+  /* podział skrzydeł na pokoje */
+  const rooms=[];wings.forEach((r,i)=>{const mine=(x,y)=>wid(x,y)===i;
+    const wall=(d,x,y)=>{const a=d==='v'?[x-1,y]:[x,y-1];if(mine(x,y)&&mine(a[0],a[1]))G.e[d+':'+x+','+y]='wall'};
+    if(r.corridor){/* korytarz wzdłuż dłuższego boku, pokoje po obu stronach */const hz=r.w>=r.h,cy=hz?r.y+Math.floor(r.h/2):r.x+Math.floor(r.w/2),len=hz?r.w:r.h,st=hz?r.x:r.y,rw=r.roomW||3;
+      for(let i2=0;i2<len;i2++){if(hz){wall('h',st+i2,cy);wall('h',st+i2,cy+1)}else{wall('v',cy,st+i2);wall('v',cy+1,st+i2)}}
+      const cor={x:hz?r.x:cy,y:hz?cy:r.y,w:hz?r.w:1,h:hz?1:r.h,role:'corridor'};rooms.push(cor);
+      [[hz?r.y:r.x,cy-(hz?r.y:r.x)],[cy+1,(hz?r.y+r.h:r.x+r.w)-cy-1]].forEach(([s0,dep])=>{if(dep<2)return;for(let a=st;a<st+len;a+=rw){const w2=Math.min(rw,st+len-a);if(w2<2)continue;
+        if(a>st){for(let k=0;k<dep;k++){if(hz)wall('v',a,s0+k);else wall('h',s0+k,a)}}rooms.push(hz?{x:a,y:s0,w:w2,h:dep,role:r.sub||'bedroom'}:{x:s0,y:a,w:dep,h:w2,role:r.sub||'bedroom'})}});return}
+    const min=r.min||3,maxD=r.depth??3;const split=(x,y,w,h,d)=>{const can=w>=min*2||h>=min*2;if(r.noSplit||d>=maxD||!can||(d>0&&rng()<.22)){rooms.push({x,y,w,h,role:d===0?r.role:null});return}
+      const vert=w>h?true:h>w?false:rng()<.5;if(vert&&w>=min*2){const s=x+min+Math.floor(rng()*(w-2*min+1));for(let j=y;j<y+h;j++)wall('v',s,j);split(x,y,s-x,h,d+1);split(s,y,x+w-s,h,d+1)}
+      else if(h>=min*2){const s=y+min+Math.floor(rng()*(h-2*min+1));for(let i2=x;i2<x+w;i2++)wall('h',i2,s);split(x,y,w,s-y,d+1);split(x,s,w,y+h-s,d+1)}else rooms.push({x,y,w,h,role:null})};
+    if(r.keep){/* główna sala zostaje w całości, a reszta skrzydła jest dzielona */const k=r.keep;rooms.push({x:k.x,y:k.y,w:k.w,h:k.h,role:r.role,main:1});
+      if(k.w<r.w){const sx=k.x===r.x?r.x+k.w:r.x;const sw=r.w-k.w;for(let j=r.y;j<r.y+r.h;j++)wall('v',k.x===r.x?r.x+k.w:k.x,j);split(sx,r.y,sw,r.h,1)}
+      else if(k.h<r.h){const sy=k.y===r.y?r.y+k.h:r.y;const sh=r.h-k.h;for(let i2=r.x;i2<r.x+r.w;i2++)wall('h',i2,k.y===r.y?r.y+k.h:k.y);split(r.x,sy,r.w,sh,1)}}
+    else split(r.x,r.y,r.w,r.h,0)});
+  rooms.forEach(r=>{r.cells=new Set();for(let y=r.y;y<r.y+r.h;y++)for(let x=r.x;x<r.x+r.w;x++)if(inB(x,y))r.cells.add(x+','+y);r.cx=r.x+Math.floor(r.w/2);r.cy=r.y+Math.floor(r.h/2)});
+  /* wejście */
+  const ent=o.entry;if(ent)G.e[EK(ent[0],ent[1],ent[2],ent[3])]='door';
+  /* połączenia: każdy pokój osiągalny od wejścia */
+  const start=ent?[ent[0],ent[1]]:[wings[0].x,wings[0].y];
+  for(let it=0;it<300;it++){const seen=new Uint8Array(W*G.h),q=[start];seen[start[1]*W+start[0]]=1;for(let h=0;h<q.length;h++){const[x,y]=q[h];[[1,0],[-1,0],[0,1],[0,-1]].forEach(([dx,dy])=>{const nx=x+dx,ny=y+dy;if(!inB(nx,ny)||seen[ny*W+nx])return;const e=G.e[EK(x,y,dx,dy)];if(e&&e!=='door'&&e!=='locked'&&e!=='secret')return;seen[ny*W+nx]=1;q.push([nx,ny])})}
+    const cand=[];q.forEach(([x,y])=>[[1,0],[-1,0],[0,1],[0,-1]].forEach(([dx,dy])=>{const nx=x+dx,ny=y+dy;if(inB(nx,ny)&&!seen[ny*W+nx]&&G.e[EK(x,y,dx,dy)]==='wall')cand.push([x,y,dx,dy])}));if(!cand.length)break;
+    const good=cand.filter(([x,y,dx,dy])=>{const k=EK(x,y,dx,dy);const near=[[dy,dx],[-dy,-dx]].some(([a,b])=>{const e=G.e[EK(x+a,y+b,dx,dy)];return e==='door'||e==='locked'});return!near});const c=pick(rng,good.length?good:cand);G.e[EK(c[0],c[1],c[2],c[3])]='door'}
+  /* okna na zewnętrznych ścianach */
+  for(let y=0;y<G.h;y++)for(let x=0;x<W;x++){if(!inB(x,y))continue;[[1,0],[-1,0],[0,1],[0,-1]].forEach(([dx,dy])=>{if(inB(x+dx,y+dy))return;const k=EK(x,y,dx,dy);if(G.e[k]==='wall'&&rng()<(o.win??.22)&&(x+y)%2)G.e[k]='window'})}
+  return{rooms,inB,id}}
+/* droga od drzwi do krawędzi mapy */
+function roadFrom(G,x,y,dx,dy,mat){let cx=x+dx,cy=y+dy;for(let i=0;i<80&&mgIn(G,cx,cy);i++){if(mgGet(G,cx,cy)==='wood'||mgGet(G,cx,cy)==='tiles'||mgGet(G,cx,cy)==='stone'&&i>0&&G.e[EK(cx-dx,cy-dy,dx,dy)])break;mgSet(G,cx,cy,mat||'road');if(dx)mgSet(G,cx,cy+1,mat||'road');else mgSet(G,cx+1,cy,mat||'road');cx+=dx;cy+=dy}}
+/* ---------- wyposażenie wg roli ---------- */
+function scatterTables(G,r,rng,withCandles){const fr=freeIn(G,r).filter(([x,y])=>x>r.x&&x<r.x+r.w-1&&y>r.y&&y<r.y+r.h-1);shuf(rng,fr);const placed=[];
+  fr.forEach(([x,y])=>{if(placed.some(([a,b])=>Math.abs(a-x)<3&&Math.abs(b-y)<3))return;placed.push([x,y]);mgObj(G,'table',x,y);[[1,0],[-1,0],[0,1],[0,-1]].forEach(([a,b])=>{if(rng()<.6&&inR(r,x+a,y+b))mgObj(G,'chair',x+a,y+b)});if(withCandles&&rng()<.6)mgObj(G,'candles',x+1,y+1)})}
+function furnish(G,r,rng){const fr=()=>freeIn(G,r);switch(r.role){
+  case 'taproom':{/* lada w kształcie L w rogu, kominek na ścianie, stoły rozrzucone, schody */const right=rng()<.5,cx0=right?r.x+r.w-2:r.x+1;for(let y=r.y;y<r.y+Math.min(r.h-1,4);y++)mgObj(G,'counter',cx0,y);for(let x=Math.min(cx0,right?r.x+r.w-1:r.x);x<=Math.max(cx0,right?r.x+r.w-1:r.x);x++)mgObj(G,'counter',x,r.y+Math.min(r.h-1,4));
+    for(let y=r.y;y<r.y+3;y++)mgObj(G,'barrel',right?r.x+r.w-1:r.x,y);mgObj(G,'fireplace',right?r.x:r.x+r.w-1,r.cy);mgObj(G,'stairs',right?r.x:r.x+r.w-1,r.y+r.h-1);scatterTables(G,r,rng,true);along(G,r,'lantern',2,rng);mgObj(G,'rug',r.cx,r.cy);break}
+  case 'kitchen':mgObj(G,'fireplace',r.x,r.y);mgObj(G,'cauldron',r.x+1,r.y);mgObj(G,'table',r.cx,r.cy);along(G,r,'barrel',2,rng);along(G,r,'shelf',2,rng);along(G,r,'crate',1,rng);break;
+  case 'bedroom':along(G,r,'bed',r.w*r.h>14?2:1,rng);along(G,r,'chest',1,rng);if(r.w*r.h>8)mgObj(G,'rug',r.cx,r.cy);mgObj(G,'candles',r.x,r.y);break;
+  case 'storage':case 'pantry':along(G,r,'crate',Math.round(wallCells(G,r).length*.45),rng);along(G,r,'barrel',2,rng);if(r.role==='pantry')along(G,r,'shelf',2,rng);break;
+  case 'living':mgObj(G,'fireplace',r.x+(rng()<.5?0:r.w-1),r.y);mgObj(G,'table',r.cx,r.cy);mgObj(G,'chair',r.cx-1,r.cy);mgObj(G,'chair',r.cx+1,r.cy);mgObj(G,'rug',r.cx,r.cy+1);along(G,r,'shelf',1,rng);along(G,r,'chest',1,rng);break;
+  case 'library':along(G,r,'shelf',Math.round(wallCells(G,r).length*.65),rng);mgObj(G,'table',r.cx,r.cy);mgObj(G,'chair',r.cx,r.cy+1);mgObj(G,'candles',r.cx+1,r.cy);mgObj(G,'bookpile',r.cx-1,r.cy);break;
+  case 'dining':{const hz=r.w>=r.h;for(let i=1;i<(hz?r.w:r.h)-1;i++){const x=hz?r.x+i:r.cx,y=hz?r.cy:r.y+i;mgObj(G,'table',x,y);if(hz){mgObj(G,'chair',x,y-1);mgObj(G,'chair',x,y+1)}else{mgObj(G,'chair',x-1,y);mgObj(G,'chair',x+1,y)}if(i%2)mgObj(G,'candles',x,y)}mgObj(G,'fireplace',r.x,r.y);break}
+  case 'study':mgObj(G,'table',r.cx,r.cy);mgObj(G,'chair',r.cx,r.cy+1);along(G,r,'shelf',2,rng);along(G,r,'chest',1,rng);mgObj(G,'candles',r.cx+1,r.cy);break;
+  case 'gallery':along(G,r,'statue',Math.round(wallCells(G,r).length*.3),rng);mgObj(G,'rug',r.cx,r.cy);break;
+  case 'entry':along(G,r,'rack',1,rng);mgObj(G,'rug',r.cx,r.cy);mgObj(G,'lantern',r.x,r.y);break;
+  case 'stable':for(let x=r.x;x<r.x+r.w;x+=2)mgObj(G,'hay',x,r.y);along(G,r,'barrel',1,rng);mgObj(G,'cart',r.cx,r.y+r.h-1);break;
+  case 'chapel':mgObj(G,'altar',r.cx,r.y);mgObj(G,'candles',r.cx-1,r.y);mgObj(G,'candles',r.cx+1,r.y);mgObj(G,'statue',r.x,r.y+r.h-1);break;
+  case 'sacristy':along(G,r,'shelf',2,rng);along(G,r,'chest',2,rng);mgObj(G,'table',r.cx,r.cy);break;
+  case 'tower':mgObj(G,'stairs',r.cx,r.cy);break;
+  case 'corridor':if(rng()<.6)along(G,r,'lantern',1,rng);break;
+  default:if(rng()<.6)along(G,r,rng()<.5?'crate':'barrel',2,rng)}}
+/* ---------- kształty ---------- */
+function shapeWings(rng,bx,by,bw,bh,kind){const s=pick(rng,kind==='house'?['L','L','rect','T']:kind==='manor'?['U','H','L','T']:['L','T','U','rect','L']);const W2=Math.floor(bw*.5),H2=Math.floor(bh*.5);
+  switch(s){case 'L':{const fx=rng()<.5,fy=rng()<.5;const a={x:bx,y:by,w:bw,h:Math.max(4,Math.floor(bh*.5))},b={x:fx?bx+bw-Math.max(4,Math.floor(bw*.4)):bx,y:by,w:Math.max(4,Math.floor(bw*.4)),h:bh};if(fy){a.y=by+bh-a.h}return{shape:s,wings:[a,b]}}
+    case 'T':{const a={x:bx,y:by,w:bw,h:Math.max(4,Math.floor(bh*.45))},b={x:bx+Math.floor((bw-Math.max(4,Math.floor(bw*.4)))/2),y:by,w:Math.max(4,Math.floor(bw*.4)),h:bh};if(rng()<.5)a.y=by+bh-a.h;return{shape:s,wings:[a,b]}}
+    case 'U':{const ww=Math.max(4,Math.floor(bw*.3)),a={x:bx,y:by,w:bw,h:Math.max(4,Math.floor(bh*.4))},b={x:bx,y:by,w:ww,h:bh},c={x:bx+bw-ww,y:by,w:ww,h:bh};return{shape:s,wings:[a,b,c],court:{x:bx+ww,y:by+a.h,w:bw-2*ww,h:bh-a.h}}}
+    case 'H':{const ww=Math.max(4,Math.floor(bw*.28)),hh=Math.max(4,Math.floor(bh*.36));return{shape:s,wings:[{x:bx+ww,y:by+Math.floor((bh-hh)/2),w:bw-2*ww,h:hh},{x:bx,y:by,w:ww,h:bh},{x:bx+bw-ww,y:by,w:ww,h:bh}]}}
+    default:return{shape:'rect',wings:[{x:bx,y:by,w:bw,h:bh}]}}}
+/* ---------- typy budynków ---------- */
+function yard(G,rng,inB,kind){const fr=mgCells(G,(x,y)=>!inB(x,y)&&mgGet(G,x,y)!=='road'&&mgFree(G,x,y));
+  if(kind!=='temple'){/* ogródek warzywny */const gx=pick(rng,fr);if(gx){const gw=4+Math.floor(rng()*3),gh=3+Math.floor(rng()*2);let ok=true;for(let y=gx[1];y<gx[1]+gh;y++)for(let x=gx[0];x<gx[0]+gw;x++)if(!mgIn(G,x,y)||inB(x,y)||mgGet(G,x,y)==='road')ok=false;
+    if(ok){for(let y=gx[1];y<gx[1]+gh;y++)for(let x=gx[0];x<gx[0]+gw;x++)mgSet(G,x,y,'field');for(let x=gx[0];x<gx[0]+gw;x++){mgEdge(G,'h',x,gx[1],'fence');mgEdge(G,'h',x,gx[1]+gh,'fence')}for(let y=gx[1];y<gx[1]+gh;y++){mgEdge(G,'v',gx[0],y,'fence');mgEdge(G,'v',gx[0]+gw,y,'fence')}delete G.e['h:'+gx[0]+','+(gx[1]+gh)]}}}
+  shuf(rng,fr).slice(0,4).forEach(([x,y],i)=>{if(!inB(x,y)&&mgFree(G,x,y))mgObj(G,['well','woodpile','hay','cart'][i],x,y)})}
+function house2(G,rng,o,kind){mgOutdoorBase(G,rng,Object.assign({},o,{brush:false}));const big=kind!=='house';
+  const bw=big?Math.min(G.w-6,Math.max(14,Math.floor(G.w*.72))):Math.min(G.w-8,Math.max(9,Math.floor(G.w*.42))),bh=big?Math.min(G.h-6,Math.max(10,Math.floor(G.h*.68))):Math.min(G.h-7,Math.max(7,Math.floor(G.h*.48)));
+  const bx=Math.floor((G.w-bw)/2)+(big?0:Math.floor((rng()-.5)*4)),by=Math.floor((G.h-bh)/2)-1;const sh=shapeWings(rng,bx,by,bw,bh,kind==='building'?'manor':kind);
+  const wings=sh.wings;let roles;
+  if(kind==='tavern'){wings[0].role='taproom';wings[0].noSplit=wings[0].w*wings[0].h<=110;if(!wings[0].noSplit)wings[0].keep={x:wings[0].x,y:wings[0].y,w:Math.max(7,Math.floor(wings[0].w*.65)),h:wings[0].h};
+    if(wings[1]){wings[1].corridor=wings[1].w>=7||wings[1].h>=7;wings[1].sub='bedroom'}if(wings[2])wings[2].role='stable'}
+  else if(kind==='building'){wings[0].role='hall';wings[0].keep={x:wings[0].x,y:wings[0].y,w:Math.max(5,Math.floor(wings[0].w*.4)),h:wings[0].h};wings.slice(1).forEach(w=>{if(w.w>=8||w.h>=8){w.corridor=true;w.sub=null}})}
+  else{wings[0].role='living';wings[0].depth=2;wings.forEach(w=>{w.min=3})}
+  /* wejście na dole głównego skrzydła */
+  const w0=wings[0],ex=w0.x+Math.floor(w0.w/2),downFree=w0.y+w0.h<=G.h-2;const entry=downFree?[ex,w0.y+w0.h-1,0,1]:[ex,w0.y,0,-1];
+  const B=bld(G,rng,wings,{mat:'wood',entry,win:.25});const rooms=B.rooms;
+  const plan={tavern:['kitchen','storage','pantry','bedroom'],building:['dining','library','study','gallery','bedroom','bedroom','kitchen','storage','entry'],house:['bedroom','pantry','storage','bedroom']}[kind]||['storage'];let pi=0;
+  const mainRole={tavern:'taproom',building:'entry',house:'living'}[kind];const cand=rooms.filter(r=>r.role!=='corridor'&&r.role!=='bedroom'||r.main);
+  const main=rooms.find(r=>r.main)||rooms.filter(r=>r.role!=='corridor'&&B.id[r.cy*G.w+r.cx]===0).sort((a,b)=>b.cells.size-a.cells.size)[0];if(main)main.role=mainRole;
+  rooms.forEach(r=>{if(r.role==='hall'||r.role==='living'&&r!==main||r.role==='taproom'&&r!==main)r.role=null;if(!r.role){r.role=r.w*r.h<=4?'storage':plan[pi++%plan.length]}});
+  rooms.forEach(r=>furnish(G,r,rng));
+  if(sh.court){for(let y=sh.court.y;y<sh.court.y+sh.court.h;y++)for(let x=sh.court.x;x<sh.court.x+sh.court.w;x++)if(!B.inB(x,y))mgSet(G,x,y,'grass');mgObj(G,'fountain',sh.court.x+Math.floor(sh.court.w/2),sh.court.y+Math.floor(sh.court.h/2));
+    for(let k=0;k<4;k++){const x=sh.court.x+1+Math.floor(rng()*Math.max(1,sh.court.w-2)),y=sh.court.y+1+Math.floor(rng()*Math.max(1,sh.court.h-2));if(!B.inB(x,y))mgObj(G,'bush',x,y)}}
+  roadFrom(G,entry[0],entry[1],entry[2],entry[3],kind==='house'?'dirt':'road');
+  yard(G,rng,B.inB,kind);mgTrees(G,rng,.3,r=>r()<.3?'bush':'tree',(x,y)=>B.inB(x,y)||Math.abs(x-ex)<3||(sh.court&&x>=sh.court.x&&x<sh.court.x+sh.court.w&&y>=sh.court.y&&y<sh.court.y+sh.court.h));
+  G.rooms=rooms;G.sp.p=[[ex,entry[3]>0?G.h-1:0]];G.sp.m=rooms.filter(r=>r.role!=='corridor').slice(0,3).map(r=>[r.cx,r.cy])}
+function temple2(G,rng,o){mgOutdoorBase(G,rng,Object.assign({},o,{brush:false}));const hz=rng()<.5;/* hz: nawa pozioma */
+  const L=hz?Math.min(G.w-6,Math.max(16,Math.floor(G.w*.7))):Math.min(G.h-4,Math.max(14,Math.floor(G.h*.82))),Wd=Math.max(6,Math.min(9,Math.floor((hz?G.h:G.w)*.34)));
+  const cx=Math.floor(G.w/2),cy=Math.floor(G.h/2),wings=[];
+  const nave=hz?{x:cx-Math.floor(L/2),y:cy-Math.floor(Wd/2),w:L,h:Wd}:{x:cx-Math.floor(Wd/2),y:cy-Math.floor(L/2),w:Wd,h:L};nave.mat='tiles';nave.noSplit=true;nave.role='nave';wings.push(nave);
+  const apse=Math.max(3,Math.floor(Wd*.6)),apD=3;/* absyda na końcu przy ołtarzu: wschód (prawo) albo północ */
+  const ap=hz?{x:nave.x+nave.w,y:cy-Math.floor(apse/2),w:apD,h:apse}:{x:cx-Math.floor(apse/2),y:nave.y-apD,w:apse,h:apD};ap.mat='tiles';ap.noSplit=true;ap.role='apse';if(mgIn(G,ap.x,ap.y)&&mgIn(G,ap.x+ap.w-1,ap.y+ap.h-1))wings.push(ap);
+  if(rng()<.65){/* transept: kaplice po bokach */const tw=4,tl=4;const at=hz?nave.x+Math.floor(L*.68):nave.y+Math.floor(L*.3);
+    const t1=hz?{x:at,y:nave.y-tl,w:tw,h:tl}:{x:nave.x-tl,y:at,w:tl,h:tw},t2=hz?{x:at,y:nave.y+nave.h,w:tw,h:tl}:{x:nave.x+nave.w,y:at,w:tl,h:tw};[t1,t2].forEach(t=>{t.mat='tiles';t.role='chapel';t.noSplit=true;if(mgIn(G,t.x,t.y)&&mgIn(G,t.x+t.w-1,t.y+t.h-1))wings.push(t)})}
+  /* zakrystia przy absydzie i dzwonnica przy wejściu */
+  const sac=hz?{x:nave.x+nave.w-5,y:nave.y+nave.h,w:5,h:3}:{x:nave.x+nave.w,y:nave.y,w:3,h:5};sac.role='sacristy';sac.noSplit=true;if(!wings.some(w=>w.role==='chapel'&&(hz?w.y===nave.y+nave.h:w.x===nave.x+nave.w))&&mgIn(G,sac.x+sac.w-1,sac.y+sac.h-1))wings.push(sac);
+  const tow=hz?{x:nave.x-3,y:nave.y+(rng()<.5?0:nave.h-3),w:3,h:3}:{x:nave.x+(rng()<.5?0:nave.w-3),y:nave.y+nave.h,w:3,h:3};tow.role='tower';tow.mat='stone';tow.noSplit=true;if(mgIn(G,tow.x,tow.y)&&mgIn(G,tow.x+2,tow.y+2))wings.push(tow);
+  const entry=hz?[nave.x,cy,-1,0]:[cx,nave.y+nave.h-1,0,1];const B=bld(G,rng,wings,{mat:'tiles',entry,win:.35});
+  /* wnętrze nawy: kolumny wzdłuż naw bocznych, ławki w poprzek, chodnik do ołtarza */
+  const along2=(f)=>{for(let i=0;i<L;i++)f(i)};
+  along2(i=>{const x=hz?nave.x+i:cx,y=hz?cy:nave.y+i;mgSet(G,x,y,'carpet')});
+  for(let i=2;i<L-1;i+=2){const p1=hz?[nave.x+i,nave.y+1]:[nave.x+1,nave.y+i],p2=hz?[nave.x+i,nave.y+nave.h-2]:[nave.x+nave.w-2,nave.y+i];mgObj(G,'pillar',p1[0],p1[1]);mgObj(G,'pillar',p2[0],p2[1])}
+  for(let i=1;i<L-4;i+=2){for(let k=2;k<Wd-2;k++){const x=hz?nave.x+i:nave.x+k,y=hz?nave.y+k:nave.y+nave.h-1-i;if(hz?y===cy:x===cx)continue;mgObj(G,'pew',x,y)}}
+  const alt=hz?[nave.x+nave.w-1,cy]:[cx,nave.y];if(wings.includes(ap)){const a2=hz?[ap.x+1,cy]:[cx,ap.y+1];mgObj(G,'altar',a2[0],a2[1]);mgObj(G,'candles',a2[0]+(hz?0:-1),a2[1]+(hz?-1:0));mgObj(G,'candles',a2[0]+(hz?0:1),a2[1]+(hz?1:0))}else mgObj(G,'altar',alt[0],alt[1]);
+  mgObj(G,'brazier',alt[0]+(hz?0:-2),alt[1]+(hz?-2:0));mgObj(G,'brazier',alt[0]+(hz?0:2),alt[1]+(hz?2:0));
+  B.rooms.forEach(r=>{if(r.role==='chapel'||r.role==='sacristy'||r.role==='tower')furnish(G,r,rng)});
+  roadFrom(G,entry[0],entry[1],entry[2],entry[3],'road');
+  /* przykościelny cmentarzyk */const gr=mgCells(G,(x,y)=>!B.inB(x,y)&&mgFree(G,x,y)&&mgGet(G,x,y)!=='road');shuf(rng,gr).slice(0,10).forEach(([x,y])=>{let ok=true;for(let j=-1;j<=1;j++)for(let i=-1;i<=1;i++)if(B.inB(x+i,y+j))ok=false;if(ok)mgObj(G,'grave',x,y)});
+  mgTrees(G,rng,.25,r=>r()<.4?'bush':'tree',(x,y)=>{for(let j=-1;j<=1;j++)for(let i=-1;i<=1;i++)if(B.inB(x+i,y+j))return true;return mgGet(G,x,y)==='road'});
+  G.rooms=B.rooms;G.sp.p=[hz?[0,cy]:[cx,G.h-1]];G.sp.m=[[alt[0]+(hz?-2:0),alt[1]+(hz?0:2)],[nave.x+Math.floor(nave.w/2),nave.y+Math.floor(nave.h/2)]]}
+MG_GEN.house=(G,rng,o)=>house2(G,rng,o,'house');MG_GEN.tavern=(G,rng,o)=>house2(G,rng,o,'tavern');MG_GEN.building=(G,rng,o)=>house2(G,rng,o,'building');MG_GEN.temple=(G,rng,o)=>temple2(G,rng,o);
+/* ---------- cmentarz: nieregularny płot, kwatery i rozrzucone groby, mauzoleum, kręta ścieżka ---------- */
+MG_GEN.graveyard=(G,rng,o)=>{mgOutdoorBase(G,rng,Object.assign({brush:false},o));const W=G.w,Hh=G.h,cx=W/2+(rng()-.5)*W*.1,cy=Hh/2+(rng()-.5)*Hh*.1,rx=W*.44,ry=Hh*.42,nz=mgFbm(W,Hh,rng,6);
+  const inside=new Uint8Array(W*Hh);for(let y=1;y<Hh-1;y++)for(let x=1;x<W-1;x++){const a=Math.atan2(y+.5-cy,x+.5-cx),wob=1+(nz(Math.floor(cx+Math.cos(a)*rx*.8),Math.floor(cy+Math.sin(a)*ry*.8))-.5)*.5;const d=((x+.5-cx)/(rx*wob))**2+((y+.5-cy)/(ry*wob))**2;if(d<1)inside[y*W+x]=1}
+  const IN=(x,y)=>mgIn(G,x,y)&&inside[y*W+x];
+  /* płot po obrysie; brama po stronie zachodniej lub południowej */
+  const fe=[];for(let y=0;y<Hh;y++)for(let x=0;x<W;x++){if(!IN(x,y))continue;[[1,0],[-1,0],[0,1],[0,-1]].forEach(([dx,dy])=>{if(!IN(x+dx,y+dy)){const k=EK(x,y,dx,dy);G.e[k]='fence';fe.push([k,x,y,dx,dy])}})}
+  const side=rng()<.5?'w':'s';const gate=fe.filter(([k,x,y,dx,dy])=>side==='w'?dx===-1:dy===1).sort((a,b)=>side==='w'?Math.abs(a[2]-cy)-Math.abs(b[2]-cy):Math.abs(a[1]-cx)-Math.abs(b[1]-cx))[0];
+  if(gate){G.e[gate[0]]='door';const g2=fe.find(f=>f!==gate&&(side==='w'?f[3]===-1&&Math.abs(f[2]-gate[2])===1:f[4]===1&&Math.abs(f[1]-gate[1])===1));if(g2)G.e[g2[0]]='door'}
+  /* mauzoleum / krypta w losowym miejscu daleko od bramy */
+  const cw=5+Math.floor(rng()*3),ch=4+Math.floor(rng()*2);let best=null;for(let t=0;t<60;t++){const x=2+Math.floor(rng()*(W-cw-4)),y=2+Math.floor(rng()*(Hh-ch-4));let ok=true;for(let j=-1;j<=ch;j++)for(let i=-1;i<=cw;i++)if(!IN(x+i,y+j))ok=false;if(!ok)continue;const d=gate?Math.hypot(x-gate[1],y-gate[2]):0;if(!best||d>best[2])best=[x,y,d]}
+  let crypt=null;if(best){const[x,y]=best;const B=bld(G,rng,[{x,y,w:cw,h:ch,mat:'stone',noSplit:cw*ch<24,depth:1,min:2}],{entry:[x+Math.floor(cw/2),y+ch-1,0,1],win:0});crypt={x,y,w:cw,h:ch,B};
+    const r=B.rooms.sort((a,b)=>b.cells.size-a.cells.size)[0];mgObj(G,'sarcophagus',r.cx,r.cy);mgObj(G,'candles',r.x,r.y);mgObj(G,'stairs',r.x+r.w-1,r.y);if(B.rooms[1])mgObj(G,'sarcophagus',B.rooms[1].cx,B.rooms[1].cy)}
+  /* kręta ścieżka od bramy do krypty */
+  const pth=new Set();if(gate&&crypt){let x=gate[1],y=gate[2];const tx=crypt.x+Math.floor(cw/2),ty=crypt.y+ch;for(let i=0;i<400&&(Math.abs(x-tx)+Math.abs(y-ty)>0);i++){const ang=Math.atan2(ty-y,tx-x)+(rng()-.5)*1.1,nx=Math.round(x+Math.cos(ang)),ny=Math.round(y+Math.sin(ang));if(nx===x&&ny===y){x+=Math.sign(tx-x);y+=Math.sign(ty-y)}else{x=nx;y=ny}if(IN(x,y)&&!(crypt.B.inB(x,y))){mgSet(G,x,y,'road');pth.add(x+','+y)}}}
+  /* kwatery z rzędami + groby rozrzucone wg szumu */
+  const free=(x,y)=>IN(x,y)&&mgFree(G,x,y)&&!pth.has(x+','+y)&&!(crypt&&crypt.B.inB(x,y))&&mgGet(G,x,y)!=='road';const gn=mgFbm(W,Hh,rng,4);
+  for(let q=0;q<3+Math.floor(rng()*2);q++){const qx=2+Math.floor(rng()*(W-10)),qy=2+Math.floor(rng()*(Hh-8)),qw=4+Math.floor(rng()*4),qh=3+Math.floor(rng()*3);for(let y=qy;y<qy+qh;y+=2)for(let x=qx;x<qx+qw;x++)if(free(x,y)&&free(x,y+1)&&rng()<.8)mgObj(G,'grave',x,y)}
+  for(let y=0;y<Hh;y++)for(let x=0;x<W;x++){if(!free(x,y))continue;if(gn(x,y)>.45&&rng()<.55&&!G.o.some(q=>Math.abs(q.x-x)<=1&&Math.abs(q.y-y)<=1&&(q.x!==x||Math.abs(q.y-y)<1)))mgObj(G,rng()<.08?'opengrave':'grave',x,y)}
+  /* drzewa, latarnie przy ścieżce, ziemia przy grobach */
+  mgTrees(G,rng,.35,r=>r()<.55?'deadtree':r()<.5?'tree':'bush',(x,y)=>IN(x,y)&&!(rng()<.12));
+  [...pth].forEach((k,i)=>{if(i%6===3){const[x,y]=k.split(',').map(Number);for(const[dx,dy]of[[1,0],[0,1],[-1,0],[0,-1]])if(free(x+dx,y+dy)){mgObj(G,'lantern',x+dx,y+dy);break}}});
+  G.o.filter(q=>q.t==='grave').forEach(q=>{if(rng()<.5&&mgGet(G,q.x,q.y+1)==='grass')mgSet(G,q.x,q.y+1,'dirt')});
+  G.sp.p=gate?[[side==='w'?Math.max(0,gate[1]-2):gate[1],side==='w'?gate[2]:Math.min(Hh-1,gate[2]+2)]]:[[0,Math.floor(cy)]];G.sp.m=crypt?[[crypt.x+Math.floor(cw/2),crypt.y+1],[Math.floor(cx),Math.floor(cy)]]:[[Math.floor(cx),Math.floor(cy)]]};
+/* ---------- miasto: duży rynek, ulice, pierzeje kamienic, podwórka ---------- */
+MG_GEN.city=(G,rng,o)=>{G.out=true;const W=G.w,Hh=G.h;mgRect(G,0,0,W,Hh,'road');
+  const sw=Math.max(10,Math.floor(W*(.36+rng()*.12))),shh=Math.max(8,Math.floor(Hh*(.36+rng()*.12))),sx=Math.floor((W-sw)/2+(rng()-.5)*W*.12),sy=Math.floor((Hh-shh)/2+(rng()-.5)*Hh*.12);
+  const sq={x:Math.max(3,sx),y:Math.max(3,sy),w:sw,h:shh};mgRect(G,sq.x,sq.y,sq.w,sq.h,'stone');
+  /* ulice od rynku: szerokość 2-3, z lekkim skrętem */
+  const streets=[];const st=(x0,y0,dx,dy,wd)=>{let x=x0,y=y0,off=0;for(let i=0;i<80;i++){if(!mgIn(G,x,y))break;for(let k=0;k<wd;k++){if(dx)streets.push([x,y+k+off]);else streets.push([x+k+off,y])}if(rng()<.08)off+=rng()<.5?-1:1;off=Math.max(-2,Math.min(2,off));x+=dx;y+=dy}};
+  const mid=(a,b)=>a+Math.floor(b/2)-1;st(sq.x-1,mid(sq.y,sq.h),-1,0,3);st(sq.x+sq.w,mid(sq.y,sq.h)+(rng()<.5?-2:1),1,0,2+(rng()<.5?1:0));st(mid(sq.x,sq.w)+(rng()<.5?-3:2),sq.y-1,0,-1,2);st(mid(sq.x,sq.w),sq.y+sq.h,0,1,3);
+  const isStreet=new Set(streets.map(([x,y])=>x+','+y));
+  /* bloki = wszystko poza rynkiem i ulicami (z jednokratkowym chodnikiem wokół rynku) */
+  const free=new Uint8Array(W*Hh);for(let y=0;y<Hh;y++)for(let x=0;x<W;x++){const inSq=x>=sq.x-1&&x<sq.x+sq.w+1&&y>=sq.y-1&&y<sq.y+sq.h+1;free[y*W+x]=!inSq&&!isStreet.has(x+','+y)?1:0}
+  const F=(x,y)=>mgIn(G,x,y)&&free[y*W+x];
+  /* kamienice: wąskie (2-3), głębokie (4-6), frontem do ulicy/rynku; tyły = podwórka */
+  const houses=[],taken=new Uint8Array(W*Hh);const T=(x,y)=>taken[y*W+x];
+  const tryHouse=(x,y,w,h)=>{for(let j=y;j<y+h;j++)for(let i=x;i<x+w;i++)if(!F(i,j)||T(i,j))return false;for(let j=y;j<y+h;j++)for(let i=x;i<x+w;i++){taken[j*W+i]=1;mgSet(G,i,j,'roof')}houses.push([x,y,w,h]);return true};
+  for(let y=0;y<Hh;y++)for(let x=0;x<W;x++){if(!F(x,y)||T(x,y))continue;const dep=4+Math.floor(rng()*3),wd=2+Math.floor(rng()*2);
+    if(!F(x,y-1)&&F(x,y+1)){/* front od góry: dom w dół */let d=dep;while(d>2&&!tryHouse(x,y,wd,d))d--;if(d<=2)tryHouse(x,y,2,2)}
+    else if(!F(x,y+1)&&F(x,y-1)){let d=dep;while(d>2&&!tryHouse(x,y-d+1,wd,d))d--}
+    else if(!F(x-1,y)&&F(x+1,y)){let d=dep;while(d>2&&!tryHouse(x,y,d,wd))d--}
+    else if(!F(x+1,y)&&F(x-1,y)){let d=dep;while(d>2&&!tryHouse(x-d+1,y,d,wd))d--}}
+  /* podwórka: ziemia/trawa, płoty, drobiazgi */
+  for(let y=0;y<Hh;y++)for(let x=0;x<W;x++)if(F(x,y)&&!T(x,y)){mgSet(G,x,y,rng()<.6?'dirt':'grass');if(rng()<.05)mgObj(G,pick(rng,['well','woodpile','crate','barrel','tree','cart','hay']),x,y)}
+  G.houses=houses;
+  /* dwa budynki z wnętrzem przy rynku (sklep i karczma) */
+  const big=houses.filter(h=>h[2]>=3&&h[3]>=4||h[2]>=4&&h[3]>=3).filter(h=>{const[x,y,w,hh]=h;return x+w>=sq.x-2&&x<=sq.x+sq.w+1&&y+hh>=sq.y-2&&y<=sq.y+sq.h+1}).slice(0,2);
+  big.forEach((h,i)=>{const[x,y,w,hh]=h;G.houses=G.houses.filter(q=>q!==h);for(let j=y;j<y+hh;j++)for(let k=x;k<x+w;k++)mgSet(G,k,j,'wood');
+    const dir=y>=sq.y+sq.h?[0,-1]:y+hh<=sq.y?[0,1]:x>=sq.x+sq.w?[-1,0]:[1,0];const ex=dir[0]?(dir[0]<0?x:x+w-1):x+Math.floor(w/2),ey=dir[1]?(dir[1]<0?y:y+hh-1):y+Math.floor(hh/2);
+    const B=bld(G,rng,[{x,y,w,h:hh,mat:'wood',noSplit:true}],{entry:[ex,ey,dir[0],dir[1]],win:.3});const r=B.rooms[0];if(i===0){mgObj(G,'counter',r.cx,r.cy);along(G,r,'shelf',3,rng);along(G,r,'barrel',1,rng)}else{scatterTables(G,r,rng,true);mgObj(G,'fireplace',r.x,r.y)}});
+  /* rynek: fontanna/pomnik, rzędy straganów, wozy, latarnie */
+  const scx=sq.x+Math.floor(sq.w/2),scy=sq.y+Math.floor(sq.h/2);mgObj(G,rng()<.6?'fountain':'statue',scx,scy);if(rng()<.5)mgObj(G,'well',sq.x+2,sq.y+2);
+  for(let y=sq.y+1;y<sq.y+sq.h-1;y+=3)for(let x=sq.x+1;x<sq.x+sq.w-1;x+=2){if(Math.abs(x-scx)<=2&&Math.abs(y-scy)<=2)continue;if(rng()<.55)mgObj(G,'stall',x,y);else if(rng()<.15)mgObj(G,pick(rng,['crate','barrel','cart','hay']),x,y)}
+  [[sq.x,sq.y],[sq.x+sq.w-1,sq.y],[sq.x,sq.y+sq.h-1],[sq.x+sq.w-1,sq.y+sq.h-1]].forEach(([x,y])=>mgObj(G,'lantern',x,y));
+  streets.forEach(([x,y],i)=>{if(i%17===5&&mgIn(G,x,y)&&mgGet(G,x,y)==='road')mgObj(G,'lantern',x,y)});
+  G.sp.p=[[0,mid(sq.y,sq.h)]];G.sp.m=[[scx,scy+2],[scx+3,scy-2],[scx-3,scy+1]]};
 })();
 
 </script>
