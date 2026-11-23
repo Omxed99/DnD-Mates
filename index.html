@@ -360,6 +360,31 @@ body.isPlayer #bDm,body.isPlayer #dmPanel{display:none!important}
 .stSum details summary{cursor:pointer;opacity:.8;font-size:12px}.stSum .stTbl{font-size:11px}
 .tip{border-bottom:1px dotted currentColor;cursor:help}
 #tipBox{position:fixed;z-index:400;max-width:330px;background:#14161f;border:1px solid #e0b04a;border-radius:8px;padding:8px 10px;font-size:12px;box-shadow:0 8px 24px #000a;pointer-events:none}#tipBox p{margin:4px 0}
+/* v19: nowoczesne, cienkie paski przewijania bez strzałek */
+::-webkit-scrollbar{width:8px;height:8px;background:transparent}
+::-webkit-scrollbar-button{display:none;width:0;height:0}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(150,160,190,.28);border-radius:8px;border:2px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:rgba(224,176,74,.55);background-clip:padding-box}
+::-webkit-scrollbar-corner{background:transparent}
+@supports not selector(::-webkit-scrollbar){*{scrollbar-width:thin;scrollbar-color:rgba(150,160,190,.35) transparent}}
+/* pasek inicjatywy */
+#initBar{top:var(--hdrB,64px);left:calc(var(--mapW,100vw) / 2);overflow-x:auto;overflow-y:hidden;scrollbar-width:none;max-width:calc(var(--mapW,100vw) - 40px);scroll-behavior:auto;
+  -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 0,#000 100%,transparent 100%)}
+#initBar::-webkit-scrollbar{display:none}
+#initBar>*{flex:0 0 auto}
+#initBar.ovR{-webkit-mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 40px),transparent 100%);mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 40px),transparent 100%)}
+#initBar.ovL{-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 40px,#000 100%);mask-image:linear-gradient(90deg,transparent 0,#000 40px,#000 100%)}
+#initBar.ovL.ovR{-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 40px,#000 calc(100% - 40px),transparent 100%);mask-image:linear-gradient(90deg,transparent 0,#000 40px,#000 calc(100% - 40px),transparent 100%)}
+#ttPill{top:calc(var(--hdrB,64px) + 96px);left:calc(var(--mapW,100vw) / 2)}
+/* bańka muzyki */
+#mpBub{position:fixed;left:16px;bottom:16px;z-index:31;width:46px;height:46px;border-radius:50%;padding:0;display:flex;align-items:center;justify-content:center;background:#151a28;border:1px solid var(--gold);box-shadow:0 6px 20px rgba(0,0,0,.55);cursor:pointer;transition:transform .15s}
+#mpBub:hover{transform:scale(1.08)}#mpBub[hidden]{display:none}
+#mpBub .eq{display:none;gap:3px;align-items:flex-end;height:18px}#mpBub .eq i{width:4px;background:var(--gold);border-radius:2px;animation:mpEq .9s ease-in-out infinite}
+#mpBub .eq i:nth-child(2){animation-delay:-.3s}#mpBub .eq i:nth-child(3){animation-delay:-.6s}
+#mpBub.play .eq{display:flex}#mpBub.play .nt{display:none}
+@keyframes mpEq{0%,100%{height:5px}50%{height:18px}}
+input[type=range],input[type=checkbox],input[type=radio]{accent-color:var(--gold,#e0b04a)}
 
 </style>
 </head>
@@ -6088,12 +6113,12 @@ function moveAnim(a,from){
 /* ---------- 65. koniec tury: podsumowanie akcji, potwierdzenie gdy coś zostało ---------- */
 const _sts22=stSpend;stSpend=function(){const t=K&&K.att,k=K&&K.opt&&K.opt.kind,u=K&&K.uses;_sts22();
   try{if(t&&t.sheet&&S.combat&&S.combat.started&&k==='atk'&&u!=='free'&&u!=='bonus'&&u!=='reaction')econSet(t,{au:(econOf(t).au||0)+1})}catch(e){}};
-function econSummary(t){const e=econOf(t),tot=atksPer(t),L=[];
-  L.push(`${e.a?'⬜':'✅'} ${tr('actionL')}${e.au?` (${tr('attacksN')} ${e.au}/${tot})`:''}`);
-  L.push(`${e.b?'⬜':'✅'} ${tr('abBonus')}`);L.push(`${e.r?'⬜':'✅'} ${tr('reactionL')}`);
-  L.push(`🥾 ${Math.max(0,Math.round(e.mx-e.mv))}/${e.mx} ft`);return L.join(' · ')}
+function econSummary(t){const e=econOf(t),tot=atksPer(t),used=[],left=[],mv=Math.max(0,Math.round(e.mx-e.mv));
+  (e.a?left:used).push(tr('actionL')+(e.au?` (${tr('attacksN')} ${e.au}/${tot})`:''));(e.b?left:used).push(tr('abBonus'));(e.r?left:used).push(tr('reactionL'));
+  if(mv)used.push(`${tr('moveW')} ${mv}/${e.mx} ft`);else left.push(tr('moveW'));
+  return (used.length?'✅ '+used.join(', '):'')+(used.length&&left.length?' · ':'')+(left.length?'▫ '+tr('unusedW')+': '+left.join(', '):'')}
 function econLeft(t){const e=econOf(t),l=[];if(e.a)l.push(tr('actionL'));else if(e.atk>0)l.push(tr('attacksLeft',e.atk));if(e.b)l.push(tr('abBonus'));if(e.mv>=5)l.push(Math.round(e.mv)+' ft');return l}
-const _te22=turnEnd;turnEnd=function(id){const t=tokById(id);try{if(isHost&&t&&t.sheet&&!t.sheet.lair&&S.combat&&S.combat.started)send({k:'sys',text:tr('turnSum',t.name,econSummary(t))})}catch(e){}_te22(id)};
+const _te22=turnEnd;turnEnd=function(id){const t=tokById(id);try{if(isHost&&t&&t.sheet&&!t.sheet.lair&&isPc(t)&&S.combat&&S.combat.started)send({k:'sys',text:tr('turnSum',t.name,econSummary(t))})}catch(e){}_te22(id)};
 const _abr22=actBarRender;actBarRender=function(){_abr22();try{const ab=$('#actBar'),t=actTarget();if(!t||ab.hidden)return;const e=econOf(t),tot=atksPer(t);
   if(e.au&&tot>1){const c=hE('span',{className:'abMove',innerHTML:`⚔ <b>${e.au}</b>/${tot}`,title:tr('attacksN')});const mv=ab.querySelector('.abMove');mv?mv.after(c):ab.append(c)}
   const end=[...ab.querySelectorAll('.abBtn')].find(b=>b.textContent.includes(tr('endTurn')));if(!end)return;
@@ -6228,11 +6253,11 @@ setTimeout(animSelUi,0);
 addI18n({animT:'Animation intensity (only on this computer)',animFull:'Full animations',animLow:'Light animations',animOff:'No animations',actionL2:'Action',attacksN:'attacks',attacksLeft:'{0} attack(s)',endSure:'Still left: {0} — click again',
   turnSum:'⏭ {0} ends the turn — {1}',ttL:'Turn timer',ttOff:'off',ttAuto:'auto end',ttOut:'⏱ Time is up for {0}!',coinX:'Exchange',coinToGp:'All to gold',coinToGpT:'Convert all coins to gp (rest in sp/cp)',coinUp:'Largest coins',coinUpT:'Use the fewest coins (pp, gp, sp, cp)',coinTotal:'Total value',coinTooLittle:'Too little to exchange.',
   prepBtn:'Prepare spells',prepAskT:'{0} finished a long rest — you can change prepared spells.',prepTitle:'Prepared spells — {0}',prepNone:'This character does not prepare spells.',prepLvlOnly:'This class normally swaps one spell only on level up.',bookAdd:'+ Copy a spell into the spellbook…',bookHint:'Spellbook: {0} spells. Wizards prepare from the book.',prepSave:'Save prepared spells',prepLog:'📖 {0} prepares spells ({1}).',
-  ritualOpt:'Ritual (no slot, +10 min)',ritualLog:'📜 {0} casts {1} as a ritual (+10 minutes, no slot).',ritualBook:'Ritual from the spellbook…',printT:'Print or save as PDF',slotsW:'slots',playerL:'Player',fxNow:'Active effects'},
+  ritualOpt:'Ritual (no slot, +10 min)',ritualLog:'📜 {0} casts {1} as a ritual (+10 minutes, no slot).',ritualBook:'Ritual from the spellbook…',printT:'Print or save as PDF',slotsW:'slots',playerL:'Player',fxNow:'Active effects',moveW:'movement',unusedW:'unused'},
  {animT:'Intensywność animacji (tylko na tym komputerze)',animFull:'Pełne animacje',animLow:'Oszczędne animacje',animOff:'Bez animacji',actionL2:'Akcja',attacksN:'ataki',attacksLeft:'{0} atak(i)',endSure:'Zostało: {0} — kliknij jeszcze raz',
   turnSum:'⏭ {0} kończy turę — {1}',ttL:'Czas tury',ttOff:'wył.',ttAuto:'auto-koniec',ttOut:'⏱ Czas minął: {0}!',coinX:'Wymień',coinToGp:'Wszystko na złoto',coinToGpT:'Zamień wszystkie monety na gp (reszta w sp/cp)',coinUp:'Najwyższe nominały',coinUpT:'Jak najmniej monet (pp, gp, sp, cp)',coinTotal:'Łączna wartość',coinTooLittle:'Za mało, żeby wymienić.',
   prepBtn:'Przygotuj czary',prepAskT:'{0} skończył(a) długi odpoczynek — możesz zmienić przygotowane czary.',prepTitle:'Przygotowane czary — {0}',prepNone:'Ta postać nie przygotowuje czarów.',prepLvlOnly:'Ta klasa zwykle wymienia jeden czar tylko przy awansie.',bookAdd:'+ Przepisz czar do księgi…',bookHint:'Księga czarów: {0} czarów. Czarodziej przygotowuje czary z księgi.',prepSave:'Zapisz przygotowane',prepLog:'📖 {0} przygotowuje czary ({1}).',
-  ritualOpt:'Rytuał (bez slotu, +10 min)',ritualLog:'📜 {0} rzuca {1} jako rytuał (+10 minut, bez slotu).',ritualBook:'Rytuał z księgi…',printT:'Drukuj lub zapisz jako PDF',slotsW:'sloty',playerL:'Gracz',fxNow:'Aktywne efekty'});
+  ritualOpt:'Rytuał (bez slotu, +10 min)',ritualLog:'📜 {0} rzuca {1} jako rytuał (+10 minut, bez slotu).',ritualBook:'Rytuał z księgi…',printT:'Drukuj lub zapisz jako PDF',slotsW:'sloty',playerL:'Gracz',fxNow:'Aktywne efekty',moveW:'ruch',unusedW:'niewykorzystane'});
 
 /* ================= v17b: cofanie (DM), statystyki obrażeń + eksport logu, edytor homebrew ================= */
 /* ---------- 61. Cofnij ---------- */
@@ -6408,6 +6433,27 @@ addI18n({netB:'Connection',netT:'Connection & relay (TURN)',netHelp:'Players on 
   netUrls:'TURN addresses (one per line)',netUser:'Username',netPass:'Password',netTest:'Test',netTesting:'testing the relay…',netOk:'The relay works.',netBad:'The relay did not answer.',netNoUrl:'Enter at least one turn: address.',netSaved:'Saved. Refresh the page, then copy the room link again for players.',netClear:'Remove',netNow:'Now',netOn:'relay enabled',netOff:'direct connections only',netFile:'opened from a local file',iceNoRelay:'no relay candidate (wrong password or address?)',iceTimeout:'no answer within 8 s',hbExport:'Export pack'},
  {netB:'Połączenie',netT:'Połączenie i przekaźnik (TURN)',netHelp:'Gracze z internetu komórkowego, sieci firmowej czy akademika często nie mogą połączyć się z DM-em bezpośrednio. Rozwiązuje to <b>przekaźnik TURN</b>. Darmowa opcja: załóż konto na <b>expressturn.com</b> (albo <b>metered.ca → Open Relay</b>), skopiuj tutaj adresy TURN, nazwę użytkownika i hasło, kliknij <i>Testuj</i>, potem <i>Zapisz</i>. Następnie <b>skopiuj link do pokoju jeszcze raz</b> — nowy link przekazuje graczom ustawienia przekaźnika. Dane gry są malutkie, więc darmowe limity w zupełności wystarczą.',
   netUrls:'Adresy TURN (jeden na linię)',netUser:'Nazwa użytkownika',netPass:'Hasło',netTest:'Testuj',netTesting:'sprawdzam przekaźnik…',netOk:'Przekaźnik działa.',netBad:'Przekaźnik nie odpowiedział.',netNoUrl:'Wpisz co najmniej jeden adres turn:.',netSaved:'Zapisano. Odśwież stronę i skopiuj graczom link do pokoju jeszcze raz.',netClear:'Usuń',netNow:'Teraz',netOn:'przekaźnik włączony',netOff:'tylko połączenia bezpośrednie',netFile:'otwarte z pliku lokalnego',iceNoRelay:'brak kandydata relay (złe hasło lub adres?)',iceTimeout:'brak odpowiedzi w 8 s',hbExport:'Eksportuj paczkę'});
+
+/* ================= v19: wygląd — paski przewijania, pasek inicjatywy, zwijanie muzyki ================= */
+/* pasek inicjatywy: pod nagłówkiem, przewijanie kółkiem w poziomie, bieżąca karta zawsze widoczna */
+function ibPlace(){const h=document.querySelector('header'),top=h?Math.round(h.getBoundingClientRect().bottom)+8:64,R=document.documentElement.style;R.setProperty('--hdrB',top+'px');
+  const as=[...document.querySelectorAll('aside')].find(a=>a.offsetParent&&a.getBoundingClientRect().left>innerWidth/2),right=as?Math.round(as.getBoundingClientRect().left):innerWidth;
+  R.setProperty('--mapW',right+'px');R.setProperty('--mapR',(innerWidth-right)+'px')}
+addEventListener('resize',ibPlace);try{new ResizeObserver(ibPlace).observe(document.querySelector('header'))}catch(e){}setTimeout(ibPlace,0);
+function ibFade(ib){const o=ib.scrollWidth>ib.clientWidth+2;ib.classList.toggle('ovL',o&&ib.scrollLeft>4);ib.classList.toggle('ovR',o&&ib.scrollLeft<ib.scrollWidth-ib.clientWidth-4)}
+const _cbr25=cbRender;cbRender=function(){_cbr25();try{ibPlace();const ib=$('#initBar');if(!ib)return;
+  if(!ib.__w){ib.__w=1;ib.addEventListener('wheel',e=>{if(ib.scrollWidth<=ib.clientWidth)return;e.preventDefault();ib.scrollLeft+=(Math.abs(e.deltaY)>Math.abs(e.deltaX)?e.deltaY:e.deltaX)},{passive:false});ib.addEventListener('scroll',()=>ibFade(ib))}
+  const cur=ib.querySelector('.ibCard.cur');if(cur){const l=cur.offsetLeft-ib.clientWidth/2+cur.offsetWidth/2;ib.scrollTo({left:Math.max(0,l),behavior:'smooth'})}setTimeout(()=>ibFade(ib),350)}catch(e){}};
+/* muzyka: „–” zwija panel do małej bańki w rogu (muzyka gra dalej) */
+function mpBub(){let b=$('#mpBub');if(!b){b=document.createElement('button');b.id='mpBub';b.title=tr('mpBubT');b.innerHTML='<span class="eq"><i></i><i></i><i></i></span><span class="nt">🎵</span>';b.onclick=()=>{b.hidden=true;mpOpen(true)};document.body.append(b)}return b}
+function mpBubSync(){const b=$('#mpBub');if(!b||b.hidden)return;const m=S.music,on=!!(m&&m.src)||(typeof ambActive==='function'&&ambActive());b.classList.toggle('play',on);
+  const now=($('#mpNow')&&$('#mpNow').textContent)||'';b.title=(on&&now?now+' — ':'')+tr('mpBubT')}
+$('#mpMin').onclick=()=>{$('#musicPanel').classList.remove('mini');mpOpen(false);const b=mpBub();b.hidden=false;mpBubSync()};
+$('#mpMin').title=tr('mpMinT');
+{const _mo=mpOpen;mpOpen=function(show){_mo(show);const b=$('#mpBub');if(b&&show)b.hidden=true}}
+$('#mpX').addEventListener('click',()=>{const b=$('#mpBub');if(b)b.hidden=true});
+setInterval(mpBubSync,1500);
+addI18n({mpBubT:'Music & ambience — click to open',mpMinT:'Minimize to a small button (music keeps playing)'},{mpBubT:'Muzyka i ambient — kliknij, aby otworzyć',mpMinT:'Zwiń do małego przycisku (muzyka gra dalej)'});
 
 </script>
 </body>
