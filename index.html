@@ -413,6 +413,7 @@ input[type=range],input[type=checkbox],input[type=radio]{accent-color:var(--gold
 #bSun.on{background:#ffe08a;color:#5a3d00}
 .miniMenu{max-width:360px}.miniMenu .cbBtns{flex-wrap:wrap}
 .hiN{color:#c99a00;margin-left:8px}
+body.tpMode #map{cursor:crosshair}
 
 </style>
 </head>
@@ -8082,6 +8083,255 @@ addI18n({sunlight:'Sunlight',sunT:'Sunlight on the map (Sunlight Sensitivity)',s
   arNone:'Brak slotów do odzyskania.',arQ:'Arcane Recovery: odzyskać sloty poziomu {0}?',arLog:'{0}: Arcane Recovery — odzyskane sloty: {1}.',
   stunT:'Po trafieniu wydaj 1 punkt Focus: rzut CON albo Stunned do początku Twojej następnej tury; przy udanym rzucie prędkość o połowę i następny atak na cel z przewagą. Raz na turę.',stunLog:'{0}: Stunning Strike → {1} CON ST {2}: {3} {4}',
   deflLog:'{0}: Deflect Attacks — obrażenia mniejsze o {1}.'});
+
+/* ================= m35: smite'y, wzmocnienia, Counterspell / Dispel, teleport, cechy klas ================= */
+const ALL_DMG=DMG_TYPES.map(d=>d[0]);
+const fxHas=(t,k)=>fxOf(t).find(f=>f[k]);
+const subOf=i=>String((i&&i.subclass)||'');
+
+/* ---------- nowe wpisy czarów (dane) ---------- */
+Object.assign(SPELL_RIDERS,{
+  'divine-favor':{self:1,only:1,save:null,noDmg:1,fx:[{c:'custom',n:'Divine Favor',on:'all',wdm:'1d4',wdt:'radiant'}]},
+  'magic-weapon':{sh:'single',ally:1,self:1,save:null,fx:[{c:'custom',n:'Magic Weapon',on:'all',wHit:1}]},
+  'aid':{sh:'single',rays:{base:3,perSlot:0},ally:1,self:1,save:null,fx:[{c:'custom',n:'Aid',on:'all',aid:5}]},
+  'stoneskin':{sh:'single',ally:1,self:1,save:null,fx:[{c:'custom',n:'Stoneskin',on:'all',res:['bludgeoning','piercing','slashing']}]},
+  'protection-from-energy':{sh:'single',ally:1,self:1,save:null,pick:['Acid','Cold','Fire','Lightning','Thunder'],fx:[{c:'custom',n:'Protection from Energy',on:'all',pickRes:1}]},
+  'beacon-of-hope':{sh:'single',rays:{base:6,perSlot:0},ally:1,self:1,save:null,fx:[{c:'custom',n:'Beacon of Hope',on:'all',sadv:'wis',beacon:1,note:'Advantage on WIS and Death saves; healing is maximised.'}]},
+  'death-ward':{sh:'single',ally:1,self:1,save:null,fx:[{c:'custom',n:'Death Ward',on:'all',dward:1,note:'The first time it would drop to 0 HP, it drops to 1 HP instead.'}]},
+  'warding-bond':{sh:'single',ally:1,save:null,fx:[{c:'custom',n:'Warding Bond',on:'all',ac:1,svFix:{str:1,dex:1,con:1,int:1,wis:1,cha:1},res:ALL_DMG,wbond:1,note:'The caster takes the same damage.'}]},
+  'guidance':{sh:'single',ally:1,self:1,save:null,fx:[{c:'custom',n:'Guidance (+1d4 check)',on:'all',chkB:4,use:'chk'}]},
+  'resistance':{sh:'single',ally:1,self:1,save:null,pick:['Acid','Bludgeoning','Cold','Fire','Lightning','Necrotic','Piercing','Poison','Radiant','Slashing','Thunder'],fx:[{c:'custom',n:'Resistance',on:'all',pickRed:1}]},
+  'fly':{sh:'single',rays:{base:1,perSlot:1},ally:1,self:1,save:null,fx:[{c:'custom',n:'Fly 60 ft',on:'all',fly:60}]},
+  'expeditious-retreat':{self:1,only:1,save:null,fx:[{c:'custom',n:'Expeditious Retreat',on:'all',dashB:1,note:'Dash as a Bonus Action.'}]},
+  'jump':{sh:'single',ally:1,self:1,save:null,fx:[{c:'custom',n:'Jump',on:'all',note:'Jump up to 30 ft for 10 ft of movement once per turn.'}]},
+  'spider-climb':{sh:'single',ally:1,self:1,save:null,fx:[{c:'custom',n:'Spider Climb',on:'all',note:'Climb Speed equal to Speed; walls and ceilings.'}]},
+  'freedom-of-movement':{sh:'single',ally:1,self:1,save:null,fx:[{c:'custom',n:'Freedom of Movement',on:'all',fom:1,note:'Ignores Difficult Terrain; can’t be Paralyzed or Restrained by magic.'}]},
+  'blink':{self:1,only:1,save:null,fx:[{c:'custom',n:'Blink',on:'all',note:'End of each turn: 1d6, on 4–6 you vanish to the Ethereal Plane.'}]},
+  'misty-step':{self:1,only:1,save:null,fx:[{c:'custom',n:'Misty Step',on:'all',tp:30}]},
+  'dimension-door':{self:1,only:1,save:null,noDmg:1,fx:[{c:'custom',n:'Dimension Door',on:'all',tp:500}]},
+  'dispel-magic':{sh:'single',ally:1,self:1,save:null,fx:[{c:'custom',n:'Dispel Magic',on:'all',dispel:1}]}
+});
+['divine-favor','magic-weapon','aid','stoneskin','protection-from-energy','beacon-of-hope','death-ward','warding-bond','guidance','resistance','fly','expeditious-retreat','jump','spider-climb','freedom-of-movement','blink','misty-step','dimension-door','dispel-magic']
+  .forEach(id=>{const s=(CAT.spells||[]).find(x=>x.id===id);if(s){delete s.__aug;augSpell(s)}});
+
+/* poziom slotu przy nakładaniu efektów (do skalowania i Dispel Magic) */
+let R_SLOT=0,R_LVL=0;
+const _ar35=applyRiders;
+applyRiders=function(a){const sp=getSpell(a.sid)||{};R_SLOT=+a.slot||sp.level||0;R_LVL=sp.level||0;try{return _ar35(a)}finally{R_SLOT=0;R_LVL=0}};
+const _rf35=riderFx;
+riderFx=function(r,o){const f=_rf35(r,o);f.slv=R_SLOT||R_LVL;
+  if(f.wHit){f.wHit=R_SLOT>=6?3:R_SLOT>=3?2:1;f.n='Magic Weapon +'+f.wHit}
+  if(f.aid){f.aid=5*Math.max(1,R_SLOT-1);f.n='Aid +'+f.aid}
+  if(f.pickRes&&o.pick){f.res=[o.pick.toLowerCase()];f.n='Protection from Energy: '+o.pick}
+  if(f.pickRed&&o.pick){f.red={t:o.pick.toLowerCase(),d:4};f.n='Resistance: '+o.pick+' (−1d4)'}
+  return f};
+
+/* ---------- efekty specjalne przy dodawaniu: teleport, Dispel ---------- */
+const _af35=addFx;
+addFx=function(tid,o){
+  if(o&&o.tp){return}
+  if(o&&o.dispel){dispelOn(tid,o);return}
+  return _af35(tid,o)};
+function dispelOn(tid,o){const t=tokById(tid);if(!t)return;const caster=tokById(o.src),ci=caster&&caster.sheet&&caster.sheet.info,lv=o.slv||3,mod=ci&&ci.spellAb?abMod((ci.abilities||{})[ci.spellAb]||10):3;
+  const fx=fxOf(t),keep=[],gone=[],lines=[];
+  fx.forEach(f=>{if(!f.srcName){keep.push(f);return}const sl=f.slv||(getSpell(Object.keys(SPELL_RIDERS).find(k=>(getSpell(k)||{}).name===f.srcName))||{}).level||1;
+    if(sl<=lv){gone.push(f);return}const r=rnd(20);const ok=r+mod>=10+sl;lines.push(`${f.n}: d20 ${r}${sg(mod)} vs ${10+sl} ${ok?'✓':'✗'}`);(ok?gone:keep).push(f)});
+  const p={fx:keep};if(t.sheet.conc){const cs=(CAT.spells||[]).find(s=>s.name===t.sheet.conc.n);if(!cs||cs.level<=lv){endConc(t.id,{silent:1});gone.push({n:t.sheet.conc.n})}}
+  send({k:'sp',id:tid,p});send({k:'sys',text:tr('dispelLog',caster?caster.name:'?',t.name,gone.length?gone.map(f=>f.n).join(', '):tr('nothing'))+(lines.length?' — '+lines.join(' · '):'')});
+}
+
+/* ---------- Aid: zmiana maks. PW przy dodaniu/usunięciu efektu (deterministycznie u wszystkich) ---------- */
+const _ap35a=apply;
+apply=function(a){
+  if(a&&a.k==='sp'){const list=a.list||[{id:a.id,p:a.p}];const pre=list.map(x=>{const t=tokById(x.id);return t&&x.p&&x.p.fx?{t,old:fxOf(t).filter(f=>f.aid)}:null});
+    const r=_ap35a(a);
+    pre.forEach(z=>{if(!z)return;const s=z.t.sheet,now=fxOf(z.t).filter(f=>f.aid),oid=new Set(z.old.map(f=>f.id)),nid=new Set(now.map(f=>f.id));
+      now.filter(f=>!oid.has(f.id)).forEach(f=>{s.maxHp+=f.aid;s.hp+=f.aid});z.old.filter(f=>!nid.has(f.id)).forEach(f=>{s.maxHp=Math.max(1,s.maxHp-f.aid);s.hp=Math.min(s.hp,s.maxHp)})});
+    return r}
+  return _ap35a(a)};
+
+/* ---------- prędkość: Fly ---------- */
+const _spd35=speedOf;
+speedOf=function(t){let v=_spd35(t);const f=fxHas(t,'fly');if(f&&!cflags(t).sp0)v=Math.max(v,f.fly);return v};
+
+/* ---------- Death Ward, Warding Bond, Resistance (cantrip) ---------- */
+const _dd35=dealDmg;
+dealDmg=function(t,amt,type,o){
+  const s=t&&t.sheet,parts=Array.isArray(amt)?amt:[[amt,type]];
+  if(s){const rd=fxOf(t).find(f=>f.red);if(rd&&parts.some(p=>p[0]>0&&p[1]===rd.red.t)){const n=isHost?rnd(rd.red.d):0;if(isHost){const p=parts.find(p=>p[0]>0&&p[1]===rd.red.t);p[0]=Math.max(0,p[0]-n);
+    setTimeout(()=>{send({k:'sp',id:t.id,p:{fx:fxOf(t).filter(f=>f.id!==rd.id),hp:t.sheet.hp}});send({k:'sys',text:tr('resRedLog',t.name,n)})},0)}amt=parts}}
+  const old=s?s.hp:0,real=_dd35(t,amt,type,o);
+  if(!isHost||!s)return real;
+  if(old>0&&s.hp===0){const dw=fxOf(t).find(f=>f.dward);if(dw){s.hp=1;setTimeout(()=>{send({k:'sp',id:t.id,p:{hp:1,fx:fxOf(t).filter(f=>f.id!==dw.id)}});send({k:'sys',text:tr('dwardLog',t.name)})},0)}}
+  const wb=fxOf(t).find(f=>f.wbond&&f.src&&f.src!==t.id);
+  if(wb&&real>0){const c=tokById(wb.src);if(c&&c.sheet)setTimeout(()=>send({k:'atk',aid:t.id,an:t.name,wn:'Warding Bond',res:[{id:c.id,t:'z',parts:[[real,parts[0][1]||'force']]}],dice:[],total:real,who:me}),0)}
+  return real};
+
+/* ---------- broń: Magic Weapon, Dueling, Divine Favor ---------- */
+const _pso35=pcStrikeOpts;
+pcStrikeOpts=function(t){const o=_pso35(t),i=t.sheet.info;if(!i)return o;
+  const mw=fxHas(t,'wHit'),wcount=(i.items||[]).filter(x=>x.kind==='weapon'&&x.equipped).length,duel=(i.feats||[]).includes('dueling');
+  o.forEach(x=>{if(!x.w)return;const p=x.parts&&x.parts[0];if(!p)return;
+    if(mw){x.hit+=mw.wHit;p.f=(p.f||0)+mw.wHit}
+    if(duel&&x.melee&&wcount<=1&&!(x.w.props||[]).includes('two-handed')&&!x.name.includes('('+tr('twoHanded')+')')){p.f=(p.f||0)+2;x.duel=1}});
+  return o};
+
+/* ---------- smite'y z czarów (Searing, Shining, Ensnaring) ---------- */
+const SMITES={'searing-smite':{lv:1,n:1,s:6,t:'fire',melee:1},'shining-smite':{lv:2,n:2,s:6,t:'radiant',melee:1},'ensnaring-strike':{lv:1,n:0,s:6,t:'piercing',melee:0}};
+function smiteSpellOpts(t){const i=t.sheet&&t.sheet.info;if(!i||!K||K.opt.kind!=='atk'||!(K.opt.w||K.opt.unarmed))return[];const out=[];
+  Object.entries(SMITES).forEach(([id,d])=>{if(!knows(t,id))return;if(d.melee&&!K.opt.melee)return;if(id==='ensnaring-strike'&&!K.opt.w)return;const nm=(getSpell(id)||{}).name||id;
+    if(i.slots)for(let l=d.lv;l<=9;l++){const m=i.slots.max[l-1]||0,u=i.slots.used[l-1]||0;if(m>u)out.push({v:id+'|s'+l,label:`${nm} (${l})`})}
+    if(i.pact&&i.pact.max>(i.pact.used||0)&&i.pact.level>=d.lv)out.push({v:id+'|p'+i.pact.level,label:`${nm} (Pact ${i.pact.level})`})});
+  return out}
+const smParse=v=>{if(!v)return null;const[id,s]=v.split('|');return{id,d:SMITES[id],slot:s,l:+s.slice(1)}};
+const _sep35=stExtraParts;
+stExtraParts=function(g){const ex=_sep35(g),t=K.att,o=K.opt;
+  const sm=smParse(K.smsp);if(sm&&sm.d.n+(sm.l-sm.d.lv)>0)ex.push({n:sm.d.n+(sm.l-sm.d.lv),s:sm.d.s,f:0,type:sm.d.t});
+  const df=fxHas(t,'wdm');if(df&&o.w){const p=parseDmgExpr(df.wdm);if(p)ex.push(Object.assign(p,{type:df.wdt||'radiant'}))}
+  if(K.brutal)ex.push({n:1,s:10,f:0,type:o.parts[0]?o.parts[0].type:'bludgeoning'});
+  return ex};
+
+/* ---------- Brutal Strike (barbarzyńca 9+) ---------- */
+function brutalAvail(t,g){const i=t.sheet&&t.sheet.info;return !!(K&&i&&clsLv(i,'barbarian')>=9&&cflags(t).rage&&K.opt.kind==='atk'&&K.opt.melee&&g&&(K.mode[g.id]||stDefMode(g))!=='d'&&!(t.sheet.econ&&t.sheet.econ.bru))}
+
+/* panel ataku: dodatkowe opcje */
+const _str35=stRender;
+stRender=function(){_str35.apply(this,arguments);try{
+  const p=$('#stPanel');if(!K||!p||p.hidden)return;const t=K.att,g=tokById(K.tg[0]);
+  let opts=p.querySelector('.stOpts');const need=()=>{if(!opts){opts=hE('div',{className:'stOpts'});p.insertBefore(opts,p.querySelector('.stBtns'))}return opts};
+  const ss=smiteSpellOpts(t);
+  if(ss.length){const l=hE('label',{title:tr('smspT')},document.createTextNode('🔥 '+tr('smsp')+' '));const sel=hE('select');[{v:'',label:tr('smiteNone')}].concat(ss).forEach(c=>sel.append(hE('option',{value:c.v,textContent:c.label})));
+    sel.value=K.smsp||'';sel.onchange=()=>{K.smsp=sel.value;if(K.smsp)K.smite='';stRender()};l.append(sel);need().append(l)}
+  if(K.smsp)[...p.querySelectorAll('.stOpts label')].forEach(l=>{if(/Divine Smite/.test(l.textContent)){const s=l.querySelector('select');if(s)s.disabled=true;l.title=tr('oneBonus')}});
+  if(brutalAvail(t,g)){const l=hE('label',{title:tr('brutalT')});const c=hE('input',{type:'checkbox'});c.checked=!!K.brutal;
+    c.onchange=()=>{K.brutal=c.checked;if(g){if(K.brutal)K.mode[g.id]='n';else delete K.mode[g.id]}stRender()};
+    const sel=hE('select');[['force',tr('brForce')],['ham',tr('brHam')]].forEach(([v,lb])=>sel.append(hE('option',{value:v,textContent:lb})));sel.value=K.brE||'force';sel.onchange=()=>K.brE=sel.value;
+    l.append(c,document.createTextNode(' 💥 Brutal Strike +1d10 '),sel);need().append(l)}
+  const wx=[];if(K.opt.duel)wx.push('Dueling +2');const mw=fxHas(t,'wHit');if(mw&&K.opt.w)wx.push(mw.n);const df=fxHas(t,'wdm');if(df&&K.opt.w)wx.push(df.n+' +'+df.wdm);
+  if(wx.length)need().append(hE('small',{textContent:'⚔ '+wx.join(', ')}));
+}catch(e){console.error(e)}};
+const _ah35=afterHit;
+afterHit=function(t,g,o,abm){const sm=smParse(K&&K.smsp),br=K&&K.brutal,brE=K&&K.brE||'force';_ah35(t,g,o,abm);
+  if(sm&&K){K.smsp='';spendSmite(t,sm.slot);const i=t.sheet.info||{},dc=i.spellDc||13,nm=(getSpell(sm.id)||{}).name,extra=sm.l-sm.d.lv;
+    if(sm.id==='searing-smite')setTimeout(()=>_af35(g.id,{c:'custom',n:'Searing Smite (burning)',src:t.id,srcName:nm,slv:sm.l,r:10,sod:{d:(1+extra)+'d6',t:'fire',ab:'con',dc}}),60);
+    if(sm.id==='shining-smite')setTimeout(()=>_af35(g.id,{c:'custom',n:'Shining Smite',src:t.id,srcName:nm,slv:sm.l,r:10,conc:1,dAdv:1,note:'Sheds light; can’t benefit from Invisible.'}),60);
+    if(sm.id==='ensnaring-strike'){const r=rollSaveFor(g,'str',dc,sizeOf(g)>=4?{adv:1}:mrOpt(g));send({k:'sys',text:tr('ensLog',t.name,g.name,dc,r.txt,r.pass?'✓':'✗')});
+      if(!r.pass)setTimeout(()=>_af35(g.id,{c:'restrained',n:'Ensnaring Strike',src:t.id,srcName:nm,slv:sm.l,r:10,conc:1,esc:{dc,ab:['str']},sod:{d:(1+extra)+'d6',t:'piercing'}}),60)}
+    send({k:'sys',text:tr('smspLog',t.name,nm,g.name)})}
+  if(br&&K){K.brutal=false;if(S.combat&&S.combat.started)setTimeout(()=>econSet(t,{bru:1}),50);
+    if(brE==='force'){if(sizeOf(g)<=4)pushTok(t,g,15)}else setTimeout(()=>_af35(g.id,{c:'slowed',n:'Hamstring Blow',spd:-15,u:'srcStart',src:t.id}),60);
+    send({k:'sys',text:tr('brutalLog',t.name,g.name,brE==='force'?tr('brForce'):tr('brHam'))})}};
+
+/* obrażenia na początku tury (Searing Smite, Ensnaring Strike) */
+const _ts35=turnStart;
+turnStart=function(id){const t=tokById(id);
+  if(isHost&&t&&t.sheet)fxOf(t).filter(f=>f.sod).forEach(f=>{const p=parseDmgExpr(f.sod.d);if(!p)return;let n=p.f||0;for(let k=0;k<p.n;k++)n+=rnd(p.s);
+    const src=tokById(f.src);send({k:'atk',aid:f.src||id,an:src?src.name:f.n,wn:f.n,res:[{id,t:'z',parts:[[n,f.sod.t]]}],dice:[],total:n,who:me});
+    if(f.sod.ab){setTimeout(()=>{const k=tokById(id);if(!k)return;const r=rollSaveFor(k,f.sod.ab,f.sod.dc,mrOpt(k));send({k:'sys',text:tr('esLog',k.name,f.n,f.sod.dc,r.txt,r.pass?'✓':'✗')});if(r.pass)removeFx(id,f.id)},120)}});
+  return _ts35(id)};
+
+/* ---------- teleport: Misty Step, Dimension Door ---------- */
+const TP_SP={'misty-step':30,'dimension-door':500};
+let TPK=null;
+function tpStart(t,ft,name){tpEnd();TPK={t,ft,name};const svg=aoeSvg(),c=tokenCenter(t),r=ft*S.grid/5;
+  svg.innerHTML=`<circle cx="${c.x}" cy="${c.y}" r="${r}" fill="rgba(170,140,255,.10)" stroke="#a98cff" stroke-dasharray="6 5" stroke-width="2"/>`;
+  say(tr('tpPick',t.name,ft),'sys');document.body.classList.add('tpMode');
+  const m=$('#map');TPK.fn=e=>{if(!TPK)return;e.preventDefault();e.stopPropagation();const rc=m.getBoundingClientRect(),g=S.grid,x=Math.floor((e.clientX-rc.left)/V.z/g),y=Math.floor((e.clientY-rc.top)/V.z/g);tpTo(x,y)};
+  m.addEventListener('pointerdown',TPK.fn,true);TPK.key=e=>{if(e.key==='Escape')tpEnd()};document.addEventListener('keydown',TPK.key)}
+function tpEnd(){if(!TPK)return;$('#map').removeEventListener('pointerdown',TPK.fn,true);document.removeEventListener('keydown',TPK.key);TPK=null;clearAoe();document.body.classList.remove('tpMode')}
+function tpTo(x,y){const {t,ft}=TPK,g=S.grid,sx=Math.round(t.x/g),sy=Math.round(t.y/g),d=Math.max(Math.abs(x-sx),Math.abs(y-sy))*5;
+  if(d>ft){say(tr('tpFar',ft),'sys');return}
+  if(S.tokens.some(o=>o!==t&&Math.round(o.x/g)===x&&Math.round(o.y/g)===y)){say(tr('tpTaken'),'sys');return}
+  if(x<0||y<0||x*g>=S.w||y*g>=S.h){say(tr('tpFar',ft),'sys');return}
+  const nm=TPK.name;tpEnd();send({k:'move',id:t.id,x:x*g,y:y*g,forced:1,tp:1,cost:0});send({k:'sys',text:tr('tpLog',t.name,nm)})}
+const _ap35b=apply;
+apply=function(a){
+  let from=null;if(a&&a.k==='move'&&a.tp){const t=tokById(a.id);if(t)from=tokenCenter(t)}
+  const r=_ap35b(a);
+  if(from){try{const t=tokById(a.id);aBurst(from,S.grid*.9,'#cdbcff',700);if(t)aBurst(tokenCenter(t),S.grid*.9,'#cdbcff',700,120)}catch(e){}}
+  if(a&&a.k==='cast'&&TP_SP[a.sid]&&a.caster===me){const t=tokById(a.cid);if(t)setTimeout(()=>tpStart(t,TP_SP[a.sid],a.spell),250)}
+  if(a&&a.k==='cast'&&a.sid==='expeditious-retreat'&&isHost){const t=tokById(a.cid);if(t&&S.combat&&S.combat.started&&curTurnTok()===t){const e=econOf(t);setTimeout(()=>econSet(t,{mv:e.mv+speedOf(t),mx:e.mx+speedOf(t)}),40)}}
+  return r};
+
+/* ---------- Counterspell ---------- */
+function csDc(g){const i=g.sheet&&g.sheet.info;if(i&&i.spellDc)return i.spellDc;const m=g.sheet&&g.sheet.mon;const txt=JSON.stringify(m||{});const r=/spell save DC (\d+)/i.exec(txt);return r?+r[1]:13}
+const knowsCS=g=>knows(g,'counterspell')||!!(g.sheet.mon&&(g.sheet.mon.reactions||[]).some(r=>/Counterspell/.test(r)));
+function csCands(c){return S.tokens.filter(g=>g!==c&&g.sheet&&!sameSide(g,c)&&knowsCS(g)&&!cflags(g).inc&&!tokDown(g)&&rxAvail(g)&&tokDist(g,c)<=60&&(!isPc(g)||lowSlot(g.sheet.info,3)))}
+const _sr35=startRoll;
+startRoll=function(manual){
+  if(!cast||cast.stage!=='pre'||cast.busy||cast.csDone||!selected||!castSpell||castSpell.id==='counterspell')return _sr35(manual);
+  const c=selected,list=csCands(c);if(!list.length){cast.csDone=true;return _sr35(manual)}
+  cast.busy=true;const c0=cast;let i=0;
+  const next=()=>{if(cast!==c0)return;if(i>=list.length){cast.busy=false;cast.csDone=true;renderCast();return _sr35(manual)}const g=list[i++];
+    if(K)K.res='⏳ '+tr('rxWaiting',g.name);say(tr('csWait',g.name),'sys');
+    rxAsk(g,g,{tid:g.id,aid:c.id,an:c.name,opts:['counter'],sp:castSpell.name},u=>{if(cast!==c0)return;
+      if(u!=='counter')return next();
+      const dc=csDc(g),r=rollSaveFor(c,'con',dc);send({k:'sys',text:tr('csLog',g.name,c.name,castSpell.name,dc,r.txt,r.pass?'✓':'✗')});
+      if(r.pass){next();return}
+      cast.busy=false;$('#cbCancel').click();send({k:'sys',text:tr('csFail',c.name)})})};
+  next()};
+const _rxp35=rxPrompt;
+rxPrompt=function(a){_rxp35(a);if(!(a.opts||[]).includes('counter'))return;
+  document.querySelectorAll('.rxBox').forEach(box=>{const g=tokById(a.tid),h=box.querySelector('b');if(h&&g)h.textContent='⚡ '+tr('csTitle',g.name);const b=box.querySelector('.smd');if(b&&a.sp)b.textContent=tr('csBody',a.an,a.sp);box.querySelectorAll('button').forEach(x=>{if(x.textContent==='undefined'||x.textContent==='')x.textContent='🚫 Counterspell'})})};
+const _rxs35=rxSpend;
+rxSpend=function(g,use){if(use!=='counter')return _rxs35(g,use);
+  if(S.combat&&S.combat.started)econSet(g,{r:0});const i=g.sheet.info;if(i&&i.slots){const l=lowSlot(i,3);if(l){i.slots.used[l-1]++;send({k:'sp',id:g.id,p:{info:i}})}}
+  send({k:'sys',text:tr('csUse',g.name)})};
+
+/* ---------- Danger Sense, Innate Sorcery ---------- */
+const _cf35=cflags;
+cflags=function(t){const o=_cf35(t),i=t&&t.sheet&&t.sheet.info;if(i&&clsLv(i,'barbarian')>=2&&!o.inc)o.sadv.dex=1;return o};
+const _rd35=resDefs;
+resDefs=function(info){const o=_rd35(info);if(clsLv(info,'sorcerer')>=1&&!o.some(x=>x.id==='inn'))o.push({id:'inn',name:'Innate Sorcery',max:2,rest:'long',act:'innate',d:tr('innD')});return o};
+const _ru35=resUse;
+resUse=function(ctx,d){if(d.act!=='innate')return _ru35(ctx,d);const {t,info}=ctx;if(resLeft(info,d)<=0){say(tr('resEmpty',esc(d.name)),'sys');return}
+  if(fxOf(t).some(f=>f.dcB)){say(tr('innOn'),'sys');return}
+  resSetUsed(info,d.id,((info.resUsed||{})[d.id]||0)+1,d.max);ctx.commit();if(S.combat&&S.combat.started)econSet(t,{b:0});
+  addFx(t.id,{c:'custom',n:'Innate Sorcery',r:10,dcB:1,satkAdv:1,src:t.id});send({k:'sys',text:tr('innLog',t.name)})};
+const _ici35=initCastInputs;
+initCastInputs=function(){_ici35();if(selected&&fxOf(selected).some(f=>f.dcB)){const e=$('#cbDc');e.value=(+e.value||13)+1}};
+const _amo35=atkModeOf;
+atkModeOf=function(att,tgt,o){let m=_amo35(att,tgt,o);if(att&&cast&&castSpell&&att===selected&&fxOf(att).some(f=>f.satkAdv)&&m!=='a')m=m==='d'?'n':'a';return m};
+
+/* ---------- po stronie hosta: Evasion, Potent Cantrip, Disciple of Life, Beacon of Hope, Dark One's Blessing ---------- */
+const hasEvasion=g=>{const i=g&&g.sheet&&g.sheet.info;return !!(i&&(clsLv(i,'rogue')>=7||clsLv(i,'monk')>=7)&&!cflags(g).inc)};
+const _sss35=strikeSend;
+strikeSend=function(t,res,dice,extra){if(K&&K.opt&&K.opt.kind==='save')extra=Object.assign({},extra||{},{half:!!K.opt.half});return _sss35(t,res,dice,extra)};
+const _ap35c=apply;
+apply=function(a){
+  if(!a||!(a.k==='atk'||a.k==='cast'))return _ap35c(a);
+  const notes=[];
+  if(isHost&&!a.r35){a.r35=1;
+    if(a.k==='atk'&&a.ab==='dex')(a.res||[]).forEach(x=>{const g=tokById(x.id);if(x.t!=='s'||!hasEvasion(g)||!(x.parts||[]).length)return;
+      if(x.pass){x.parts=[];notes.push(tr('evLog',g.name,0))}else if(a.half){x.parts=x.parts.map(p=>[Math.floor(p[0]/2),p[1]]);notes.push(tr('evLog',g.name,x.parts.reduce((s,p)=>s+p[0],0)))}});
+    if(a.k==='cast'){const sp=getSpell(a.sid)||{},c=tokById(a.cid),ci=c&&c.sheet&&c.sheet.info;const sv={};(a.sv||[]).forEach(x=>sv[x[0]]=x[3]);
+      if(sp.save==='dex'&&a.per)a.per.forEach(x=>{const g=tokById(x.id);if(!(x.id in sv)||!hasEvasion(g)||!x.dmg)return;x.dmg=sv[x.id]?0:(sp.half?Math.floor(a.total/2):x.dmg);notes.push(tr('evLog',g.name,x.dmg))});
+      if(ci&&sp.level===0&&a.per&&clsLv(ci,'wizard')>=3&&/evoc/i.test(subOf(ci)))a.per.forEach(x=>{if(sv[x.id]&&!x.dmg&&a.total){x.dmg=Math.floor(a.total/2);notes.push(tr('pcLog',tokById(x.id).name,x.dmg))}});
+      if(a.type==='healing'&&a.per){
+        if(ci&&clsLv(ci,'cleric')>=3&&/life/i.test(subOf(ci))&&sp.level>0){const b=2+(+a.slot||sp.level);a.per.forEach(x=>x.dmg+=b);notes.push(tr('dolLog',b))}
+        const mx=(a.dice||[]).reduce((s,d)=>s+(d[1]-d[0]),0);if(mx)a.per.forEach(x=>{const g=tokById(x.id);if(g&&fxOf(g).some(f=>f.beacon)){x.dmg+=mx;notes.push(tr('beaconLog',g.name))}})}}}
+  const att=tokById(a.k==='atk'?a.aid:a.cid),ids=a.k==='atk'?(a.res||[]).map(x=>x.id):(a.ids||[]),before={};ids.forEach(id=>{const g=tokById(id);if(g&&g.sheet)before[id]=g.sheet.hp});
+  const r=_ap35c(a);
+  if(notes.length)say(notes.join(' · '),'sys');
+  if(isHost&&att&&att.sheet&&att.sheet.info){const i=att.sheet.info;if(clsLv(i,'warlock')>=3&&/fiend/i.test(subOf(i))){
+    const k=ids.some(id=>{const g=tokById(id);return g&&!sameSide(g,att)&&before[id]>0&&g.sheet.hp===0});
+    if(k){const n=Math.max(1,abMod((i.abilities||{}).cha||10)+clsLv(i,'warlock'));if((i.tempHp||0)<n)setTimeout(()=>{const ii=Object.assign({},att.sheet.info,{tempHp:n});send({k:'sp',id:att.id,p:{info:ii}});send({k:'sys',text:tr('dobLog',att.name,n)})},50)}}}
+  return r};
+
+addI18n({dispelLog:'{0}: Dispel Magic on {1} — ended: {2}',nothing:'nothing',resRedLog:'{0}: Resistance reduces the damage by {1}.',dwardLog:'{0}: Death Ward — drops to 1 HP instead!',
+  smsp:'Smite spell',smspT:'Cast immediately after the hit (Bonus Action, uses the slot only on a hit).',oneBonus:'Only one Bonus Action smite.',smspLog:'{0}: {1} on {2}.',ensLog:'{0}: Ensnaring Strike → {1} STR DC {2}: {3} {4}',
+  brutalT:'Forgo Advantage: +1d10 damage and an effect. Once per turn.',brForce:'Forceful Blow (push 15 ft)',brHam:'Hamstring Blow (−15 ft Speed)',brutalLog:'{0}: Brutal Strike on {1} — {2}.',
+  tpPick:'{0}: click a free square within {1} ft (Esc cancels).',tpFar:'Too far — max {0} ft.',tpTaken:'That square is occupied.',tpLog:'✨ {0} teleports ({1}).',
+  csTitle:'{0}: Reaction — Counterspell',csWait:'Waiting: {0} may Counterspell…',csBody:'{0} is casting {1}. Counterspell?',csLog:'{0} Counterspells {1} ({2}): {1} CON DC {3}: {4} {5}',csFail:'🚫 {0}’s spell fails (slot not spent).',csUse:'{0} uses Counterspell!',
+  innD:'Bonus Action, 1 minute: spell save DC +1 and Advantage on spell attack rolls. 2 per Long Rest.',innOn:'Innate Sorcery is already active.',innLog:'✨ {0} activates Innate Sorcery (DC +1, Advantage on spell attacks).',
+  evLog:'{0}: Evasion → {1}',pcLog:'{0}: Potent Cantrip → {1}',dolLog:'Disciple of Life +{0}',beaconLog:'{0}: Beacon of Hope (max healing)',dobLog:'{0}: Dark One’s Blessing — {1} Temp HP.'},
+ {dispelLog:'{0}: Dispel Magic na {1} — zakończone: {2}',nothing:'nic',resRedLog:'{0}: Resistance zmniejsza obrażenia o {1}.',dwardLog:'{0}: Death Ward — zostaje z 1 PW!',
+  smsp:'Czar uderzenia',smspT:'Rzucany zaraz po trafieniu (akcja bonusowa, slot schodzi tylko przy trafieniu).',oneBonus:'Tylko jeden smite na akcję bonusową.',smspLog:'{0}: {1} na {2}.',ensLog:'{0}: Ensnaring Strike → {1} SIŁ ST {2}: {3} {4}',
+  brutalT:'Rezygnujesz z przewagi: +1k10 obrażeń i efekt. Raz na turę.',brForce:'Forceful Blow (odepchnięcie 15 ft)',brHam:'Hamstring Blow (−15 ft prędkości)',brutalLog:'{0}: Brutal Strike na {1} — {2}.',
+  tpPick:'{0}: kliknij wolne pole w zasięgu {1} ft (Esc anuluje).',tpFar:'Za daleko — maks. {0} ft.',tpTaken:'To pole jest zajęte.',tpLog:'✨ {0} teleportuje się ({1}).',
+  csTitle:'{0}: reakcja — Counterspell',csWait:'Czekam: {0} może użyć Counterspell…',csBody:'{0} rzuca {1}. Counterspell?',csLog:'{0} kontruje {1} ({2}): {1} KON ST {3}: {4} {5}',csFail:'🚫 Czar {0} nie działa (slot nie przepada).',csUse:'{0} używa Counterspell!',
+  innD:'Akcja bonusowa, 1 minuta: ST czarów +1 i przewaga w atakach czarami. 2 razy na długi odpoczynek.',innOn:'Innate Sorcery już działa.',innLog:'✨ {0} włącza Innate Sorcery (ST +1, przewaga w atakach czarami).',
+  evLog:'{0}: Evasion → {1}',pcLog:'{0}: Potent Cantrip → {1}',dolLog:'Disciple of Life +{0}',beaconLog:'{0}: Beacon of Hope (maks. leczenie)',dobLog:'{0}: Dark One’s Blessing — {1} tymczasowych PW.'});
 
 </script>
 </body>
