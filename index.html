@@ -400,6 +400,14 @@ input[type=range],input[type=checkbox],input[type=radio]{accent-color:var(--gold
 .hzB{position:absolute;transform:translate(-50%,-50%);z-index:8;width:26px;height:26px;border-radius:50%;padding:0;font-size:14px;background:rgba(200,40,40,.85);border:1px solid #fff;color:#fff;line-height:1}
 .hzB.hid{opacity:.55;border-style:dashed}.hzB.off{background:rgba(90,90,90,.8)}
 .doorB.secret{outline:2px dashed #b47aff}
+/* v24 */
+#bPlayers.warn,#bBackup.warn{border-color:#ff7a5a;color:#ffb3a0}
+.plCard{position:fixed;top:120px;right:330px;z-index:250;width:min(420px,90vw)}
+.plRow{display:grid;grid-template-columns:14px 1fr auto auto;gap:4px 8px;align-items:center;padding:5px 0;border-bottom:1px solid #ffffff14}.plRow small{grid-column:2/4;opacity:.7}.plRow button{grid-row:1/3;grid-column:4}
+.plDot,.netPing{display:inline-block}.plDot{width:10px;height:10px;border-radius:50%;background:#777}.plDot.ok{background:#4fd07a}.plDot.mid{background:#e0b04a}.plDot.bad{background:#ff5a5a;box-shadow:0 0 6px #ff5a5a}
+.netPing{font-size:11px;margin:0 4px;opacity:.85}.netPing.mid{color:#e0b04a}.netPing.bad{color:#ff7a5a}#bResync{padding:1px 6px;font-size:12px}
+.bkStat{background:#ffffff0d;border-radius:8px;padding:8px 10px;margin:8px 0;font-size:13px;line-height:1.6}.warnTxt{color:#ffb347}
+#bkToast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:260;background:#1c1f2b;border:1px solid var(--gold,#e0b04a);border-radius:10px;padding:10px 14px;box-shadow:0 8px 30px #000a;display:flex;gap:8px;align-items:center}
 
 </style>
 </head>
@@ -5304,7 +5312,7 @@ let rcT=null,rcN=0,hostTry=0;
 function netStatus(k,...a){try{status(k,...a)}catch(e){}const b=$('#netDot');if(b)b.className=k==='connected'||k==='youAreDm'?'ok':k==='reconnecting'?'wait':'bad'}
 function hostWire(c){
   c.on('open',()=>{conns.push(c);c.send({t:'state',s:redactState()});send({k:'sys',key:'joined'})});
-  c.on('data',d=>{if(d.t==='hello'){c.__name=String(d.name||'').slice(0,40);conns.filter(x=>x!==c&&x.__name===c.__name).forEach(x=>{x.__dup=1;try{x.close()}catch(e){}});conns=conns.filter(x=>!x.__dup);try{whUi()}catch(e){}send({k:'sys',text:tr('welcomeBack',c.__name)});return}
+  c.on('data',d=>{if(netDiag(d,c))return;if(d.t==='hello'){c.__name=String(d.name||'').slice(0,40);conns.filter(x=>x!==c&&x.__name===c.__name).forEach(x=>{x.__dup=1;try{x.close()}catch(e){}});conns=conns.filter(x=>!x.__dup);try{whUi()}catch(e){}send({k:'sys',text:tr('welcomeBack',c.__name)});return}
     if(d.t==='act'){if(d.a&&(d.a.k==='music'||d.a.k==='amb'))return;apply(d.a);if(!(d.a.k==='ruler'&&S.settings.rulerVisible!=='all')){const o=redactAct(d.a);if(o)bc({t:'act',a:o},c)}}});
   c.on('close',()=>{conns=conns.filter(x=>x!==c);if(c.__name&&!c.__dup)send({k:'sys',text:tr('playerLeft',c.__name)})});
   c.on('error',()=>{});
@@ -5331,7 +5339,7 @@ startJoin=function(){
     if(!(peer.__ok||peer.open))return;
     const c=peer.connect(roomId,{reliable:true});hostConn=c;
     c.on('open',()=>{rcN=0;netStatus('connected');c.send({t:'hello',name:me})});
-    c.on('data',d=>{if(d.t==='state'){S=d.s;selected=null;render();try{sheetSync()}catch(e){}}else if(d.t==='act')apply(d.a)});
+    c.on('data',d=>{if(netDiag(d,c))return;if(d.t==='state'){S=d.s;selected=null;render();try{sheetSync()}catch(e){}}else if(d.t==='act')apply(d.a)});
     c.on('close',()=>{if(hostConn===c){netStatus('reconnecting');retry()}});
     c.on('error',()=>{});
   };
@@ -7795,6 +7803,100 @@ MG_GEN.city=(G,rng,o)=>{G.out=true;const W=G.w,Hh=G.h;mgRect(G,0,0,W,Hh,'road');
   streets.forEach(([x,y],i)=>{if(i%17===5&&mgIn(G,x,y)&&mgGet(G,x,y)==='road')mgObj(G,'lantern',x,y)});
   G.sp.p=[[0,mid(sq.y,sq.h)]];G.sp.m=[[scx,scy+2],[scx+3,scy-2],[scx-3,scy+1]]};
 })();
+
+/* ================= v24: diagnostyka połączenia + automatyczne kopie kampanii do pliku ================= */
+/* ---------- 97. ping, status graczy, ponowne wysłanie stanu ---------- */
+const NET={rtt:null,last:0,peers:new Map(),lostShown:false};
+function netDiag(d,c){if(!d||typeof d!=='object')return false;
+  if(d.t==='ping'){try{c.send({t:'pong',ts:d.ts})}catch(e){}if(!isHost){NET.last=Date.now()}return true}
+  if(d.t==='pong'){const r=Date.now()-d.ts;if(isHost){const p=NET.peers.get(c)||{};p.rtt=r;p.last=Date.now();if(p.warned){p.warned=0;say(tr('netBackT',c.__name||'?'),'sys')}NET.peers.set(c,p)}else{NET.rtt=r;NET.last=Date.now();if(NET.lostShown){NET.lostShown=false;say(tr('netOkAgain'),'sys')}}netUi();return true}
+  if(d.t==='need'){if(isHost){try{c.send({t:'state',s:redactState()})}catch(e){}say(tr('netResyncFor',c.__name||'?'),'sys')}return true}
+  return false}
+setInterval(()=>{const now=Date.now();
+  if(isHost){conns.forEach(c=>{if(!NET.peers.has(c))NET.peers.set(c,{last:now,rtt:null});try{c.send({t:'ping',ts:now})}catch(e){}const p=NET.peers.get(c);if(c.__name&&now-p.last>15000&&!p.warned){p.warned=1;say(tr('netLostT',c.__name),'sys');try{sfx('miss')}catch(e){}}});
+    [...NET.peers.keys()].forEach(c=>{if(!conns.includes(c))NET.peers.delete(c)})}
+  else if(hostConn&&(hostConn.open||hostConn.__open)){try{hostConn.send({t:'ping',ts:now})}catch(e){}if(NET.last&&now-NET.last>15000&&!NET.lostShown){NET.lostShown=true;say(tr('netLostMe'),'sys')}}
+  netUi()},4000);
+const pingCol=r=>r==null?'gray':r<150?'ok':r<500?'mid':'bad';
+function netUi(){/* gracz: ping przy kropce statusu + przycisk odświeżenia */
+  const dot=$('#netDot');if(dot)dot.title=isHost?tr('netDmT'):NET.rtt!=null?tr('netPingT',NET.rtt):tr('netNoPing');
+  if(!isHost&&document.body.classList.contains('isPlayer')){let b=$('#bResync');if(!b&&dot){b=hE('button',{id:'bResync',className:'mini',textContent:'🔄',title:tr('netResyncMe')});b.onclick=()=>{try{hostConn&&hostConn.send({t:'need'});say(tr('netAsked'),'sys')}catch(e){say(tr('netNoConn'),'sys')}};dot.after(b)}
+    let pg=$('#netPing');if(!pg&&dot){pg=hE('small',{id:'netPing'});dot.after(pg)}if(pg){pg.textContent=NET.rtt!=null?NET.rtt+' ms':'';pg.className='netPing '+pingCol(NET.rtt)}}
+  else if(isHost){let b=$('#bPlayers');const ht=$('#hdrTools .host-only');if(!b&&ht){b=hE('button',{id:'bPlayers'});b.onclick=playersOpen;ht.prepend(b)}
+    if(b){const named=conns.filter(c=>c.__name),bad=named.some(c=>{const p=NET.peers.get(c);return p&&(p.warned||p.rtt>500)});b.innerHTML=`👥 ${esc(tr('netPlayers'))} <b>${named.length}</b>${bad?' ⚠':''}`;b.classList.toggle('warn',bad)}
+    if($('#plBox'))playersDraw()}}
+function playersOpen(){let box=$('#plBox');if(box){box.remove();return}box=hE('div',{id:'plBox',className:'hbCard plCard'});document.body.append(box);playersDraw()}
+function playersDraw(){const box=$('#plBox');if(!box)return;const now=Date.now();
+  box.innerHTML=`<div class="fpHead"><b>👥 ${esc(tr('netPlayers'))}</b><button class="x">×</button></div>`;box.querySelector('.x').onclick=()=>box.remove();
+  const named=conns.filter(c=>c.__name);if(!named.length)box.append(hE('div',{className:'smd',textContent:tr('netNobody')}));
+  named.forEach(c=>{const p=NET.peers.get(c)||{},ago=p.last?Math.round((now-p.last)/1000):null,st=p.warned?'bad':pingCol(p.rtt),chars=S.tokens.filter(t=>t.owner===c.__name).map(t=>t.name).join(', ');
+    const row=hE('div',{className:'plRow'});row.innerHTML=`<i class="plDot ${st}"></i><b>${esc(c.__name)}</b><span class="smd">${p.warned?esc(tr('netNoResp',ago)):p.rtt!=null?p.rtt+' ms':'…'}</span><small>${esc(chars||tr('netNoChar'))}</small>`;
+    const b=hE('button',{textContent:'🔄',title:tr('netResyncOne')});b.onclick=()=>{try{c.send({t:'state',s:redactState()});say(tr('netResyncFor',c.__name),'sys')}catch(e){}};row.append(b);box.append(row)});
+  const all=hE('button',{className:'primary',textContent:'🔄 '+tr('netResyncAll')});all.onclick=()=>{bc({t:'state',s:redactState()});say(tr('netResyncAllDone'),'sys')};
+  box.append(hE('div',{className:'hbBtns'},all),hE('div',{className:'smd',textContent:tr('netHint')}))}
+/* ---------- 98. kopie do pliku ---------- */
+const BK=Object.assign({every:60,keep:20,last:0,lastFile:''},(()=>{try{return JSON.parse(localStorage.getItem('bkCfg')||'{}')}catch(e){return{}}})());
+const bkSave=()=>{try{localStorage.setItem('bkCfg',JSON.stringify({every:BK.every,keep:BK.keep,last:BK.last,lastFile:BK.lastFile}))}catch(e){}};
+let bkDir=null,bkDirName='',bkDirty=0,bkPerm='none';
+const bkFS=()=>typeof window.showDirectoryPicker==='function';
+{const _ap33=apply;apply=function(a){_ap33(a);if(isHost&&a&&!['ping','ruler','roll','chat','wh','music','amb'].includes(a.k))bkDirty++}}
+async function bkBundle(){let hb=null,ml=null,sc=null;try{hb=await hbGet()}catch(e){}try{ml=await kvGet('maplib')}catch(e){}try{sc=await kvGet('scenes')}catch(e){}
+  return{format:'dndmates-backup',v:1,at:new Date().toISOString(),camp:(S.settings&&S.settings.campName)||'',state:JSON.parse(JSON.stringify(S)),homebrew:hb,maplib:ml||[],scenes:sc||[]}}
+const bkName=()=>{const d=new Date(),p=n=>String(n).padStart(2,'0'),c=((S.settings&&S.settings.campName)||'kampania').toLowerCase().normalize('NFD').replace(/[^\w]+/g,'-').replace(/^-|-$/g,'').slice(0,30)||'kampania';return`dnd-mates_${c}_${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}_${p(d.getHours())}-${p(d.getMinutes())}.json`};
+async function bkLoadDir(){try{const h=await kvGet('bkDir');if(!h)return;bkDir=h;bkDirName=h.name||'';bkPerm=h.queryPermission?await h.queryPermission({mode:'readwrite'}):'granted'}catch(e){bkDir=null}}
+async function bkPick(){if(!bkFS()){say(tr('bkNoFs'),'sys');return}try{const h=await window.showDirectoryPicker({id:'dndmates',mode:'readwrite'});bkDir=h;bkDirName=h.name;bkPerm='granted';await kvPut('bkDir',h);say(tr('bkDirSet',h.name),'sys');bkDraw();bkWrite('manual')}catch(e){if(e&&e.name!=='AbortError')say(tr('bkErr',e.message||e),'sys')}}
+async function bkEnsurePerm(gesture){if(!bkDir)return false;try{let p=bkDir.queryPermission?await bkDir.queryPermission({mode:'readwrite'}):'granted';if(p!=='granted'&&gesture&&bkDir.requestPermission)p=await bkDir.requestPermission({mode:'readwrite'});bkPerm=p;return p==='granted'}catch(e){return false}}
+async function bkWrite(kind,gesture){if(!isHost)return false;const data=JSON.stringify(await bkBundle()),name=bkName();
+  if(bkDir&&await bkEnsurePerm(gesture)){try{const fh=await bkDir.getFileHandle(name,{create:true}),w=await fh.createWritable();await w.write(data);await w.close();
+      /* sprzątanie: zostaw ostatnie N kopii */try{const all=[];for await(const[n,h]of bkDir.entries())if(h.kind==='file'&&/^dnd-mates_.*\.json$/.test(n))all.push(n);all.sort();while(all.length>BK.keep){const n=all.shift();await bkDir.removeEntry(n)}}catch(e){}
+      BK.last=Date.now();BK.lastFile=name;bkDirty=0;bkSave();bkTip();if(kind!=='auto')say(tr('bkWritten',name,bkDirName),'sys');bkDraw();return true}catch(e){say(tr('bkErr',e.message||e),'sys');return false}}
+  if(kind==='auto')return false;bkDownload(data,name);return true}
+function bkDownload(data,name){const a=hE('a',{href:URL.createObjectURL(new Blob([data],{type:'application/json'})),download:name});document.body.append(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);BK.last=Date.now();BK.lastFile=name;bkDirty=0;bkSave();bkTip();bkDraw()}
+/* co minutę: jeśli minął czas i coś się zmieniło — zapis do folderu albo przypomnienie */
+setInterval(async()=>{if(!isHost||!BK.every||!bkDirty)return;if(Date.now()-BK.last<BK.every*60000)return;
+  if(bkDir&&bkPerm==='granted'){await bkWrite('auto')}else bkRemind()},60000);
+function bkRemind(){if($('#bkToast'))return;const t=hE('div',{id:'bkToast'});t.innerHTML=`💾 ${esc(bkDir?tr('bkResumeQ',bkDirName):tr('bkRemind'))} `;
+  const b=hE('button',{className:'primary',textContent:bkDir?tr('bkResume'):tr('bkDl')});b.onclick=async()=>{t.remove();await bkWrite('manual',true)};const x=hE('button',{textContent:tr('bkLater')});x.onclick=()=>{t.remove();BK.last=Date.now()-(BK.every-15)*60000};t.append(b,x);document.body.append(t)}
+/* zamknięcie karty: próba zapisu do folderu */
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&isHost&&bkDirty&&bkDir&&bkPerm==='granted')bkWrite('auto')});
+function bkTip(){const b=$('#bBackup');if(b){const m=BK.last?Math.round((Date.now()-BK.last)/60000):null;b.title=BK.last?tr('bkLastT',m,BK.lastFile):tr('bkNever');b.classList.toggle('warn',!!(BK.every&&bkDirty&&(!BK.last||Date.now()-BK.last>BK.every*60000*1.5)))}}
+setInterval(bkTip,30000);
+function bkOpen(){let box=$('#bkBox');if(box)box.remove();box=hE('div',{id:'bkBox',className:'hbModal'});document.body.append(box);bkDraw()}
+function bkDraw(){const box=$('#bkBox');if(!box)return;box.innerHTML='';const c=hE('div',{className:'hbCard'});box.append(c);
+  c.append(hE('div',{className:'fpHead'},hE('b',{textContent:'💾 '+tr('bkTitle')}),Object.assign(hE('button',{textContent:'×'}),{onclick:()=>box.remove()})));
+  c.append(hE('div',{className:'smd',innerHTML:tr('bkHelp')}));
+  const st=hE('div',{className:'bkStat'});st.innerHTML=`📁 ${bkDir?`<b>${esc(bkDirName)}</b>${bkPerm!=='granted'?' <span class="warnTxt">('+esc(tr('bkNeedPerm'))+')</span>':''}`:esc(bkFS()?tr('bkNoDir'):tr('bkNoFs'))}<br>🕒 ${BK.last?esc(tr('bkLast',new Date(BK.last).toLocaleString(),BK.lastFile)):esc(tr('bkNever'))}`;c.append(st);
+  const ev=hE('select');[[0,tr('bkOff')],[15,'15 min'],[30,'30 min'],[60,'1 h'],[120,'2 h']].forEach(([v,l])=>ev.append(hE('option',{value:v,textContent:l})));ev.value=String(BK.every);ev.onchange=()=>{BK.every=+ev.value;bkSave()};
+  const kp=hE('select');[5,10,20,50].forEach(v=>kp.append(hE('option',{value:v,textContent:v})));kp.value=String(BK.keep);kp.onchange=()=>{BK.keep=+kp.value;bkSave()};
+  c.append(hE('div',{className:'hbGrid'},hE('label',{className:'hbF'},hE('span',{textContent:tr('bkEvery')}),ev),hE('label',{className:'hbF'},hE('span',{textContent:tr('bkKeep')}),kp)));
+  const pick=hE('button',{textContent:'📁 '+(bkDir?tr('bkChange'):tr('bkPick')),disabled:!bkFS()});pick.onclick=bkPick;
+  const now=hE('button',{className:'primary',textContent:'💾 '+tr('bkNow')});now.onclick=()=>bkWrite('manual',true);
+  const end=hE('button',{textContent:'🏁 '+tr('bkEnd')});end.onclick=async()=>{const ok=await bkWrite('manual',true);if(ok){say(tr('bkEndDone'),'sys');if(confirm(tr('bkEndLogQ')))try{logExport()}catch(e){}}};
+  c.append(hE('div',{className:'hbBtns'},pick,end,now));c.append(hE('div',{className:'smd',textContent:tr('bkRestoreHint')}))}
+/* import: pełna kopia (kampania + homebrew + mapy + sceny) */
+{const fi=$('#fImp');if(fi){const old=fi.onchange;fi.onchange=async e=>{const f=e.target.files[0];if(!f)return;let o=null;try{o=JSON.parse(await f.text())}catch(x){}
+  if(o&&o.format==='dndmates-backup'){if(!confirm(tr('bkRestoreQ2',o.camp||'—',new Date(o.at).toLocaleString()))){e.target.value='';return}
+    try{await backupNow('auto')}catch(x){}S=o.state;ensureSettings();selected=null;render();bc({t:'state',s:redactState()});save();
+    try{if(o.homebrew){await packsOp('readwrite',s=>s.put(o.homebrew));await loadCatalog()}}catch(x){}try{if(o.maplib)await kvPut('maplib',o.maplib)}catch(x){}try{if(o.scenes)await kvPut('scenes',o.scenes)}catch(x){}
+    say(tr('bkRestored2',o.camp||''),'sys');e.target.value='';try{dmRefreshForce()}catch(x){}return}
+  /* zwykły plik kampanii — dotychczasowa obsługa */old.call(fi,e)}}}
+setTimeout(async()=>{await bkLoadDir();const ht=$('#hdrTools .host-only');if(ht&&!$('#bBackup')){const b=hE('button',{id:'bBackup',textContent:'💾 '+tr('bkBtn')});b.onclick=bkOpen;ht.append(b);bkTip()}netUi()},0);
+addI18n({netPlayers:'Players',netNobody:'No players connected yet.',netNoChar:'no character',netNoResp:'not responding for {0} s',netResyncOne:'Send the current state to this player again',netResyncAll:'Send state to everyone again',netResyncAllDone:'🔄 Current state sent to all players.',
+  netResyncFor:'🔄 Current state sent again to {0}.',netHint:'Green < 150 ms, yellow < 500 ms, red = slow or not responding. If someone sees something different than you, send them the state again.',netLostT:'⚠ {0} is not responding (connection lost?).',netBackT:'✅ {0} is responding again.',
+  netLostMe:'⚠ No answer from the DM — trying to reconnect…',netOkAgain:'✅ Connection to the DM is back.',netDmT:'You are the DM',netPingT:'Ping to the DM: {0} ms',netNoPing:'Measuring ping…',netResyncMe:'Ask the DM for the current state (if something looks wrong)',netAsked:'🔄 Asked the DM for the current state.',netNoConn:'No connection to the DM.',
+  bkBtn:'Backups',bkTitle:'Campaign backups',bkHelp:'A backup file contains <b>everything</b>: the campaign (maps, tokens, characters, fights), homebrew, the map library and scenes. Restore it with <b>Import</b>.',bkNoDir:'Backup folder not chosen — choose one and backups will be saved automatically.',
+  bkNoFs:'This browser cannot write to a folder (works in Chrome and Edge). You will get a reminder with a download button instead.',bkPick:'Choose folder',bkChange:'Change folder',bkNow:'Back up now',bkEnd:'End session',bkEndDone:'🏁 Session ended — backup saved.',bkEndLogQ:'Also export the session log (chat + stats)?',
+  bkEvery:'Automatic backup every',bkKeep:'Keep the last',bkOff:'off',bkLast:'Last backup: {0} ({1})',bkNever:'No backup to a file yet',bkLastT:'Last backup {0} min ago: {1}',bkNeedPerm:'click "Back up now" to allow access again',bkDirSet:'📁 Backups will be saved to: {0}',
+  bkWritten:'💾 Backup saved: {0} (folder {1})',bkErr:'Backup error: {0}',bkRemind:'Time for a campaign backup.',bkResumeQ:'Allow saving backups to the folder {0} again?',bkResume:'Allow & save',bkDl:'Download backup',bkLater:'Later',
+  bkRestoreHint:'To restore: Import → choose a dnd-mates_….json file. Backups inside the browser (DM panel → campaign) still work as before.',bkRestoreQ2:'Restore the backup of "{0}" from {1}? The current state will be saved to the browser backups first.',bkRestored2:'💾 Backup restored: {0}'},
+ {netPlayers:'Gracze',netNobody:'Na razie nikt się nie połączył.',netNoChar:'bez postaci',netNoResp:'nie odpowiada od {0} s',netResyncOne:'Wyślij temu graczowi aktualny stan jeszcze raz',netResyncAll:'Wyślij stan wszystkim od nowa',netResyncAllDone:'🔄 Aktualny stan wysłany do wszystkich graczy.',
+  netResyncFor:'🔄 Aktualny stan wysłany ponownie do: {0}.',netHint:'Zielony < 150 ms, żółty < 500 ms, czerwony = wolno albo brak odpowiedzi. Jeśli ktoś widzi co innego niż Ty, wyślij mu stan jeszcze raz.',netLostT:'⚠ {0} nie odpowiada (zerwane połączenie?).',netBackT:'✅ {0} znów odpowiada.',
+  netLostMe:'⚠ Brak odpowiedzi od DM-a — próbuję połączyć się ponownie…',netOkAgain:'✅ Połączenie z DM-em wróciło.',netDmT:'Jesteś DM-em',netPingT:'Ping do DM-a: {0} ms',netNoPing:'Mierzę ping…',netResyncMe:'Poproś DM-a o aktualny stan (gdy coś się nie zgadza)',netAsked:'🔄 Poproszono DM-a o aktualny stan.',netNoConn:'Brak połączenia z DM-em.',
+  bkBtn:'Kopie',bkTitle:'Kopie zapasowe kampanii',bkHelp:'Plik kopii zawiera <b>wszystko</b>: kampanię (mapy, żetony, postacie, walki), homebrew, bibliotekę map i sceny. Przywracasz go przyciskiem <b>Importuj</b>.',bkNoDir:'Nie wybrano folderu — wybierz go, a kopie będą zapisywać się same.',
+  bkNoFs:'Ta przeglądarka nie zapisuje do folderu (działa w Chrome i Edge). Zamiast tego dostaniesz przypomnienie z przyciskiem pobrania.',bkPick:'Wybierz folder',bkChange:'Zmień folder',bkNow:'Zapisz kopię teraz',bkEnd:'Zakończ sesję',bkEndDone:'🏁 Sesja zakończona — kopia zapisana.',bkEndLogQ:'Wyeksportować też log sesji (czat + statystyki)?',
+  bkEvery:'Automatyczna kopia co',bkKeep:'Zachowuj ostatnich',bkOff:'wył.',bkLast:'Ostatnia kopia: {0} ({1})',bkNever:'Jeszcze nie było kopii do pliku',bkLastT:'Ostatnia kopia {0} min temu: {1}',bkNeedPerm:'kliknij „Zapisz kopię teraz”, żeby znów zezwolić',bkDirSet:'📁 Kopie będą zapisywane w: {0}',
+  bkWritten:'💾 Zapisano kopię: {0} (folder {1})',bkErr:'Błąd kopii: {0}',bkRemind:'Czas na kopię zapasową kampanii.',bkResumeQ:'Zezwolić znów na zapis kopii do folderu {0}?',bkResume:'Zezwól i zapisz',bkDl:'Pobierz kopię',bkLater:'Później',
+  bkRestoreHint:'Przywracanie: Importuj → wybierz plik dnd-mates_….json. Kopie w przeglądarce (panel DM-a → kampania) działają jak dotąd.',bkRestoreQ2:'Przywrócić kopię „{0}” z {1}? Obecny stan najpierw trafi do kopii w przeglądarce.',bkRestored2:'💾 Przywrócono kopię: {0}'});
 
 </script>
 </body>
