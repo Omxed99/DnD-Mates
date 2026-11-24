@@ -408,6 +408,11 @@ input[type=range],input[type=checkbox],input[type=radio]{accent-color:var(--gold
 .netPing{font-size:11px;margin:0 4px;opacity:.85}.netPing.mid{color:#e0b04a}.netPing.bad{color:#ff7a5a}#bResync{padding:1px 6px;font-size:12px}
 .bkStat{background:#ffffff0d;border-radius:8px;padding:8px 10px;margin:8px 0;font-size:13px;line-height:1.6}.warnTxt{color:#ffb347}
 #bkToast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:260;background:#1c1f2b;border:1px solid var(--gold,#e0b04a);border-radius:10px;padding:10px 14px;box-shadow:0 8px 30px #000a;display:flex;gap:8px;align-items:center}
+/* v25: m34 */
+.tok .hiB{position:absolute;top:-6px;left:-6px;font-size:13px;line-height:16px;width:16px;height:16px;text-align:center;border-radius:50%;background:#2b2140;color:#ffd54a;box-shadow:0 0 6px #ffd54a99;pointer-events:none;z-index:3}
+#bSun.on{background:#ffe08a;color:#5a3d00}
+.miniMenu{max-width:360px}.miniMenu .cbBtns{flex-wrap:wrap}
+.hiN{color:#c99a00;margin-left:8px}
 
 </style>
 </head>
@@ -2758,7 +2763,7 @@ function acceptTargets(){
   cast.stage='pre';
   if(castSpell.attack||castSpell.autoHit)cast.entries=cast.targets.map(id=>({id,out:castSpell.autoHit?'auto':null,r:0,m:0,ac:0,dice:[],flat:0}));
   if(cast.entries&&!castSpell.autoHit)cast.entries.forEach(e=>{const g=tokById(e.id);if(g&&selected)e.mode=atkModeOf(selected,g,{melee:castSpell.attack==='melee'})});
-  if(castSpell.save&&!cast.entries){cast.sm={};cast.targets.forEach(id=>{const g=tokById(id);if(g)cast.sm[id]=rollModeOf(g,'save',castSpell.save)})}
+  if(castSpell.save&&!cast.entries){cast.sm={};cast.targets.forEach(id=>{const g=tokById(id);if(g)cast.sm[id]=spellSaveMode(g,castSpell.save)})}
   syncPickHits();renderCast();
 }
 /* ---- 1. krok: rzuty obronne celów albo rzuty na trafienie (AC) ---- */
@@ -2860,7 +2865,7 @@ const pick_=()=>cast&&cast.stage==='pick';
 function openCastBar(){
   if(!aim||(!aim.hitIds.length&&!(typeof ZONES!=='undefined'&&ZONES[castSpell.id]))){$('#castBar').hidden=true;aimLocked=false;castSlotFor=null;cast=null;return say(tr('noTargets'),'sys')}
   initSlot();
-  cast=newCast('pre');if(castSpell.save){cast.sm={};aim.hitIds.forEach(id=>{const g=tokById(id);if(g)cast.sm[id]=rollModeOf(g,'save',castSpell.save)})}initCastInputs();$('#cbAtkMode').value='n';$('#cbSaveMode').value='n';
+  cast=newCast('pre');if(castSpell.save){cast.sm={};aim.hitIds.forEach(id=>{const g=tokById(id);if(g)cast.sm[id]=spellSaveMode(g,castSpell.save)})}initCastInputs();$('#cbAtkMode').value='n';$('#cbSaveMode').value='n';
   $('#castBar').hidden=false;aimLocked=true;renderCast();
 }
 function fillSlotSelect(){
@@ -3352,7 +3357,7 @@ function turnEnd(id){
     if(ch)list.push({id:x.id,p:{fx:nf}})});
   if(list.length)send({k:'sp',list});
   /* powtarzane rzuty obronne na końcu tury */
-  setTimeout(()=>{const k=tokById(id);if(!k)return;fxOf(k).filter(f=>f.es).forEach(f=>{const e=f.es,r=rollSaveFor(k,e.ab,e.dc);
+  setTimeout(()=>{const k=tokById(id);if(!k)return;fxOf(k).filter(f=>f.es).forEach(f=>{const e=f.es,r=rollSaveFor(k,e.ab,e.dc,mrOpt(k));
     send({k:'sys',text:tr('esLog',k.name,f.n,e.dc,r.txt,r.pass?'✓':'✗')});
     if(r.pass)removeFx(k.id,f.id);else if(f.esFail){const nf=fxOf(k).map(x=>x.id===f.id?Object.assign({},x,f.esFail,{es:null,esFail:null,u:'',r:0}):x);send({k:'sp',id:k.id,p:{fx:nf}})}})},40);
 }
@@ -3731,8 +3736,8 @@ function strikeRoll(){
   if(o.kind==='atk'){
     const g=ts[0],rg=stRange(g);let mode=K.mode[g.id]||stDefMode(g);if(rg.long&&mode!=='d'&&!K.mode[g.id])mode=modeOf(mode==='a',true);
     const n=mode==='n'?1:2,bn=d20Bonus(t,'atk'),mod=o.hit-d20Pen(t)+bn.v;stSpend();consumeOnAttack(t,g);
-    diceFx(Array.from({length:n},()=>({s:20})),vals=>(mode==='a'?Math.max(...vals):mode==='d'?Math.min(...vals):vals[0])+mod,`${t.name}: ${o.name}`,vals=>{
-      if(K!==K0)return;const r=mode==='a'?Math.max(...vals):mode==='d'?Math.min(...vals):vals[0],alt=n===2?(mode==='a'?Math.min(...vals):Math.max(...vals)):null;
+    diceFx(Array.from({length:n},()=>({s:20})),vals=>(mode==='a'?Math.max(...vals):mode==='d'?Math.min(...vals):vals[0])+mod,`${t.name}: ${o.name}`,function hiCb(vals){
+      if(K!==K0)return;if(typeof hiOffer==='function'&&hiOffer(t,g,vals,mode,mod,o,hiCb))return;const r=mode==='a'?Math.max(...vals):mode==='d'?Math.min(...vals):vals[0],alt=n===2?(mode==='a'?Math.min(...vals):Math.max(...vals)):null;
       const ac=acOf(g)-(typeof sharpCover==='function'?sharpCover(t,o,g):0);let out=r>=critMin(t,o)?'crit':r===1?'miss':(r+mod>=ac?'hit':'miss');if(out==='hit'&&autoCritVs(t,g,o.melee))out='crit';let pv=0;if(out==='miss'&&r!==1&&K.man==='precision'&&typeof precTry==='function'){pv=precTry(t,ac-(r+mod));if(pv){bn.txt+=` +Precision[${pv}]`;if(r+mod+pv>=ac)out='hit'}}
       rxGate(t,g,r+mod,ac,out,(out,rx)=>{if(K!==K0)return;
       const abm=o.parts[0]?(o.parts[0].f||0)-((o.w&&o.w.bonus)||0):0;
@@ -4988,7 +4993,7 @@ function zoneTrigger(z,t,why){
   const def=getSpell(z.sid)||{},an=caster?caster.name:z.srcName;
   if(Z.per5)return;
   let res;
-  if(Z.save){const r=rollSaveFor(t,Z.save,z.dc);let parts=[];
+  if(Z.save){const r=rollSaveFor(t,Z.save,z.dc,mrOpt(t));let parts=[];
     if(Z.dmg){const tot=rollExprs(zoneDice(def,z.slot));const amt=r.pass?(Z.half?Math.floor(tot/2):0):tot;if(amt)parts=[[amt,def.type]]}
     res={id:t.id,t:'s',r:r.r,alt:null,m:r.m,mode:r.mode,dc:z.dc,pass:r.pass,af:r.af,out:r.pass?'pass':'fail',parts};
     send({k:'atk',aid:z.src,an,wn:z.n+' ('+tr('zoneL')+')',res:[res],dice:[],total:parts.reduce((a,p)=>a+p[0],0),dc:z.dc,ab:Z.save,who:'zone'});
@@ -7897,6 +7902,186 @@ addI18n({netPlayers:'Players',netNobody:'No players connected yet.',netNoChar:'n
   bkEvery:'Automatyczna kopia co',bkKeep:'Zachowuj ostatnich',bkOff:'wył.',bkLast:'Ostatnia kopia: {0} ({1})',bkNever:'Jeszcze nie było kopii do pliku',bkLastT:'Ostatnia kopia {0} min temu: {1}',bkNeedPerm:'kliknij „Zapisz kopię teraz”, żeby znów zezwolić',bkDirSet:'📁 Kopie będą zapisywane w: {0}',
   bkWritten:'💾 Zapisano kopię: {0} (folder {1})',bkErr:'Błąd kopii: {0}',bkRemind:'Czas na kopię zapasową kampanii.',bkResumeQ:'Zezwolić znów na zapis kopii do folderu {0}?',bkResume:'Zezwól i zapisz',bkDl:'Pobierz kopię',bkLater:'Później',
   bkRestoreHint:'Przywracanie: Importuj → wybierz plik dnd-mates_….json. Kopie w przeglądarce (panel DM-a → kampania) działają jak dotąd.',bkRestoreQ2:'Przywrócić kopię „{0}” z {1}? Obecny stan najpierw trafi do kopii w przeglądarce.',bkRestored2:'💾 Przywrócono kopię: {0}'});
+
+/* ================= m34: luki w zasadach – cechy potworów, Heroic Inspiration, Channel Divinity, mnich, Arcane Recovery ================= */
+const monTraits=t=>{const m=t&&t.sheet&&t.sheet.mon;return(m&&m.traits)||[]};
+const traitTxt=(t,re)=>monTraits(t).find(x=>re.test(String(x)))||'';
+const hasTrait=(t,re)=>!!traitTxt(t,re);
+const tokDown=t=>!t||!t.sheet||t.sheet.dead||(t.sheet.death&&t.sheet.death.dead)||t.sheet.hp<=0;
+const sameSide=(a,b)=>!isPc(a)===!isPc(b);
+/* kilka efektów naraz (jedna wiadomość – bez wyścigu u graczy) */
+function addFxMany(tid,list){const t=tokById(tid);if(!t||!list.length)return;ensureSheet(t);send({k:'sp',id:tid,p:{fx:fxOf(t).concat(list.map(o=>makeFx(o)))}});
+  if(list.some(o=>['incapacitated','paralyzed','stunned','unconscious','petrified'].includes(o.c)))setTimeout(()=>dropGrapples(tid,1),10)}
+
+/* ---------- Pack Tactics ---------- */
+function packAlly(att,tgt){return S.tokens.some(x=>x!==att&&x!==tgt&&x.sheet&&sameSide(x,att)&&!cflags(x).inc&&!tokDown(x)&&tokDist(x,tgt)<=5)}
+const _amo34=atkModeOf;
+atkModeOf=function(att,tgt,o){let m=_amo34(att,tgt,o);
+  if(tgt&&att&&att.sheet&&att.sheet.mon&&m!=='a'&&hasTrait(att,/^Pack Tactics/i)&&packAlly(att,tgt))m=m==='d'?'n':'a';
+  return m};
+
+/* ---------- Sunlight Sensitivity (DM włącza słońce przyciskiem ☀) ---------- */
+const sunOn=()=>!!(S.settings&&S.settings.sun);
+const _cf34=cflags;
+cflags=function(t){const o=_cf34(t);if(sunOn()&&t&&t.sheet&&t.sheet.mon&&hasTrait(t,/^Sunlight Sensitivity/i)){o.atkDis=1;o.chkDis=1;o.names.push('☀ '+tr('sunlight'))}return o};
+
+/* ---------- Magic Resistance: przewaga na rzuty przeciw czarom i efektom magicznym ---------- */
+const magicRes=t=>hasTrait(t,/^Magic Resistance/i);
+function spellSaveMode(g,ab){const m=rollModeOf(g,'save',ab);return magicRes(g)?modeOf(true,m==='d'):m}
+function mrOpt(t){return magicRes(t)?{adv:1}:{}}
+
+/* ---------- Undead Fortitude i blokada Regeneration ---------- */
+const _dd34=dealDmg;
+dealDmg=function(t,amt,type,o){
+  const s=t&&t.sheet,old=s?s.hp:0,parts=Array.isArray(amt)?amt:[[amt,type]];
+  const real=_dd34(t,amt,type,o);
+  if(!isHost||!s||!s.mon)return real;
+  const rg=traitTxt(t,/^Regeneration/i);
+  if(rg&&real>0){const m=/takes ([A-Za-z ,]+?) damage/i.exec(rg);if(m){const bl=m[1].toLowerCase().split(/,|\bor\b|\band\b/).map(x=>x.trim()).filter(Boolean);
+    if(parts.some(p=>p[0]>0&&bl.includes(String(p[1]||'').toLowerCase())))s.rgOff=1}}
+  if(old>0&&s.hp===0&&real>0&&hasTrait(t,/^Undead Fortitude/i)){
+    const rad=parts.some(p=>p[0]>0&&String(p[1]).toLowerCase()==='radiant');
+    if(o&&o.crit)setTimeout(()=>send({k:'sys',text:tr('ufNo',t.name,tr('crit'))}),0);
+    else if(rad)setTimeout(()=>send({k:'sys',text:tr('ufNo',t.name,dmgName('radiant'))}),0);
+    else{const dc=5+real,r=rollSaveFor(t,'con',dc);
+      if(r.pass){s.hp=1;setTimeout(()=>{send({k:'sp',id:t.id,p:{hp:1,dead:false}});send({k:'sys',text:tr('ufYes',t.name,dc,r.txt)})},0)}
+      else setTimeout(()=>send({k:'sys',text:tr('ufFail',t.name,dc,r.txt)}),0)}
+  }
+  return real};
+
+/* ---------- Regeneration na początku tury ---------- */
+const _ts34=turnStart;
+turnStart=function(id){
+  const t=tokById(id);
+  if(isHost&&t&&t.sheet&&t.sheet.mon){const rg=traitTxt(t,/^Regeneration/i);
+    if(rg){const s=t.sheet,m=/regains (\d+) Hit Points/i.exec(rg),n=m?+m[1]:0,need1=/at least 1 Hit Point/i.test(rg);
+      if(s.rgOff){s.rgOff=0;send({k:'sys',text:tr('regenOff',t.name)})}
+      else if(n&&s.hp<s.maxHp&&(s.hp>0||!need1)){const hp=Math.min(s.maxHp,s.hp+n),add=hp-s.hp;send({k:'sp',id,p:{hp,dead:false}});try{floatNum(id,'+'+add,'heal')}catch(e){}send({k:'sys',text:tr('regenLog',t.name,add)})}}}
+  return _ts34(id)};
+
+/* ---------- Heroic Inspiration (zasady 2024) ---------- */
+const hiHas=t=>!!(t&&t.sheet&&t.sheet.hi);
+function hiOffer(t,g,vals,mode,mod,o,cb){
+  if(vals.hi||!hiHas(t)||!isPc(t)||!g)return false;
+  const r=mode==='a'?Math.max(...vals):mode==='d'?Math.min(...vals):vals[0];
+  if(r>=critMin(t,o))return false;const ac=acOf(g);if(r!==1&&r+mod>=ac)return false;
+  if(!confirm(tr('hiQ',t.name,r+mod,ac)))return false;
+  send({k:'sp',id:t.id,p:{hi:0}});send({k:'sys',text:tr('hiUsed',t.name)});
+  diceFx([{s:20}],v=>v[0]+mod,`${t.name}: Heroic Inspiration`,nv=>{const v2=vals.slice(),i=v2.indexOf(r);v2[i<0?0:i]=nv[0];v2.hi=1;cb(v2)});
+  return true;
+}
+function hiGrant(){pickToken(tr('hiWho'),x=>isPc(x),x=>{const on=!hiHas(x);send({k:'sp',id:x.id,p:{hi:on?1:0}});send({k:'sys',text:tr(on?'hiGiven':'hiTaken',x.name)})})}
+const _lrt34=longRestTok;
+longRestTok=function(t){_lrt34(t);const i=t.sheet&&t.sheet.info,sp=i&&i.species&&i.species.id;if(sp==='human'&&!hiHas(t))setTimeout(()=>{send({k:'sp',id:t.id,p:{hi:1}});send({k:'sys',text:tr('hiGiven',t.name)+' (Resourceful)'})},30)};
+const _rn34=render;
+render=function(){_rn34.apply(this,arguments);try{S.tokens.forEach(t=>{const el=document.getElementById('t'+t.id);if(!el)return;let b=el.querySelector('.hiB');
+  if(hiHas(t)){if(!b){b=document.createElement('span');b.className='hiB';b.textContent='✦';b.title='Heroic Inspiration';el.append(b)}}else if(b)b.remove()})}catch(e){}};
+
+/* ---------- zasoby: Channel Divinity (kleryk), Arcane Recovery ---------- */
+const _rd34=resDefs;
+resDefs=function(info){const o=_rd34(info);if(clsLv(info,'cleric')>=2){const d=o.find(x=>x.id==='cd');if(d){d.act='cdc';d.d=tr('cdDesc')}}
+  const ar=o.find(x=>x.id==='ar');if(ar)ar.act='arcrec';return o};
+function miniMenu(title,items){document.querySelectorAll('.miniMenu').forEach(x=>x.remove());
+  const box=hE('div',{className:'rxBox miniMenu'},hE('b',{textContent:title}));const row=hE('div',{className:'cbBtns'});
+  items.forEach(([l,fn])=>{const b=hE('button',{className:'primary',textContent:l});b.onclick=()=>{box.remove();fn()};row.append(b)});
+  const x=hE('button',{textContent:tr('cancel')});x.onclick=()=>box.remove();row.append(x);box.append(row);document.body.append(box)}
+function sparkDice(l){return l>=18?4:l>=13?3:l>=7?2:1}
+function cdMenu(ctx,d){
+  const {t,info}=ctx;if(resLeft(info,d)<=0){say(tr('resEmpty',esc(d.name)),'sys');return}
+  const l=clsLv(info,'cleric'),n=sparkDice(l),w=abMod((info.abilities||{}).wis||10),dc=info.spellDc||(8+(info.prof||2)+w);
+  const spend=()=>{resSetUsed(info,d.id,((info.resUsed||{})[d.id]||0)+1,d.max);ctx.commit()};
+  const near=x=>x.sheet&&tokDist(t,x)<=30&&!(x.hid&&!isHost);
+  const spark=(type)=>pickToken(type?tr('sparkHurtWho'):tr('healWho'),x=>near(x)&&(type?x!==t:true),g=>{spend();
+    diceFx(Array.from({length:n},()=>({s:8})),v=>v.reduce((a,b)=>a+b,0)+w,`${t.name}: Divine Spark`,vals=>{const tot=Math.max(0,vals.reduce((a,b)=>a+b,0)+w);
+      if(!type){healTok(g,tot,'Divine Spark');return}
+      const r=rollSaveFor(g,'con',dc,mrOpt(g)),amt=r.pass?Math.floor(tot/2):tot;
+      send({k:'atk',aid:t.id,an:t.name,wn:'Divine Spark',res:[{id:g.id,t:'s',r:r.r,alt:null,m:r.m,mode:r.mode,dc,bt:'',pass:r.pass,af:r.af,out:r.pass?'pass':'fail',parts:amt?[[amt,type]]:[]}],dice:vals.map(v=>[v,8]),total:amt,who:me,dc,ab:'con'})})});
+  const turn=()=>{const und=S.tokens.filter(x=>near(x)&&x!==t&&!tokDown(x)&&/undead/i.test(String((x.sheet.mon&&x.sheet.mon.type)||'')));
+    if(!und.length){say(tr('turnNone'),'sys');return}spend();const lines=[];
+    und.forEach(g=>{const r=rollSaveFor(g,'wis',dc,mrOpt(g));lines.push(`${g.name}: ${r.txt} ${r.pass?'✓':'✗'}`);
+      if(!r.pass)addFxMany(g.id,[{c:'frightened',n:'Turned',src:t.id,r:10,endOnDmg:1},{c:'incapacitated',n:'Turned',src:t.id,r:10,endOnDmg:1}])});
+    send({k:'sys',text:tr('turnLog',t.name,dc,lines.join(' · '))})};
+  miniMenu(`${t.name}: Channel Divinity (${resLeft(info,d)}/${d.max})`,[['✨ '+tr('sparkHeal',n,w),()=>spark(null)],['☀ '+tr('sparkRad'),()=>spark('radiant')],['💀 '+tr('sparkNec'),()=>spark('necrotic')],['🕯 Turn Undead',turn]]);
+}
+function arMenu(ctx,d){
+  const {t,info}=ctx;if(resLeft(info,d)<=0){say(tr('resEmpty',esc(d.name)),'sys');return}
+  const sl=info.slots;if(!sl){say(tr('arNone'),'sys');return}
+  let budget=Math.ceil(clsLv(info,'wizard')/2);const back=[];
+  for(let l=5;l>=1;l--){while(budget>=l&&(sl.used[l-1]||0)-back.filter(x=>x===l).length>0){back.push(l);budget-=l}}
+  if(!back.length){say(tr('arNone'),'sys');return}
+  if(!confirm(tr('arQ',back.join(', '))))return;
+  back.forEach(l=>sl.used[l-1]=Math.max(0,(sl.used[l-1]||0)-1));resSetUsed(info,d.id,((info.resUsed||{})[d.id]||0)+1,d.max);ctx.commit();
+  send({k:'sys',text:tr('arLog',t.name,back.join(', '))});
+}
+const _ru34=resUse;
+resUse=function(ctx,d){if(d.act==='cdc')return cdMenu(ctx,d);if(d.act==='arcrec')return arMenu(ctx,d);return _ru34(ctx,d)};
+
+/* ---------- Mnich: Stunning Strike ---------- */
+function stunAvail(t){const i=t&&t.sheet&&t.sheet.info;return !!(K&&i&&clsLv(i,'monk')>=5&&K.opt.kind==='atk'&&K.opt.melee&&resLeftId(t,'focus')>0&&!(t.sheet.econ&&t.sheet.econ.stun))}
+const _str34=stRender;
+stRender=function(){_str34.apply(this,arguments);try{
+  const p=$('#stPanel');if(!K||!p||p.hidden)return;const t=K.att;
+  if(stunAvail(t)){let opts=p.querySelector('.stOpts');if(!opts){opts=hE('div',{className:'stOpts'});const bar=p.querySelector('.stBtns');p.insertBefore(opts,bar)}
+    const l=hE('label',{title:tr('stunT')});const c=hE('input',{type:'checkbox'});c.checked=!!K.stun;c.onchange=()=>K.stun=c.checked;
+    l.append(c,document.createTextNode(` 👊 Stunning Strike (Focus ${resLeftId(t,'focus')})`));opts.append(l)}
+  if(hiHas(t)&&K.opt.kind==='atk'){const bar=p.querySelector('.stBtns');if(bar&&!bar.querySelector('.hiN'))bar.append(hE('small',{className:'hiN',textContent:'✦ Heroic Inspiration',title:tr('hiT')}))}
+}catch(e){console.error(e)}};
+const _ah34=afterHit;
+afterHit=function(t,g,o,abm){_ah34(t,g,o,abm);
+  if(K&&K.stun&&stunAvail(t)){K.stun=0;resSpend(t,'focus');if(S.combat&&S.combat.started)setTimeout(()=>econSet(t,{stun:1}),40);
+    const dc=8+abOf(t,'wis')+profOf(t),r=rollSaveFor(g,'con',dc);
+    send({k:'sys',text:tr('stunLog',t.name,g.name,dc,r.txt,r.pass?'✓':'✗')});
+    setTimeout(()=>{if(!r.pass)addFxMany(g.id,[{c:'stunned',n:'Stunned (Stunning Strike)',u:'srcStart',src:t.id}]);
+      else addFxMany(g.id,[{c:'guided',n:'Stunning Strike ✓',use:'def',u:'srcStart',src:t.id},{c:'custom',n:'½ Speed (Stunning Strike)',spdMul:.5,u:'srcStart',src:t.id}])},90)}};
+
+/* ---------- Mnich: Deflect Attacks (reakcja) ---------- */
+const BPS=['bludgeoning','piercing','slashing'];
+const _ro34=reactOpts;
+reactOpts=function(g,total,ac,out){const o=_ro34(g,total,ac,out);const i=g&&g.sheet&&g.sheet.info,l=i?clsLv(i,'monk'):0;
+  if(l>=3&&!o.includes('deflect')&&g.sheet&&!cflags(g).inc&&rxAvail(g)){const ty=K&&K.opt&&K.opt.parts&&K.opt.parts[0]?K.opt.parts[0].type:'';if(l>=13||!ty||BPS.includes(ty))o.push('deflect')}
+  return o};
+const _rxp34=rxPrompt;
+rxPrompt=function(a){_rxp34(a);if(!(a.opts||[]).includes('deflect'))return;const g=tokById(a.tid),i=g&&g.sheet&&g.sheet.info;
+  document.querySelectorAll('.rxBox button').forEach(b=>{if(b.textContent==='undefined'||b.textContent==='')b.textContent=`🥋 Deflect Attacks (−1d10${sg(abOf(g,'dex')+(i?clsLv(i,'monk'):0))})`})};
+const _rxs34=rxSpend;
+rxSpend=function(g,use){if(use!=='deflect')return _rxs34(g,use);
+  if(S.combat&&S.combat.started)econSet(g,{r:0});const i=g.sheet.info,b=abOf(g,'dex')+clsLv(i,'monk'),r=rnd(10),n=Math.max(0,r+b);
+  setTimeout(()=>addFxMany(g.id,[{c:'custom',n:'Deflect Attacks −'+n,dRed:n,u:'start'}]),20);
+  send({k:'sys',text:tr('deflLog',g.name,`1d10[${r}]${sg(b)} = ${n}`)})};
+/* zmniejszenie obrażeń: deterministycznie u wszystkich (host oznacza x.dfl, żeby gracze nie odjęli drugi raz) */
+const _ap34=apply;
+apply=function(a){
+  if(a&&a.k==='atk'&&a.res)a.res.forEach(x=>{const g=tokById(x.id);if(!g||!g.sheet)return;const f=fxOf(g).find(y=>y.dRed);if(!f)return;
+    if(x.t==='a'&&(x.out==='hit'||x.out==='crit')&&x.dfl==null){let left=f.dRed;const tot0=(x.parts||[]).reduce((s,p)=>s+p[0],0);
+      x.parts=(x.parts||[]).map(p=>{const c=Math.min(p[0],left);left-=c;return[p[0]-c,p[1]]}).filter(p=>p[0]>0);x.dfl=tot0-x.parts.reduce((s,p)=>s+p[0],0);
+      a.total=Math.max(0,(a.total||0)-x.dfl);x.bt=(x.bt||'')+` Deflect −${x.dfl}`}
+    if(x.dfl!=null)g.sheet.fx=fxOf(g).filter(y=>!y.dRed)});
+  return _ap34(a)};
+
+/* ---------- przyciski DM-a: słońce, Heroic Inspiration ---------- */
+setTimeout(()=>{const ht=$('#hdrTools .host-only');if(!ht)return;
+  const sb=hE('button',{id:'bSun',textContent:'☀',title:tr('sunT')});const up=()=>{sb.classList.toggle('on',sunOn());sb.title=tr('sunT')+(sunOn()?' ✓':'')};
+  sb.onclick=()=>{S.settings=S.settings||{};S.settings.sun=!sunOn();up();send({k:'sys',text:tr(sunOn()?'sunOnLog':'sunOffLog')});try{save()}catch(e){}};
+  const hb=hE('button',{id:'bHi',textContent:'✦',title:tr('hiB')});hb.onclick=hiGrant;ht.append(sb,hb);up()},700);
+
+addI18n({sunlight:'Sunlight',sunT:'Sunlight on the map (Sunlight Sensitivity)',sunOnLog:'☀ Sunlight: creatures with Sunlight Sensitivity have Disadvantage on attacks and checks.',sunOffLog:'☀ Sunlight off.',
+  ufNo:'{0}: Undead Fortitude does not work ({1}).',ufYes:'{0}: Undead Fortitude — CON save DC {1}: {2} ✓ → stays at 1 HP!',ufFail:'{0}: Undead Fortitude — CON save DC {1}: {2} ✗',
+  regenLog:'{0} regenerates {1} HP.',regenOff:'{0}: Regeneration does not work this turn.',
+  hiQ:'{0} missed ({1} vs AC {2}). Use Heroic Inspiration to reroll the d20?',hiUsed:'✦ {0} uses Heroic Inspiration — reroll!',hiWho:'Heroic Inspiration: give or take',hiGiven:'✦ {0} gains Heroic Inspiration.',hiTaken:'{0} loses Heroic Inspiration.',hiB:'Heroic Inspiration (give/take)',hiT:'On a miss you will be asked to reroll the d20.',
+  cdDesc:'Divine Spark (heal or Radiant/Necrotic damage) or Turn Undead. Regain 1 on a Short Rest, all on a Long Rest.',sparkHeal:'Divine Spark: heal {0}d8+{1}',sparkRad:'Divine Spark: Radiant',sparkNec:'Divine Spark: Necrotic',sparkHurtWho:'Divine Spark: target (30 ft, CON save for half)',
+  turnNone:'No Undead within 30 ft.',turnLog:'{0}: Turn Undead (WIS DC {1}) — {2}',cancel:'Cancel',
+  arNone:'No spell slots to recover.',arQ:'Arcane Recovery: recover slots of level {0}?',arLog:'{0}: Arcane Recovery — recovered slots: {1}.',
+  stunT:'Spend 1 Focus Point on a hit: CON save or Stunned until the start of your next turn; on a success Speed is halved and the next attack against it has Advantage. Once per turn.',stunLog:'{0}: Stunning Strike → {1} CON DC {2}: {3} {4}',
+  deflLog:'{0}: Deflect Attacks — damage reduced by {1}.'},
+ {sunlight:'Słońce',sunT:'Światło słoneczne na mapie (Sunlight Sensitivity)',sunOnLog:'☀ Słońce: stwory z Sunlight Sensitivity mają utrudnienie w atakach i testach.',sunOffLog:'☀ Słońce wyłączone.',
+  ufNo:'{0}: Undead Fortitude nie działa ({1}).',ufYes:'{0}: Undead Fortitude — rzut CON ST {1}: {2} ✓ → zostaje z 1 PW!',ufFail:'{0}: Undead Fortitude — rzut CON ST {1}: {2} ✗',
+  regenLog:'{0} regeneruje {1} PW.',regenOff:'{0}: Regeneration nie działa w tej turze.',
+  hiQ:'{0} pudłuje ({1} vs KP {2}). Użyć Heroic Inspiration i przerzucić k20?',hiUsed:'✦ {0} używa Heroic Inspiration — przerzut!',hiWho:'Heroic Inspiration: daj albo zabierz',hiGiven:'✦ {0} dostaje Heroic Inspiration.',hiTaken:'{0} traci Heroic Inspiration.',hiB:'Heroic Inspiration (daj/zabierz)',hiT:'Przy pudle zapytam o przerzut k20.',
+  cdDesc:'Divine Spark (leczenie albo obrażenia Radiant/Necrotic) lub Turn Undead. Odzyskujesz 1 na krótkim odpoczynku, wszystkie na długim.',sparkHeal:'Divine Spark: leczenie {0}k8+{1}',sparkRad:'Divine Spark: Radiant',sparkNec:'Divine Spark: Necrotic',sparkHurtWho:'Divine Spark: cel (30 ft, rzut CON na połowę)',
+  turnNone:'Brak nieumarłych w zasięgu 30 ft.',turnLog:'{0}: Turn Undead (WIS ST {1}) — {2}',cancel:'Anuluj',
+  arNone:'Brak slotów do odzyskania.',arQ:'Arcane Recovery: odzyskać sloty poziomu {0}?',arLog:'{0}: Arcane Recovery — odzyskane sloty: {1}.',
+  stunT:'Po trafieniu wydaj 1 punkt Focus: rzut CON albo Stunned do początku Twojej następnej tury; przy udanym rzucie prędkość o połowę i następny atak na cel z przewagą. Raz na turę.',stunLog:'{0}: Stunning Strike → {1} CON ST {2}: {3} {4}',
+  deflLog:'{0}: Deflect Attacks — obrażenia mniejsze o {1}.'});
 
 </script>
 </body>
