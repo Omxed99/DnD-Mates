@@ -473,6 +473,12 @@ body.tpMode #map{cursor:crosshair}
 #catSrc{max-width:200px}
 .ibSrc{align-self:flex-start;font-size:.85em}
 #pkList{max-height:min(300px,38vh)!important;overflow:auto}
+/* v29 */
+.srdAttr{font-size:11px;line-height:1.45;color:var(--mute);max-width:520px;margin-top:10px}
+.srdAttr a{color:inherit}
+#aboutBox{max-width:520px}
+.repBtn{border-color:#8a7cff}
+.polyQ{margin:6px 0;width:100%;box-sizing:border-box}
 
 </style>
 </head>
@@ -8760,6 +8766,154 @@ addI18n({srcBuiltin:'Built-in',srcH:'Sources',srcHint:'Turn a source off to hide
  {srcBuiltin:'Wbudowane',srcH:'Źródła',srcHint:'Wyłącz źródło, żeby schować z gry jego czary, potwory, przedmioty, gatunki, pochodzenia i podklasy. Nic nie jest usuwane.',srcOn:'Włącz',srcOff:'Wyłącz',
   srcOnLog:'📦 Źródło włączone: {0}',srcOffLog:'📦 Źródło wyłączone: {0}',srcAll:'Wszystkie źródła',srcEmpty:'puste',
   srcK_spells:'czarów',srcK_monsters:'potworów',srcK_feats:'featów',srcK_species:'gatunków',srcK_items:'przedmiotów',srcK_subclasses:'podklas',srcK_backgrounds:'pochodzeń',srcK_packs:'pakietów'});
+
+/* ================= m40: czary podtrzymywane, Polymorph, Indomitable, Cutting Words, Sculpt Spells, uznanie autorstwa SRD ================= */
+/* ---------- kości i kształty dla czarów, które SRD ma tylko w opisie ---------- */
+Object.assign(SPELL_DICE,{
+  'call-lightning':{sh:'circle',sz:5,dice:'3d10',type:'lightning'},
+  'flaming-sphere':{sh:'circle',sz:5,dice:'2d6',type:'fire'},
+  'heat-metal':{sh:'single',dice:'2d8',type:'fire',save:null},
+  'flame-blade':{sh:'single',dice:'3d6',type:'fire',attack:'melee',addMod:1,save:null},
+  'sunbeam':{sh:'line',sz:60,dice:'6d8',type:'radiant'},
+  'arcane-hand':{sh:'single',dice:'5d8',type:'force',save:null,attack:'melee'}
+});
+const SUSTAIN={'call-lightning':'a','flaming-sphere':'b','heat-metal':'b','vampiric-touch':'a','flame-blade':'a','spiritual-weapon':'b','sunbeam':'a','arcane-hand':'b'};
+Object.keys(SPELL_DICE).forEach(id=>{const s=(CAT.spells||[]).find(x=>x.id===id);if(s&&SUSTAIN[id]){delete s.__augd;augDice(s)}});
+
+/* ---------- powtarzanie czaru bez slotu ---------- */
+let REP=null;
+function repFxOf(t){return fxOf(t).filter(f=>f.rep)}
+const _ap40=apply;
+apply=function(a){
+  const r=_ap40(a);
+  if(a&&a.k==='cast'&&SUSTAIN[a.sid]&&!a.rep&&a.conc&&a.caster===me){const t=tokById(a.cid);
+    if(t)setTimeout(()=>{const tt=tokById(a.cid);if(!tt||!tt.sheet||!tt.sheet.conc)return;
+      send({k:'sp',id:tt.id,p:{fx:fxOf(tt).filter(f=>!(f.rep&&f.rep.sid===a.sid)).concat([makeFx({c:'custom',n:'↻ '+(getSpell(a.sid)||{}).name,rep:{sid:a.sid,slot:a.slot||((getSpell(a.sid)||{}).level)},src:tt.id,conc:1,r:durRounds((getSpell(a.sid)||{}).duration)||10})])}})},400)}
+  return r};
+const _act40=activateSpell;
+activateSpell=function(def,rep){if(!rep||!def)REP=null;const r=_act40(def);if(rep&&def&&castSpell===def)REP={sid:def.id,slot:rep.slot};return r};
+const _sc40=slotChoices;
+slotChoices=function(){if(REP&&castSpell&&castSpell.id===REP.sid)return[{v:'f'+REP.slot,level:REP.slot,kind:'f',label:`${REP.slot} · ${tr('repFree')}`}];return _sc40()};
+const _sn40=send;
+send=function(a){if(a&&a.k==='cast'&&REP&&a.sid===REP.sid){a.conc=false;a.rep=1;REP=null}return _sn40(a)};
+const _hx40=hudExtra;
+hudExtra=function(){_hx40();try{const t=selected,row=$('#hudSum');if(!t||!row||!canCtl(t)||!t.sheet)return;
+  repFxOf(t).forEach(f=>{const sp=getSpell(f.rep.sid);if(!sp)return;const b=document.createElement('button');b.className='repBtn';
+    b.textContent=`↻ ${sp.name} (${SUSTAIN[f.rep.sid]==='b'?tr('bonusA'):tr('actionA')})`;b.title=tr('repT');b.onclick=()=>{activateSpell(sp,{slot:f.rep.slot});renderHud()};row.append(b)});
+  if(t.sheet.poly){const b=document.createElement('button');b.textContent='↩ '+tr('polyEnd');b.onclick=()=>polyEnd(t);row.append(b)}
+}catch(e){console.error(e)}};
+
+/* ---------- Vampiric Touch: leczy połowę zadanych obrażeń ---------- */
+const _ap40b=apply;
+apply=function(a){const r=_ap40b(a);
+  if(isHost&&a&&a.k==='cast'&&a.sid==='vampiric-touch'&&a.per){const n=a.per.reduce((s,x)=>s+(x.dmg||0),0);const t=tokById(a.cid);if(t&&n>0)setTimeout(()=>{healTok(t,Math.floor(n/2),'Vampiric Touch')},60)}
+  return r};
+
+/* ---------- Polymorph ---------- */
+SPELL_RIDERS['polymorph']={sh:'single',save:'wis',fx:[{c:'custom',n:'Polymorph',on:'fail',poly:1}]};
+(()=>{const s=(CAT.spells||[]).find(x=>x.id==='polymorph');if(s){delete s.__aug;augSpell(s)}})();
+const _af40=addFx;
+addFx=function(tid,o){if(o&&o.poly)return;return _af40(tid,o)};
+const _apPc=apply;
+apply=function(a){const r=_apPc(a);
+  if(a&&a.k==='cast'&&a.sid==='polymorph'&&a.caster===me){const c=tokById(a.cid),sv={};(a.sv||[]).forEach(x=>sv[x[0]]=x[3]);
+    const ids=(a.ids||[]).filter(id=>!sv[id]);let i=0;const next=()=>{if(i>=ids.length)return;const t=tokById(ids[i++]);if(t&&c)polyPick(c,t,next);else next()};setTimeout(next,300)}
+  return r};
+function polyMaxCr(t){const s=t.sheet;if(s.info&&s.info.level)return s.info.level;if(s.mon&&s.mon.cr!=null)return crNum(s.mon.cr);return 4}
+function polyPick(c,t,done){const max=polyMaxCr(t);const forms=CAT.monsters.filter(m=>/beast/i.test(m.type)&&crNum(m.cr)<=max).sort((a,b)=>crNum(b.cr)-crNum(a.cr)||a.name.localeCompare(b.name));
+  let p=$('#tkPick');if(p)p.remove();p=document.createElement('div');p.id='tkPick';p.innerHTML=`<div class="fpHead"><b>🐸 Polymorph: ${esc(t.name)} (CR ≤ ${max})</b><button id="tpX">×</button></div><input class="polyQ" placeholder="${esc(tr('search'))}"><div class="tpList"></div>`;document.body.append(p);
+  p.querySelector('#tpX').onclick=()=>p.remove();const L=p.querySelector('.tpList'),q=p.querySelector('.polyQ');
+  const draw=()=>{L.innerHTML='';forms.filter(m=>m.name.toLowerCase().includes(q.value.toLowerCase())).slice(0,80).forEach(m=>{const b=document.createElement('button');b.textContent=`${m.name} (CR ${m.cr} · HP ${m.hp} · AC ${m.ac})`;b.onclick=()=>{p.remove();polyApply(c,t,m);if(done)setTimeout(done,200)};L.append(b)})};
+  q.oninput=draw;draw()}
+function polyApply(c,t,m){const s=t.sheet,i=s.info;
+  const orig={ac:s.ac,mon:s.mon||null,resist:(s.resist||[]).slice(),vulnerable:(s.vulnerable||[]).slice(),immune:(s.immune||[]).slice(),speed:i&&i.speed,abilities:i&&i.abilities?Object.assign({},i.abilities):null,name:t.name};
+  const p={poly:{orig,form:m.name,src:c.id},ac:m.ac,mon:monSnap(m),resist:m.resist.slice(),vulnerable:m.vulnerable.slice(),immune:m.immune.slice()};
+  if(i){const ii=JSON.parse(JSON.stringify(i));ii.tempHp=Math.max(ii.tempHp||0,m.hp);const sp=/(\d+)\s*ft/.exec(m.speed||'');if(sp)ii.speed=+sp[1];if(m.stats)ii.abilities=Object.assign({},m.stats);p.info=ii}
+  else{p.polyThp=m.hp}
+  p.fx=fxOf(t).concat([makeFx({c:'custom',n:'Polymorph: '+m.name,src:c.id,conc:1,polyFx:1,r:600})]);
+  send({k:'sp',id:t.id,p});send({k:'sys',text:tr('polyLog',t.name,m.name,m.hp)})}
+function polyEnd(t){const s=t.sheet;if(!s||!s.poly)return;const o=s.poly.orig,p={poly:null,ac:o.ac,mon:o.mon,resist:o.resist,vulnerable:o.vulnerable,immune:o.immune,polyThp:0,fx:fxOf(t).filter(f=>!f.polyFx)};
+  if(s.info){const ii=JSON.parse(JSON.stringify(s.info));ii.speed=o.speed;if(o.abilities)ii.abilities=o.abilities;ii.tempHp=0;p.info=ii}
+  send({k:'sp',id:t.id,p});send({k:'sys',text:tr('polyEndLog',t.name)})}
+/* potwór w formie: tymczasowe PW formy; koniec przy 0 tymczasowych PW albo końcu koncentracji */
+const _dd40=dealDmg;
+dealDmg=function(t,amt,type,o){const s=t&&t.sheet;
+  if(s&&s.poly&&!s.info&&s.polyThp>0){const parts=(Array.isArray(amt)?amt:[[amt,type]]).map(p=>p.slice());let left=s.polyThp;
+    parts.forEach(p=>{const c=Math.min(left,p[0]);left-=c;p[0]=Math.max(0,p[0]-c)});s.polyThp=left;amt=parts;type=undefined}
+  const r=_dd40(t,amt,type,o);
+  if(isHost&&s&&s.poly&&((s.info&&!(s.info.tempHp>0))||(!s.info&&!(s.polyThp>0))))setTimeout(()=>polyEnd(t),30);
+  return r};
+const _apP=apply;
+apply=function(a){const r=_apP(a);if(isHost&&a&&a.k==='sp'){const list=a.list||[{id:a.id,p:a.p}];list.forEach(x=>{const t=tokById(x.id);if(t&&t.sheet&&t.sheet.poly&&x.p&&x.p.fx&&!fxOf(t).some(f=>f.polyFx))setTimeout(()=>polyEnd(t),30)})}return r};
+
+/* ---------- Indomitable (wojownik 9+) ---------- */
+function indomLeft(t){const i=t&&t.sheet&&t.sheet.info;if(!i||clsLv(i,'fighter')<9||i.indomOff)return 0;const d=resDefs(i).find(x=>x.id==='ind');return d?resLeft(i,d):0}
+function indomSpend(t){const i=t.sheet.info,d=resDefs(i).find(x=>x.id==='ind');resSetUsed(i,'ind',((i.resUsed||{}).ind||0)+1,d.max);send({k:'sp',id:t.id,p:{info:i}})}
+const _rsf40=rollSaveFor;
+rollSaveFor=function(t,ab,dc,o){const r=_rsf40(t,ab,dc,o);
+  if(!r.pass&&!r.af&&isPc(t)&&indomLeft(t)>0){const lv=clsLv(t.sheet.info,'fighter');if(20+r.m+lv>=dc){const n=rnd(20),tot=n+r.m+lv;indomSpend(t);
+    const ok=tot>=dc;send({k:'sys',text:tr('indLog',t.name,`${n}${sg(r.m)}+${lv} = ${tot}`,dc,ok?'✓':'✗')});if(ok)return Object.assign({},r,{pass:true,r:n,txt:r.txt+` → Indomitable ${tot} ✓`})}}
+  return r};
+const _ap40c=apply;
+apply=function(a){
+  if(isHost&&a&&a.k==='cast'&&a.sv&&!a.r40){a.r40=1;const sp=getSpell(a.sid)||{};const notes=[];
+    a.sv.forEach(x=>{const t=tokById(x[0]);if(x[3]||!t||!isPc(t)||indomLeft(t)<=0)return;const lv=clsLv(t.sheet.info,'fighter'),dc=a.dc||13;if(20+x[2]+lv<dc)return;
+      const n=rnd(20),tot=n+x[2]+lv;indomSpend(t);notes.push(tr('indLog',t.name,`${n}${sg(x[2])}+${lv} = ${tot}`,dc,tot>=dc?'✓':'✗'));
+      if(tot>=dc){x[3]=true;(a.per||[]).forEach(p=>{if(p.id===x[0])p.dmg=sp.half?Math.floor((a.total||0)/2):0})}});
+    notes.forEach(n=>setTimeout(()=>send({k:'sys',text:n}),0))}
+  return _ap40c(a)};
+
+/* ---------- Sculpt Spells (Evoker 3+) ---------- */
+const _ap40d=apply;
+apply=function(a){
+  if(isHost&&a&&a.k==='cast'&&a.sv&&!a.r40s){a.r40s=1;const sp=getSpell(a.sid)||{},c=tokById(a.cid),ci=c&&c.sheet&&c.sheet.info;
+    if(ci&&clsLv(ci,'wizard')>=3&&/evoc/i.test(String(ci.subclass||''))&&/evocation/i.test(sp.school||'')){let n=1+(sp.level||0);const saved=[];
+      a.sv.forEach(x=>{const t=tokById(x[0]);if(n<=0||!t||!sameSide(t,c))return;n--;x[3]=true;(a.per||[]).forEach(p=>{if(p.id===x[0])p.dmg=0});saved.push(t.name)});
+      if(saved.length)setTimeout(()=>send({k:'sys',text:tr('sculptLog',c.name,saved.join(', '))}),0)}}
+  return _ap40d(a)};
+
+/* ---------- Cutting Words (Bard, College of Lore 3+) ---------- */
+function cwCands(att,g){return S.tokens.filter(b=>{const i=b.sheet&&b.sheet.info;if(!i||clsLv(i,'bard')<3||!/lore/i.test(String(i.subclass||'')))return false;
+  if(b===att||!sameSide(b,g)||sameSide(b,att)||cflags(b).inc||tokDown(b)||!rxAvail(b)||tokDist(b,att)>60)return false;const d=resDefs(i).find(x=>x.id==='bi');return d&&resLeft(i,d)>0})}
+const _rxg40=rxGate;
+rxGate=function(att,g,total,ac,out,cb){
+  if(out!=='hit'||!att||!g)return _rxg40(att,g,total,ac,out,cb);
+  const list=cwCands(att,g).filter(b=>{const sides=+BI_DIE(clsLv(b.sheet.info,'bard')).slice(1);return total-sides<ac});
+  if(!list.length)return _rxg40(att,g,total,ac,out,cb);
+  let i=0;const next=()=>{if(i>=list.length)return _rxg40(att,g,total,ac,out,cb);const b=list[i++];
+    if(K)K.res='⏳ '+tr('rxWaiting',b.name);
+    rxAsk(att,b,{tid:b.id,opts:['cutting'],an:att.name,cwT:g.name},u=>{if(u!=='cutting')return next();
+      const sides=+BI_DIE(clsLv(b.sheet.info,'bard')).slice(1),n=rnd(sides),nt=total-n,o2=nt>=ac?'hit':'miss';
+      send({k:'sys',text:tr('cwLog',b.name,att.name,`d${sides}[${n}]`,total,nt,o2==='miss'?tr('miss'):tr('hit'))});
+      if(o2==='miss')return cb('miss',{used:'cutting'});return _rxg40(att,g,nt,ac,'hit',cb)})};
+  next()};
+const _rxp40=rxPrompt;
+rxPrompt=function(a){_rxp40(a);if(!(a.opts||[]).includes('cutting'))return;const b=tokById(a.tid),i=b&&b.sheet&&b.sheet.info;
+  document.querySelectorAll('.rxBox').forEach(box=>{const h=box.querySelector('b');if(h&&b)h.textContent=`🎶 ${b.name}: ${tr('cwTitle')}`;const s=box.querySelector('.smd');if(s)s.textContent=tr('cwBody',a.an,a.cwT||'');
+    box.querySelectorAll('button').forEach(x=>{if(x.textContent==='undefined'||x.textContent==='')x.textContent=`🗡 Cutting Words (−1${i?BI_DIE(clsLv(i,'bard')):'d6'})`})})};
+const _rxs40=rxSpend;
+rxSpend=function(g,use){if(use!=='cutting')return _rxs40(g,use);if(S.combat&&S.combat.started)econSet(g,{r:0});const i=g.sheet.info,d=resDefs(i).find(x=>x.id==='bi');if(d){resSetUsed(i,'bi',((i.resUsed||{}).bi||0)+1,d.max);send({k:'sp',id:g.id,p:{info:i}})}};
+
+/* ---------- uznanie autorstwa SRD 5.2 (CC-BY-4.0) ---------- */
+const SRD_ATTR='This work includes material from the System Reference Document 5.2.1 (“SRD 5.2.1”) by Wizards of the Coast LLC, available at https://www.dndbeyond.com/srd. The SRD 5.2.1 is licensed under the Creative Commons Attribution 4.0 International License, available at https://creativecommons.org/licenses/by/4.0/legalcode.';
+function attrHtml(){return esc(SRD_ATTR).replace(/(https:\/\/[^\s,]+?)(?=[.,]?(\s|$))/g,'<a href="$1" target="_blank" rel="noopener">$1</a>')}
+(function(){
+  const st=$('#start>div');if(st&&!st.querySelector('.srdAttr'))st.append(hE('div',{className:'srdAttr',innerHTML:attrHtml()}));
+  const pm=$('#packModal .libp');if(pm&&!pm.querySelector('.srdAttr'))pm.append(hE('div',{className:'srdAttr',innerHTML:attrHtml()}));
+  setTimeout(()=>{const p=$('#hmSess')&&$('#hmSess')._p;if(p&&!p.querySelector('#bAbout')){const b=hE('button',{id:'bAbout',className:'hmItem',textContent:'ℹ '+tr('aboutB')});b.dataset.ic='';
+    b.onclick=()=>{let m=$('#aboutBox');if(m)m.remove();m=hE('div',{id:'aboutBox',className:'rxBox'},hE('b',{textContent:'D&D Mates'}),hE('div',{className:'smd',textContent:tr('aboutTxt')}),hE('div',{className:'srdAttr',innerHTML:attrHtml()}));
+      const x=hE('button',{textContent:tr('close')});x.onclick=()=>m.remove();m.append(x);document.body.append(m)};p.append(b)}},1500)})();
+
+addI18n({repFree:'repeat (no slot)',repT:'Use the spell’s effect again without spending a slot (while concentrating).',bonusA:'Bonus Action',actionA:'Action',
+  polyEnd:'End Polymorph',polyLog:'🐸 {0} turns into {1} ({2} Temp HP).',polyEndLog:'{0} returns to its true form.',
+  indLog:'🛡 {0}: Indomitable — reroll {1} vs DC {2} {3}',sculptLog:'✨ {0}: Sculpt Spells — {1} unharmed.',
+  cwTitle:'Reaction — Cutting Words',cwBody:'{0} hits {1}. Subtract your Bardic Inspiration die from the attack roll?',cwLog:'🎶 {0}: Cutting Words on {1} — {2}: {3} → {4} ({5})',
+  aboutB:'About & license',aboutTxt:'Animated virtual tabletop for D&D 2024 (SRD 5.2). Unofficial fan project, compatible with fifth edition.'},
+ {repFree:'powtórzenie (bez slotu)',repT:'Użyj efektu czaru ponownie bez zużycia slotu (póki trwa koncentracja).',bonusA:'akcja bonusowa',actionA:'akcja',
+  polyEnd:'Zakończ Polymorph',polyLog:'🐸 {0} zmienia się w {1} ({2} tymczasowych PW).',polyEndLog:'{0} wraca do prawdziwej postaci.',
+  indLog:'🛡 {0}: Indomitable — przerzut {1} vs ST {2} {3}',sculptLog:'✨ {0}: Sculpt Spells — {1} bez szwanku.',
+  cwTitle:'reakcja — Cutting Words',cwBody:'{0} trafia {1}. Odjąć kość Bardic Inspiration od rzutu ataku?',cwLog:'🎶 {0}: Cutting Words na {1} — {2}: {3} → {4} ({5})',
+  aboutB:'O programie i licencja',aboutTxt:'Animowany wirtualny stół do D&D 2024 (SRD 5.2). Nieoficjalny projekt fanowski, kompatybilny z piątą edycją.'});
 
 </script>
 </body>
