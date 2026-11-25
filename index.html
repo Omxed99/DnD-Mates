@@ -487,6 +487,9 @@ body.tpMode #map{cursor:crosshair}
 .rulesRow small{color:var(--mute)}
 .rulesRow select{flex:none}
 .rulesRow select{width:150px}
+/* v31: efekty featów */
+.feCard{border:1px solid #33384d;border-radius:9px;padding:6px 9px;margin:6px 0;display:flex;flex-direction:column;gap:4px}
+.feCard .smRow{flex-wrap:wrap;gap:6px;align-items:center}
 
 </style>
 </head>
@@ -8910,9 +8913,10 @@ const RULE_OPTS={
   sculpt:{modes:['ask','auto','off'],def:'ask'},
   counter:{modes:['ask','off'],def:'ask'},
   cutting:{modes:['ask','off'],def:'ask'},
-  deflect:{modes:['ask','off'],def:'ask'}
+  deflect:{modes:['ask','off'],def:'ask'},
+  feat:{modes:['ask','auto','off'],def:'ask'}
 };
-const rm=k=>{const r=(S.settings&&S.settings.rules)||{};const v=r[k];return RULE_OPTS[k]&&RULE_OPTS[k].modes.includes(v)?v:RULE_OPTS[k].def};
+const rm=k=>{if(String(k).startsWith('fe:'))k='feat';const r=(S.settings&&S.settings.rules)||{};const v=r[k];return RULE_OPTS[k]&&RULE_OPTS[k].modes.includes(v)?v:RULE_OPTS[k].def};
 
 /* Mage Slayer (2024, General) – na wypadek gdy nie ma go w paczce */
 if(!EXTRA_FEATS.some(f=>f.id==='mage-slayer'))EXTRA_FEATS.push({id:'mage-slayer',name:'Mage Slayer',category:'General',prereq:'Level 4+',minLevel:4,repeatable:false,asi:{amount:1,max:20,choose:['str','dex']},needs:null,
@@ -8935,13 +8939,17 @@ rxPrompt=function(a){if(!(a.opts||[]).includes('ch'))return _rxp41(a);const g=to
   const n=document.createElement('button');n.textContent=tr('rxNo');n.onclick=()=>{box.remove();send({k:'rxa',qid:a.qid,use:null})};row.append(n);document.body.append(box)};
 
 /* ---------- opcje po nieudanym rzucie obronnym ---------- */
+let SV_TOT=null;/* suma nieudanego rzutu (dla kości dodawanych do wyniku) */
+const SAVE_HOOKS=[];/* {opts(g,ab,m,dc,tot)→[{k,l}], use(g,k,m,dc,tot)→{pass,txt}|null} */
 function saveOpts(g,ab,m,dc){const out=[];if(!g||!isPc(g))return out;
   if(rm('gmind')!=='off'&&['int','wis','cha'].includes(ab)&&gmLeft(g)>0)out.push({k:'gmind',l:'🧠 Guarded Mind ('+tr('chAutoPass')+')'});
   if(rm('indom')!=='off'&&indomLeft(g)>0){const lv=clsLv(g.sheet.info,'fighter');if(20+m+lv>=dc)out.push({k:'indom',l:`🛡 Indomitable (d20${sg(m)}+${lv})`})}
+  SAVE_HOOKS.forEach(h=>{try{(h.opts(g,ab,m,dc,SV_TOT)||[]).forEach(o=>out.push(o))}catch(e){console.error(e)}});
   return out}
 function saveUse(g,k,m,dc){/* zwraca {pass,txt} */
   if(k==='gmind'){gmSpend(g);return{pass:true,txt:tr('gmLog',g.name)}}
   if(k==='indom'){const lv=clsLv(g.sheet.info,'fighter'),n=rnd(20),tot=n+m+lv;indomSpend(g);return{pass:tot>=dc,txt:tr('indLog',g.name,`${n}${sg(m)}+${lv} = ${tot}`,dc,tot>=dc?'✓':'✗'),n}}
+  for(const h of SAVE_HOOKS){const r=h.use(g,k,m,dc,SV_TOT);if(r)return r}
   return{pass:false,txt:''}}
 /* wybór: auto → pierwsza opcja (Guarded Mind przed Indomitable), ask → okienko u właściciela */
 function saveChoice(att,g,ab,m,dc,cb){const opts=saveOpts(g,ab,m,dc);if(!opts.length)return cb(null);
@@ -8954,20 +8962,20 @@ function saveChoice(att,g,ab,m,dc,cb){const opts=saveOpts(g,ab,m,dc);if(!opts.le
 const _ss41=strikeSend;
 strikeSend=function(t,res,dice,extra){
   if(!K||K.opt.kind!=='save')return _ss41(t,res,dice,extra);const o=K.opt,ab=o.ab||(extra&&extra.ab),dc=o.dc||(extra&&extra.dc)||13;
-  const fails=res.filter(x=>x.t==='s'&&!x.pass&&saveOpts(tokById(x.id),ab,x.m||0,dc).length);if(!fails.length)return _ss41(t,res,dice,extra);
-  let i=0;const next=()=>{if(i>=fails.length)return _ss41(t,res,dice,extra);const x=fails[i++],g=tokById(x.id);
-    saveChoice(t,g,ab,x.m||0,dc,k=>{if(k){const r=saveUse(g,k,x.m||0,dc);send({k:'sys',text:r.txt});if(k==='indom'&&r.n){x.r=r.n;x.alt=null;x.m=(x.m||0)+clsLv(g.sheet.info,'fighter');x.bt=(x.bt||'')+' Indomitable'}if(k==='gmind')x.bt=(x.bt||'')+' Guarded Mind';if(r.pass){x.pass=true;x.out='pass';x.parts=o.half?(x.parts||[]).map(p=>[Math.floor(p[0]/2),p[1]]):[]}}next()})};
+  const fails=res.filter(x=>x.t==='s'&&!x.pass&&(SV_TOT=(x.r||0)+(x.m||0),saveOpts(tokById(x.id),ab,x.m||0,dc).length));if(!fails.length)return _ss41(t,res,dice,extra);
+  let i=0;const next=()=>{if(i>=fails.length)return _ss41(t,res,dice,extra);const x=fails[i++],g=tokById(x.id);SV_TOT=(x.r||0)+(x.m||0);
+    saveChoice(t,g,ab,x.m||0,dc,k=>{if(k){const r=saveUse(g,k,x.m||0,dc);send({k:'sys',text:r.txt});if(k==='indom'&&r.n){x.r=r.n;x.alt=null;x.m=(x.m||0)+clsLv(g.sheet.info,'fighter');x.bt=(x.bt||'')+' Indomitable'}if(k==='gmind')x.bt=(x.bt||'')+' Guarded Mind';if(r.add){x.m=(x.m||0)+r.add;x.bt=(x.bt||'')+' '+(r.n||'')}if(r.pass){x.pass=true;x.out='pass';x.parts=o.half?(x.parts||[]).map(p=>[Math.floor(p[0]/2),p[1]]):[]}}next()})};
   next()};
 /* czary: przed rzutem obrażeń (rzuty obronne są już znane) */
 const _sr41=startRoll;
 startRoll=function(manual){
   if(!cast||cast.stage!=='pre'||cast.busy||cast.svDone||!cast.saves||!castSpell||!castSpell.save)return _sr41(manual);
   const ab=castSpell.save,dc=+($('#cbDc')&&$('#cbDc').value)||13;
-  const fails=Object.entries(cast.saves).filter(([id,s])=>!s.pass&&saveOpts(tokById(id),ab,s.m||0,dc).length);
+  const fails=Object.entries(cast.saves).filter(([id,s])=>!s.pass&&(SV_TOT=(s.r||0)+(s.m||0),saveOpts(tokById(id),ab,s.m||0,dc).length));
   if(!fails.length){cast.svDone=true;return _sr41(manual)}
   cast.busy=true;const c0=cast;let i=0;
   const next=()=>{if(cast!==c0)return;if(i>=fails.length){cast.busy=false;cast.svDone=true;renderCast();return _sr41(manual)}
-    const [id,s]=fails[i++],g=tokById(id);
+    const [id,s]=fails[i++],g=tokById(id);SV_TOT=(s.r||0)+(s.m||0);
     saveChoice(selected,g,ab,s.m||0,dc,k=>{if(cast!==c0)return;if(k){const r=saveUse(g,k,s.m||0,dc);send({k:'sys',text:r.txt});if(r.pass){s.pass=true;s.ind=1}}renderCast();next()})};
   next()};
 /* pozostałe rzuty (pułapki, strefy, efekty na koniec tury): wybór lokalny */
@@ -8975,11 +8983,11 @@ const _rsf41=rollSaveFor;
 rollSaveFor=function(t,ab,dc,o){const r=_rsf41(t,ab,dc,o);
   if(r.pass||r.af||!t||!isPc(t))return r;
   if(K&&K.opt&&K.opt.kind==='save'&&(K.tg||[]).includes(t.id))return r;/* obsłuży strikeSend */
-  const opts=saveOpts(t,ab,r.m,dc);if(!opts.length)return r;
+  SV_TOT=r.r+r.m;const opts=saveOpts(t,ab,r.m,dc);if(!opts.length)return r;
   let pick=null;const auto=opts.find(x=>rm(x.k)==='auto');
   if(auto)pick=auto.k;else{const ask=opts.filter(x=>rm(x.k)==='ask');for(const x of ask){if(confirm(tr('chConfirm',t.name,String(ab).toUpperCase(),dc,x.l))){pick=x.k;break}}}
   if(!pick)return r;const u=saveUse(t,pick,r.m,dc);send({k:'sys',text:u.txt});
-  return u.pass?Object.assign({},r,{pass:true,txt:r.txt+' → '+(pick==='gmind'?'Guarded Mind':'Indomitable')+' ✓'}):r};
+  return u.pass?Object.assign({},r,{pass:true,txt:r.txt+' → '+(pick==='gmind'?'Guarded Mind':pick==='indom'?'Indomitable':(opts.find(x=>x.k===pick)||{}).n||pick)+' ✓'}):r};
 
 /* ---------- Legendary Resistance ---------- */
 const _lr41=lrAsk;
@@ -9048,7 +9056,7 @@ addI18n({rulesB:'Session rules',rulesH:'Session rules',rulesHint:'Features that 
   rn_sculpt:'Sculpt Spells',rd_sculpt:'Evoker: allies in the area automatically succeed and take no damage.',
   rn_counter:'Counterspell',rd_counter:'Reaction window when an enemy within 60 ft casts a spell.',
   rn_cutting:'Cutting Words',rd_cutting:'Lore Bard: reaction to subtract Bardic Inspiration from an enemy’s hit.',
-  rn_deflect:'Deflect Attacks',rd_deflect:'Monk: reaction to reduce weapon damage.',
+  rn_deflect:'Deflect Attacks',rd_deflect:'Monk: reaction to reduce weapon damage.',rn_feat:'Feats from packs (effects)',rd_feat:'“You can” triggers defined in feat effects, e.g. +1d4 to a failed save.',
   chAutoPass:'success',chSaveT:'{0}: failed saving throw',chSaveB:'{0} failed a {1} save (DC {2}). Use a feature?',chConfirm:'{0} failed a {1} save (DC {2}). Use {3}?',
   gmLog:'🧠 {0}: Guarded Mind — the save succeeds.',sculptQ:'Sculpt Spells: protect {0}? (up to {1} creatures)',
   relT:'{0} drops to 0 HP',relB:'Use Relentless Endurance and drop to 1 HP instead?',relLog:'💪 {0}: Relentless Endurance — stays at 1 HP!'},
@@ -9062,10 +9070,136 @@ addI18n({rulesB:'Session rules',rulesH:'Session rules',rulesHint:'Features that 
   rn_sculpt:'Sculpt Spells',rd_sculpt:'Evoker: sojusznicy w obszarze zdają rzut i nie dostają obrażeń.',
   rn_counter:'Counterspell',rd_counter:'Okno reakcji, gdy wróg w 60 ft rzuca czar.',
   rn_cutting:'Cutting Words',rd_cutting:'Bard Lore: reakcja odejmująca kość Bardic Inspiration od trafienia wroga.',
-  rn_deflect:'Deflect Attacks',rd_deflect:'Mnich: reakcja zmniejszająca obrażenia od broni.',
+  rn_deflect:'Deflect Attacks',rd_deflect:'Mnich: reakcja zmniejszająca obrażenia od broni.',rn_feat:'Featy z paczek (efekty)',rd_feat:'Wyzwalacze „you can” opisane w efektach featu, np. +1k4 do nieudanego rzutu.',
   chAutoPass:'sukces',chSaveT:'{0}: nieudany rzut obronny',chSaveB:'{0} oblewa rzut {1} (ST {2}). Użyć zdolności?',chConfirm:'{0} oblewa rzut {1} (ST {2}). Użyć: {3}?',
   gmLog:'🧠 {0}: Guarded Mind — rzut udany.',sculptQ:'Sculpt Spells: ochronić {0}? (maks. {1} stworzeń)',
   relT:'{0} spada do 0 PW',relB:'Użyć Relentless Endurance i zostać z 1 PW?',relLog:'💪 {0}: Relentless Endurance — zostaje z 1 PW!'});
+
+/* ================= m42: efekty featów z paczek (klocki) + import featów z formatu 5etools ================= */
+/* ---------- czyszczenie efektów z paczki ---------- */
+const FX_STATS=['ac','save','speed','atk','dmg','spellDc','spellAtk'];
+function cleanEffects(arr){return(Array.isArray(arr)?arr:[]).slice(0,20).map(e=>{if(!e||typeof e!=='object')return null;const t=String(e.type||'');
+  const abs=v=>v==='all'?['str','dex','con','int','wis','cha']:(Array.isArray(v)?v:[v]).filter(a=>ABIL.includes(a));
+  const val=v=>v==='prof'||/^ab:(str|dex|con|int|wis|cha)$/.test(String(v))?String(v):Number.isFinite(+v)?+v:0;
+  if(t==='bonus'&&FX_STATS.includes(e.stat))return{type:t,stat:e.stat,abs:e.ab||e.abs?abs(e.ab||e.abs):null,value:val(e.value),when:['melee','ranged','weapon'].includes(e.when)?e.when:null};
+  if(t==='adv'&&e.on==='save')return{type:t,on:'save',abs:abs(e.abs||e.ab||'all')};
+  if(t==='resist')return{type:t,dmg:(Array.isArray(e.dmg)?e.dmg:[e.dmg]).filter(d=>DMG_TYPES.some(x=>x[0]===d))};
+  if(t==='resource'&&typeof e.id==='string')return{type:t,id:e.id.slice(0,40),name:String(e.name||'').slice(0,60),uses:val(e.uses||1),rest:e.rest==='short'?'short':'long'};
+  if(t==='trigger'&&e.on==='failSave'&&['addDie','reroll','succeed'].includes(e.do))return{type:t,on:'failSave',abs:abs(e.abs||e.ab||'all'),do:e.do,die:/^\d*d\d+$/.test(e.die||'')?e.die:'1d4',
+    bonus:val(e.bonus||0),cost:typeof e.cost==='string'?e.cost.slice(0,40):null,reaction:!!e.reaction,name:String(e.name||'').slice(0,60)};
+  if(t==='spells'){const ch=(Array.isArray(e.choose)?e.choose:[]).slice(0,6).map(c=>({level:Math.max(0,Math.min(9,+c.level||0)),cls:String(c.class||'').toLowerCase(),school:String(c.school||'').toLowerCase(),count:Math.max(1,Math.min(4,+c.count||1)),free:!!c.free}));
+    return{type:t,known:(Array.isArray(e.known)?e.known:[]).filter(x=>typeof x==='string').slice(0,10),freeKnown:(Array.isArray(e.free)?e.free:[]).filter(x=>typeof x==='string').slice(0,10),choose:ch,ability:ABIL.includes(e.ability)?e.ability:null,abilityChoice:(Array.isArray(e.abilityChoice)?e.abilityChoice:[]).filter(a=>ABIL.includes(a)),rest:e.rest==='short'?'short':'long'}}
+  return null}).filter(Boolean)}
+
+/* ---------- import 5etools (feat) ---------- */
+const FT_CAT={G:'General',O:'Origin',FS:'Fighting Style','FS:P':'Fighting Style','FS:R':'Fighting Style',EB:'Epic Boon',D:'Dragonmark'};
+const strip5e=s=>String(s).replace(/\{@\w+ ([^}|]*)(?:\|[^}]*)?\}/g,'$1');
+function flat5e(e,depth){if(e==null)return'';if(typeof e==='string')return strip5e(e);if(Array.isArray(e))return e.map(x=>flat5e(x,depth)).filter(Boolean).join('\n');
+  if(e.type==='list')return(e.items||[]).map(x=>'• '+flat5e(x,depth+1)).join('\n');if(e.type==='table')return'';
+  const head=e.name?strip5e(e.name)+'. ':'';return head+flat5e(e.entries||e.entry||e.items||'',depth+1)}
+const slug5e=n=>String(n).toLowerCase().replace(/[’']/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+function parse5eChoose(s){const o={};String(s).split('|').forEach(kv=>{const[k,v]=kv.split('=');if(k&&v)o[k.trim()]=v.trim()});return o}
+function conv5eFeat(f){
+  const out={id:slug5e(f.name),name:f.name,category:FT_CAT[f.category]||f.category||'General',desc:flat5e(f.entries,0).slice(0,4000),minLevel:1,repeatable:!!f.repeatable,effects:[]};
+  const pre=(f.prerequisite||[])[0]||{};if(pre.level)out.minLevel=typeof pre.level==='object'?(pre.level.level||1):pre.level;
+  const prParts=[];if(pre.level)prParts.push('Level '+out.minLevel+'+');if(pre.campaign)prParts.push(pre.campaign.join('/'));if(pre.race)prParts.push(pre.race.map(r=>cap1(r.name||'')).join('/'));if(pre.spellcasting2020||pre.spellcasting)prParts.push('Spellcasting');
+  out.prereq=prParts.join(', ');if(f.source)out.source=f.source+(f.page?' p.'+f.page:'');
+  const ab=(f.ability||[])[0];if(ab){if(ab.choose){const c=ab.choose;out.asi={amount:c.amount||1,max:20,choose:(c.from||[]).filter(a=>ABIL.includes(a))}}else{const k=Object.keys(ab).find(a=>ABIL.includes(a));if(k)out.asi={amount:ab[k],max:20,choose:[k]}}}
+  (f.additionalSpells||[]).slice(0,1).forEach(as=>{const e={type:'spells',known:[],free:[],choose:[],rest:'long'};
+    if(typeof as.ability==='string')e.ability=as.ability;else if(as.ability&&as.ability.choose)e.abilityChoice=as.ability.choose;
+    const walk=(node,free)=>{(Array.isArray(node)?node:[node]).forEach(x=>{if(typeof x==='string'){const id=slug5e(x.split('|')[0].replace(/#c$/,''));(free?e.free:e.known).push(id)}
+      else if(x&&x.choose){const c=parse5eChoose(x.choose);e.choose.push({level:+c.level||0,class:(c.class||'').toLowerCase(),school:(c.school||'').toLowerCase(),count:x.count||1,free})}})};
+    ['known','innate','prepared'].forEach(k=>{const blk=as[k];if(!blk)return;Object.values(blk).forEach(v=>{
+      if(Array.isArray(v))walk(v,false);else if(v&&typeof v==='object'){if(v.rest||v.daily){const per=v.rest||v.daily;e.rest=v.daily?'long':'long';Object.values(per).forEach(a=>walk(a,true))}if(v._)walk(v._,false)}})});
+    out.effects.push(e)});
+  /* typowe sformułowania „you can” */
+  const txt=JSON.stringify(f.entries||[]);let m;
+  const rest=/until you finish a \{@variantrule (Short|Long)/i.exec(txt)||/until you finish a (Short|Long)/i.exec(txt);
+  if((m=/When you fail an? (\w+) saving throw, you can (?:take a \{@variantrule Reaction[^}]*\} to |use your reaction to )?roll (?:a )?\{@dice (\d*d\d+)\} and add/i.exec(txt))){
+    const abk=m[1].slice(0,3).toLowerCase(),rid=out.id+'-trig';out.effects.push({type:'resource',id:rid,name:out.name,uses:1,rest:rest&&/short/i.test(rest[1])?'short':'long'});
+    const ent=(function find(a){for(const x of a||[]){if(x&&typeof x==='object'&&x.name&&JSON.stringify(x.entries||[]).includes('When you fail'))return x;if(x&&x.entries){const r=find(x.entries);if(r)return r}}return null})(f.entries);const nm=ent?strip5e(ent.name):out.name;
+    out.effects.push({type:'trigger',on:'failSave',abs:ABIL.includes(abk)?[abk]:'all',do:'addDie',die:m[2],cost:rid,reaction:/Reaction/i.test(m[0]),name:nm})}
+  if((m=/You have \{@variantrule Resistance[^}]*\} to (\w+) damage/i.exec(txt))||(m=/You have Resistance to (\w+) damage/i.exec(txt)))out.effects.push({type:'resist',dmg:[m[1].toLowerCase()]});
+  if((m=/Your Speed increases by (\d+) feet/i.exec(txt)))out.effects.push({type:'bonus',stat:'speed',value:+m[1]});
+  if((m=/\+1 bonus to (?:your )?Armor Class/i.exec(txt)))out.effects.push({type:'bonus',stat:'ac',value:1});
+  return out}
+function from5e(raw){const list=Array.isArray(raw)?raw:Array.isArray(raw.feat)?raw.feat:(raw&&raw.name&&raw.entries)?[raw]:null;if(!list)return null;
+  return{format:'dndmates-pack',version:1,name:raw._meta&&raw._meta.sources&&raw._meta.sources[0]?raw._meta.sources[0].full||'5etools import':'5etools import ('+[...new Set(list.map(f=>f.source).filter(Boolean))].join(', ')+')',
+    source:'5etools',feats:list.filter(f=>f&&f.name).map(conv5eFeat)}}
+const _cp42=cleanPack;
+cleanPack=function(raw){if(raw&&raw.format!=='dndmates-pack'){const c=from5e(raw);if(c)raw=c}
+  const out=_cp42(raw);const ef=new Map((Array.isArray(raw.feats)?raw.feats:[]).filter(f=>f&&f.effects).map(f=>[f.id,cleanEffects(f.effects)]));
+  out.feats.forEach(f=>{const e=ef.get(f.id);if(e&&e.length)f.effects=e;const r=(raw.feats||[]).find(x=>x&&x.id===f.id);if(r&&typeof r.source==='string')f.fsrc=r.source.slice(0,40)});
+  return out};
+
+/* ---------- efekty postaci ---------- */
+const featDefs=()=>(CAT.feats||[]).concat(EXTRA_FEATS);
+function featsWithFx(info){if(!info||!(info.feats||[]).length)return[];const all=featDefs();return(info.feats||[]).map(id=>all.find(f=>f.id===id)).filter(f=>f&&f.effects&&f.effects.length)}
+function fxList(info,type){const o=[];featsWithFx(info).forEach(f=>f.effects.forEach((e,i)=>{if(e.type===type)o.push(Object.assign({feat:f,idx:i},e))}));return o}
+function fxVal(info,v){if(v==='prof')return info.prof||2;const m=/^ab:(\w+)$/.exec(String(v));if(m)return Math.max(1,abMod((info.abilities||{})[m[1]]||10));return+v||0}
+const infoOf=t=>t&&t.sheet&&t.sheet.info;
+/* premie */
+const _sm42=saveMod;saveMod=function(t,k){let v=_sm42(t,k);const i=infoOf(t);if(i)fxList(i,'bonus').forEach(e=>{if(e.stat==='save'&&(!e.abs||e.abs.includes(k)))v+=fxVal(i,e.value)});return v};
+const _aa42=autoAc;autoAc=function(info){const r=_aa42(info);let b=0;fxList(info,'bonus').forEach(e=>{if(e.stat==='ac')b+=fxVal(info,e.value)});if(b&&r){r.ac+=b;if(r.parts)r.parts.push('feat +'+b)}return r};
+const _spd42=speedOf;speedOf=function(t){let v=_spd42(t);const i=infoOf(t);if(i)fxList(i,'bonus').forEach(e=>{if(e.stat==='speed')v+=fxVal(i,e.value)});return v};
+const _pso42=pcStrikeOpts;pcStrikeOpts=function(t){const o=_pso42(t),i=infoOf(t);if(!i)return o;const bs=fxList(i,'bonus').filter(e=>e.stat==='atk'||e.stat==='dmg');if(!bs.length)return o;
+  o.forEach(x=>{if(!x.w)return;bs.forEach(e=>{if(e.when==='melee'&&!x.melee)return;if(e.when==='ranged'&&x.melee)return;const v=fxVal(i,e.value);if(e.stat==='atk')x.hit+=v;else if(x.parts&&x.parts[0])x.parts[0].f=(x.parts[0].f||0)+v})});return o};
+const _cf42=cflags;cflags=function(t){const o=_cf42(t),i=infoOf(t);if(i)fxList(i,'adv').forEach(e=>e.abs.forEach(a=>o.sadv[a]=1));return o};
+const _ra42=resistAdjust;resistAdjust=function(sheet,type,amount){const i=sheet&&sheet.info;if(i&&fxList(i,'resist').some(e=>e.dmg.includes(type))&&!(sheet.resist||[]).includes(type)&&!(sheet.immune||[]).includes(type)){const s2=Object.assign({},sheet,{resist:(sheet.resist||[]).concat([type])});return _ra42(s2,type,amount)}return _ra42(sheet,type,amount)};
+/* zasoby */
+const _rd42=resDefs;resDefs=function(info){const o=_rd42(info);fxList(info,'resource').forEach(e=>{const id='fe_'+e.id;if(!o.some(x=>x.id===id))o.push({id,name:e.name||e.feat.name,max:Math.max(1,fxVal(info,e.uses)),rest:e.rest,act:'log',d:e.feat.name})});
+  fxList(info,'spells').forEach(e=>{const ids=featFreeSpells(info,e);if(ids.length){const id='fes_'+e.feat.id;if(!o.some(x=>x.id===id))o.push({id,name:e.feat.name+' (free cast)',max:1,rest:e.rest,act:'log',d:ids.map(s=>(getSpell(s)||{name:s}).name).join(', ')})}});return o};
+const resIdLeft=(t,id)=>{const i=infoOf(t);if(!i)return 0;const d=resDefs(i).find(x=>x.id===id);return d?resLeft(i,d):0};
+const resIdSpend=(t,id)=>{const i=infoOf(t),d=resDefs(i).find(x=>x.id===id);if(!d)return;resSetUsed(i,id,((i.resUsed||{})[id]||0)+1,d.max);send({k:'sp',id:t.id,p:{info:i}})};
+/* wyzwalacz: nieudany rzut obronny */
+SAVE_HOOKS.push({
+  opts(g,ab,m,dc,tot){const i=infoOf(g);if(!i||rm('feat')==='off')return[];const out=[];
+    fxList(i,'trigger').forEach(e=>{if(e.on!=='failSave'||!e.abs.includes(ab))return;if(e.cost&&resIdLeft(g,'fe_'+e.cost)<=0)return;if(e.reaction&&!rxAvail(g))return;
+      const bonus=fxVal(i,e.bonus);if(e.do==='addDie'){const p=parseDmgExpr(e.die);if(tot!=null&&tot+p.n*p.s+bonus<dc)return}
+      if(e.do==='reroll'&&20+m+bonus<dc)return;
+      const k='fe:'+e.feat.id+':'+e.idx;out.push({k,n:e.name||e.feat.name,l:`✨ ${e.name||e.feat.name} (${e.do==='addDie'?'+'+e.die:e.do==='reroll'?tr('feReroll'):tr('chAutoPass')}${e.reaction?', '+tr('reactionW'):''})`})});
+    return out},
+  use(g,k,m,dc,tot){if(!String(k).startsWith('fe:'))return null;const[,fid,idx]=k.split(':');const i=infoOf(g),f=featDefs().find(x=>x.id===fid),e=f&&f.effects[+idx];if(!e)return{pass:false,txt:''};
+    if(e.cost)resIdSpend(g,'fe_'+e.cost);if(e.reaction&&S.combat&&S.combat.started)econSet(g,{r:0});const bonus=fxVal(i,e.bonus),nm=e.name||f.name;
+    if(e.do==='succeed')return{pass:true,txt:tr('feLogOk',g.name,nm)};
+    if(e.do==='addDie'){const p=parseDmgExpr(e.die);let n=0;for(let q=0;q<p.n;q++)n+=rnd(p.s);const nt=(tot||0)+n+bonus;return{pass:nt>=dc,add:n+bonus,n:nm,txt:tr('feLogDie',g.name,nm,`${e.die}[${n}]${bonus?sg(bonus):''}`,tot,nt,dc,nt>=dc?'✓':'✗')}}
+    if(e.do==='reroll'){const n=rnd(20),nt=n+m+bonus;return{pass:nt>=dc,n:nm,txt:tr('feLogRe',g.name,nm,`${n}${sg(m)}${bonus?sg(bonus):''} = ${nt}`,dc,nt>=dc?'✓':'✗')}}
+    return{pass:false,txt:''}}});
+
+/* ---------- czary z featów ---------- */
+function featChoice(info,fid){info.fe=info.fe||{};return info.fe[fid]||(info.fe[fid]={sp:[],ab:''})}
+function featSpellPool(c){return(CAT.spells||[]).filter(s=>s.level===c.level&&(!c.cls||(s.classes||[]).includes(c.cls))&&(!c.school||String(s.school||'').toLowerCase()===c.school)).sort((a,b)=>a.name.localeCompare(b.name))}
+function featFreeSpells(info,e){const ch=(info.fe||{})[e.feat.id]||{sp:[]};const ids=e.freeKnown.slice();let q=0;e.choose.forEach(c=>{for(let n=0;n<c.count;n++){const id=(ch.sp||[])[q++];if(c.free&&id)ids.push(id)}});return ids.filter(id=>getSpell(id)&&getSpell(id).level>0)}
+function featSpellIds(info){const out=[];fxList(info,'spells').forEach(e=>{const ch=(info.fe||{})[e.feat.id]||{sp:[]};out.push(...e.known,...e.freeKnown,...(ch.sp||[]).filter(Boolean))});return[...new Set(out)].filter(id=>getSpell(id))}
+function featSpellAb(info,id){for(const e of fxList(info,'spells')){const ch=(info.fe||{})[e.feat.id]||{sp:[]};if(e.known.concat(e.freeKnown,ch.sp||[]).includes(id))return ch.ab||e.ability||e.abilityChoice[0]||info.spellAb}return null}
+const _ssi42=smSpellIds;smSpellIds=function(){const l=_ssi42();const i=smInfo;if(!i)return l;const have=new Set(l.map(s=>s.id));featSpellIds(i).filter(id=>!have.has(id)).map(getSpell).filter(Boolean).forEach(s=>l.push(s));return l.sort((a,b)=>(a.level||0)-(b.level||0)||a.name.localeCompare(b.name))};
+const _sn42=send;send=function(a){if(a&&a.k==='sheet'&&a.sheet&&a.sheet.info){const ids=featSpellIds(a.sheet.info).filter(id=>castable(getSpell(id)));if(ids.length){a=Object.assign({},a,{sheet:Object.assign({},a.sheet,{spells:[...new Set((a.sheet.spells||[]).concat(ids))]})});a.defs=Object.assign({},a.defs||{},defsFor(ids))}}
+  if(a&&a.k==='cast'&&castSlotVal&&String(castSlotVal).startsWith('fes_')&&selected){const id=castSlotVal;setTimeout(()=>resIdSpend(selected||tokById(a.cid),id),0)}
+  return _sn42(a)};
+const _ici42=initCastInputs;initCastInputs=function(){_ici42();try{const i=casterInfo();if(!i||!castSpell)return;const ab=featSpellAb(i,castSpell.id);if(!ab)return;const md=abMod((i.abilities||{})[ab]||10),pb=i.prof||2;$('#cbDc').value=8+pb+md;$('#cbAtk').value=pb+md}catch(e){}};
+const _sc42=slotChoices;slotChoices=function(){const o=_sc42();try{const i=casterInfo(),t=selected;if(!i||!castSpell||!t)return o;
+  fxList(i,'spells').forEach(e=>{if(!featFreeSpells(i,e).includes(castSpell.id))return;const id='fes_'+e.feat.id;if(resIdLeft(t,id)>0)o.unshift({v:id,level:castSpell.level,kind:'f',label:`✨ ${e.feat.name} (${tr('feFree')})`})})}catch(e){}return o};
+/* karta postaci: wybory featów */
+const _sv42=smView;smView=function(){_sv42();try{const i=smInfo,fe=Q('#pgFeat');if(!i||!fe)return;Q('#pgFeatFx')&&Q('#pgFeatFx').remove();const list=featsWithFx(i);if(!list.length)return;
+  const E=wzEl,box=E('section',{id:'pgFeatFx',className:'pgCard'},E('h3',{textContent:'✨ '+tr('feH')}));
+  list.forEach(f=>{const card=E('div',{className:'feCard'},E('b',{textContent:f.name+(f.fsrc?` · ${f.fsrc}`:'')}));
+    f.effects.forEach(e=>{if(e.type==='spells'){const ch=featChoice(i,f.id);const row=E('div',{className:'smRow'});
+        if(e.abilityChoice.length){const s=wzSel(e.abilityChoice.map(a=>[a,a.toUpperCase()]),ch.ab||e.abilityChoice[0],v=>{ch.ab=v;smTouch();smView()});row.append(E('small',{textContent:tr('feAb')}),s)}
+        let q=0;e.choose.forEach(c=>{for(let n=0;n<c.count;n++){const k=q++;const pool=featSpellPool(c);const s=wzSel([['',`— ${c.level?tr('lvl')+' '+c.level:tr('cantrip')}${c.cls?' · '+cap1(c.cls):''} —`]].concat(pool.map(x=>[x.id,x.name])),(ch.sp||[])[k]||'',v=>{ch.sp=ch.sp||[];ch.sp[k]=v;smTouch();smView()});row.append(s)}});
+        card.append(row);const fixed=e.known.concat(e.freeKnown).map(id=>(getSpell(id)||{name:id}).name);if(fixed.length)card.append(E('div',{className:'smd',textContent:tr('feSpells')+': '+fixed.join(', ')}));
+        if(e.choose.some(c=>c.free)||e.freeKnown.length)card.append(E('div',{className:'smd',textContent:tr('feFreeNote',e.rest==='short'?tr('shortRest'):tr('longRest'))}))}
+      else card.append(E('div',{className:'smd',textContent:feDescribe(e,i)}))});
+    box.append(card)});
+  fe.prepend(box)}catch(e){console.error('fe',e)}};
+function feDescribe(e,i){if(e.type==='bonus')return`${e.stat.toUpperCase()}${e.abs?' ('+e.abs.join('/')+')':''} ${sg(fxVal(i,e.value))}${e.when?' · '+e.when:''}`;
+  if(e.type==='adv')return tr('feAdv',e.abs.map(a=>a.toUpperCase()).join('/'));if(e.type==='resist')return tr('feRes',e.dmg.map(dmgName).join(', '));
+  if(e.type==='resource')return`${e.name||e.feat.name}: ${fxVal(i,e.uses)}× / ${e.rest==='short'?tr('shortRest'):tr('longRest')}`;
+  if(e.type==='trigger')return tr('feTrig',e.abs.map(a=>a.toUpperCase()).join('/'),e.do==='addDie'?'+'+e.die:e.do==='reroll'?tr('feReroll'):tr('chAutoPass'))+(e.reaction?' ('+tr('reactionW')+')':'');return''}
+
+addI18n({feH:'Feat effects',feAb:'Spellcasting ability',feSpells:'Spells',feFree:'free',feFreeNote:'Each chosen level 1+ spell can be cast once per {0} without a slot (pick it in the slot list).',feReroll:'reroll',reactionW:'Reaction',
+  feAdv:'Advantage on {0} saving throws',feRes:'Resistance: {0}',feTrig:'Failed {0} save: {1}',feLogOk:'✨ {0}: {1} — the save succeeds.',feLogDie:'✨ {0}: {1} — {2}: {3} → {4} vs DC {5} {6}',feLogRe:'✨ {0}: {1} — reroll {2} vs DC {3} {4}',shortRest:'Short Rest',longRest:'Long Rest',cantrip:'cantrip'},
+ {feH:'Efekty featów',feAb:'Cecha czarowania',feSpells:'Czary',feFree:'za darmo',feFreeNote:'Każdy wybrany czar 1+ poziomu możesz rzucić raz na {0} bez slotu (wybierz go na liście slotów).',feReroll:'przerzut',reactionW:'reakcja',
+  feAdv:'Przewaga w rzutach {0}',feRes:'Odporność: {0}',feTrig:'Nieudany rzut {0}: {1}',feLogOk:'✨ {0}: {1} — rzut udany.',feLogDie:'✨ {0}: {1} — {2}: {3} → {4} vs ST {5} {6}',feLogRe:'✨ {0}: {1} — przerzut {2} vs ST {3} {4}',shortRest:'krótki odpoczynek',longRest:'długi odpoczynek',cantrip:'sztuczka'});
 
 </script>
 </body>

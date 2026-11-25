@@ -162,6 +162,45 @@ W zasadach 2024 **pochodzenie (Origin) = gatunek + background**. Background daje
 
 > Mechanicznie działają featy rozpoznawane po `id`: `alert`, `archery`, `defense`, `dueling`, `grappler`, `great-weapon-fighting`, `great-weapon-master`, `lucky`, `magic-initiate`, `polearm-master`, `savage-attacker`, `sentinel`, `sharpshooter`, `skilled`, `two-weapon-fighting`. Pozostałe są opisem; `asi` działa dla każdego featu.
 
+
+### Efekty featu (`effects`) — żeby feat naprawdę działał
+
+Pole `effects` to lista klocków. Gra składa z nich mechanikę sama. Liczby mogą być wartością (`2`), premią z biegłości (`"prof"`) albo modyfikatorem cechy (`"ab:con"`).
+
+| klocek | pola | co robi |
+|---|---|---|
+| `bonus` | `stat`: `ac` `save` `speed` `atk` `dmg`; `value`; `ab` (dla `save`, np. `"wis"` albo `"all"`); `when`: `melee` / `ranged` (dla `atk`/`dmg`) | stała premia |
+| `adv` | `on: "save"`, `abs: ["wis","cha"]` | przewaga w rzutach obronnych |
+| `resist` | `dmg: ["fire"]` | odporność na typ obrażeń |
+| `resource` | `id`, `name`, `uses`, `rest`: `short`/`long` | licznik użyć na karcie (Zasoby) |
+| `trigger` | `on: "failSave"`, `abs`, `do`: `addDie` / `reroll` / `succeed`, `die` (np. `1d4`), `bonus`, `cost` (id zasobu), `reaction` (bool), `name` | zdolność „you can” po nieudanym rzucie obronnym; działa zgodnie z oknem **⚙ Zasady sesji → Featy z paczek** (Pytaj / Automatycznie / Wyłączone) |
+| `spells` | `known` (stałe czary), `free` (stałe czary 1×/odpoczynek bez slotu), `choose: [{level, class, school, count, free}]`, `ability` albo `abilityChoice`, `rest` | czary z featu; wybory robi się na karcie (**Features & Traits → Efekty featów**), a czar `free` pojawia się na liście slotów jako darmowy |
+
+```json
+{
+  "id": "aberrant-dragonmark", "name": "Aberrant Dragonmark", "category": "Dragonmark",
+  "effects": [
+    { "type": "spells", "ability": "con",
+      "choose": [ { "level": 0, "class": "sorcerer" }, { "level": 1, "class": "sorcerer", "free": true } ] },
+    { "type": "resource", "id": "aberrant-fortitude", "name": "Aberrant Fortitude", "uses": 1, "rest": "long" },
+    { "type": "trigger", "on": "failSave", "abs": ["con"], "do": "addDie", "die": "1d4",
+      "cost": "aberrant-fortitude", "reaction": true, "name": "Aberrant Fortitude" }
+  ],
+  "desc": "Krótki opis własnymi słowami."
+}
+```
+
+Zdolności, których nie da się złożyć z klocków, trzeba dopisać w kodzie (zgłoś je z treścią featu).
+
+### Import featów z 5etools
+
+Plik w formacie 5etools (`{"feat": [ … ]}`, sama lista albo pojedynczy feat) można wczytać tak samo jak paczkę. Gra przelicza go automatycznie:
+- `name`, `category`, `prerequisite`, `ability` (zwiększenie cechy) i `entries` (opis);
+- `additionalSpells` zamienia na klocek `spells` (wybór z listy klasy, darmowe rzucenie raz na odpoczynek);
+- typowe zdania: „When you fail a … saving throw, you can (take a Reaction to) roll 1dN and add …” (z limitem „until you finish a Short/Long Rest”), „You have Resistance to … damage”, „Your Speed increases by N feet”, „+1 bonus to Armor Class”.
+
+Resztę opisu widać na karcie, a brakujące efekty można dopisać ręcznie w JSON-ie.
+
 ---
 
 ## Czar (`spells`)
