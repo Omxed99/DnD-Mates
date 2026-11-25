@@ -479,6 +479,14 @@ body.tpMode #map{cursor:crosshair}
 #aboutBox{max-width:520px}
 .repBtn{border-color:#8a7cff}
 .polyQ{margin:6px 0;width:100%;box-sizing:border-box}
+/* v30: zasady sesji */
+#rulesBox{max-width:560px;width:min(560px,92vw);max-height:80vh;overflow:auto}
+.rulesList{display:flex;flex-direction:column;gap:6px;margin:8px 0}
+.rulesRow{display:flex;gap:12px;align-items:center;justify-content:space-between;border:1px solid #33384d;border-radius:9px;padding:6px 10px}
+.rulesRow>div{display:flex;flex-direction:column;gap:2px}
+.rulesRow small{color:var(--mute)}
+.rulesRow select{flex:none}
+.rulesRow select{width:150px}
 
 </style>
 </head>
@@ -8849,29 +8857,6 @@ apply=function(a){const r=_apP(a);if(isHost&&a&&a.k==='sp'){const list=a.list||[
 /* ---------- Indomitable (wojownik 9+) ---------- */
 function indomLeft(t){const i=t&&t.sheet&&t.sheet.info;if(!i||clsLv(i,'fighter')<9||i.indomOff)return 0;const d=resDefs(i).find(x=>x.id==='ind');return d?resLeft(i,d):0}
 function indomSpend(t){const i=t.sheet.info,d=resDefs(i).find(x=>x.id==='ind');resSetUsed(i,'ind',((i.resUsed||{}).ind||0)+1,d.max);send({k:'sp',id:t.id,p:{info:i}})}
-const _rsf40=rollSaveFor;
-rollSaveFor=function(t,ab,dc,o){const r=_rsf40(t,ab,dc,o);
-  if(!r.pass&&!r.af&&isPc(t)&&indomLeft(t)>0){const lv=clsLv(t.sheet.info,'fighter');if(20+r.m+lv>=dc){const n=rnd(20),tot=n+r.m+lv;indomSpend(t);
-    const ok=tot>=dc;send({k:'sys',text:tr('indLog',t.name,`${n}${sg(r.m)}+${lv} = ${tot}`,dc,ok?'✓':'✗')});if(ok)return Object.assign({},r,{pass:true,r:n,txt:r.txt+` → Indomitable ${tot} ✓`})}}
-  return r};
-const _ap40c=apply;
-apply=function(a){
-  if(isHost&&a&&a.k==='cast'&&a.sv&&!a.r40){a.r40=1;const sp=getSpell(a.sid)||{};const notes=[];
-    a.sv.forEach(x=>{const t=tokById(x[0]);if(x[3]||!t||!isPc(t)||indomLeft(t)<=0)return;const lv=clsLv(t.sheet.info,'fighter'),dc=a.dc||13;if(20+x[2]+lv<dc)return;
-      const n=rnd(20),tot=n+x[2]+lv;indomSpend(t);notes.push(tr('indLog',t.name,`${n}${sg(x[2])}+${lv} = ${tot}`,dc,tot>=dc?'✓':'✗'));
-      if(tot>=dc){x[3]=true;(a.per||[]).forEach(p=>{if(p.id===x[0])p.dmg=sp.half?Math.floor((a.total||0)/2):0})}});
-    notes.forEach(n=>setTimeout(()=>send({k:'sys',text:n}),0))}
-  return _ap40c(a)};
-
-/* ---------- Sculpt Spells (Evoker 3+) ---------- */
-const _ap40d=apply;
-apply=function(a){
-  if(isHost&&a&&a.k==='cast'&&a.sv&&!a.r40s){a.r40s=1;const sp=getSpell(a.sid)||{},c=tokById(a.cid),ci=c&&c.sheet&&c.sheet.info;
-    if(ci&&clsLv(ci,'wizard')>=3&&/evoc/i.test(String(ci.subclass||''))&&/evocation/i.test(sp.school||'')){let n=1+(sp.level||0);const saved=[];
-      a.sv.forEach(x=>{const t=tokById(x[0]);if(n<=0||!t||!sameSide(t,c))return;n--;x[3]=true;(a.per||[]).forEach(p=>{if(p.id===x[0])p.dmg=0});saved.push(t.name)});
-      if(saved.length)setTimeout(()=>send({k:'sys',text:tr('sculptLog',c.name,saved.join(', '))}),0)}}
-  return _ap40d(a)};
-
 /* ---------- Cutting Words (Bard, College of Lore 3+) ---------- */
 function cwCands(att,g){return S.tokens.filter(b=>{const i=b.sheet&&b.sheet.info;if(!i||clsLv(i,'bard')<3||!/lore/i.test(String(i.subclass||'')))return false;
   if(b===att||!sameSide(b,g)||sameSide(b,att)||cflags(b).inc||tokDown(b)||!rxAvail(b)||tokDist(b,att)>60)return false;const d=resDefs(i).find(x=>x.id==='bi');return d&&resLeft(i,d)>0})}
@@ -8914,6 +8899,173 @@ addI18n({repFree:'repeat (no slot)',repT:'Use the spell’s effect again without
   indLog:'🛡 {0}: Indomitable — przerzut {1} vs ST {2} {3}',sculptLog:'✨ {0}: Sculpt Spells — {1} bez szwanku.',
   cwTitle:'reakcja — Cutting Words',cwBody:'{0} trafia {1}. Odjąć kość Bardic Inspiration od rzutu ataku?',cwLog:'🎶 {0}: Cutting Words na {1} — {2}: {3} → {4} ({5})',
   aboutB:'O programie i licencja',aboutTxt:'Animowany wirtualny stół do D&D 2024 (SRD 5.2). Nieoficjalny projekt fanowski, kompatybilny z piątą edycją.'});
+
+/* ================= m41: zasady sesji – „you can” jako wybór (Pytaj / Automatycznie / Wyłączone) ================= */
+const RULE_OPTS={
+  indom:{modes:['ask','auto','off'],def:'ask'},
+  gmind:{modes:['ask','auto','off'],def:'ask'},
+  relentless:{modes:['ask','auto','off'],def:'ask'},
+  lr:{modes:['ask','auto','off'],def:'ask'},
+  hi:{modes:['ask','auto','off'],def:'ask'},
+  sculpt:{modes:['ask','auto','off'],def:'ask'},
+  counter:{modes:['ask','off'],def:'ask'},
+  cutting:{modes:['ask','off'],def:'ask'},
+  deflect:{modes:['ask','off'],def:'ask'}
+};
+const rm=k=>{const r=(S.settings&&S.settings.rules)||{};const v=r[k];return RULE_OPTS[k]&&RULE_OPTS[k].modes.includes(v)?v:RULE_OPTS[k].def};
+
+/* Mage Slayer (2024, General) – na wypadek gdy nie ma go w paczce */
+if(!EXTRA_FEATS.some(f=>f.id==='mage-slayer'))EXTRA_FEATS.push({id:'mage-slayer',name:'Mage Slayer',category:'General',prereq:'Level 4+',minLevel:4,repeatable:false,asi:{amount:1,max:20,choose:['str','dex']},needs:null,
+  desc:'Ability Score Increase: +1 STR or DEX. Concentration Breaker: when you damage a concentrating creature, it has Disadvantage on the save to maintain Concentration. Guarded Mind: if you fail an INT, WIS or CHA saving throw, you can cause yourself to succeed instead (once per Short or Long Rest).'});
+const hasFt=(t,id)=>!!(t&&t.sheet&&t.sheet.info&&(t.sheet.info.feats||[]).includes(id));
+const _rd41=resDefs;
+resDefs=function(info){const o=_rd41(info);if((info.feats||[]).includes('mage-slayer')&&!o.some(x=>x.id==='gm'))o.push({id:'gm',name:'Guarded Mind',max:1,rest:'short',act:'log',d:'Turn a failed INT, WIS or CHA save into a success.'});return o};
+const gmLeft=t=>{const i=t&&t.sheet&&t.sheet.info;if(!i||!hasFt(t,'mage-slayer'))return 0;const d=resDefs(i).find(x=>x.id==='gm');return d?resLeft(i,d):0};
+const gmSpend=t=>{const i=t.sheet.info;resSetUsed(i,'gm',((i.resUsed||{}).gm||0)+1,1);send({k:'sp',id:t.id,p:{info:i}})};
+
+/* ---------- ogólne okienko wyboru u właściciela postaci ---------- */
+function chAsk(att,g,q,cb){const qid=uid();rxWait[qid]=a=>{delete rxWait[qid];cb(a)};
+  send({k:'rxq',qid,tid:g.id,aid:att?att.id:g.id,an:att?att.name:'',opts:['ch'],ch:q});
+  setTimeout(()=>{if(rxWait[qid])send({k:'rxa',qid,use:null,timeout:1})},30000)}
+const _rxp41=rxPrompt;
+rxPrompt=function(a){if(!(a.opts||[]).includes('ch'))return _rxp41(a);const g=tokById(a.tid);if(!g)return;const q=a.ch||{};
+  const box=document.createElement('div');box.className='rxBox chBox';
+  box.innerHTML=`<b>${esc(q.title||'')}</b><div class="smd">${esc(q.body||'')}</div>`;const row=document.createElement('div');row.className='cbBtns';box.append(row);
+  (q.btns||[]).forEach(([v,l])=>{const b=document.createElement('button');b.className='primary';b.textContent=l;b.onclick=()=>{box.remove();send({k:'rxa',qid:a.qid,use:v})};row.append(b)});
+  const n=document.createElement('button');n.textContent=tr('rxNo');n.onclick=()=>{box.remove();send({k:'rxa',qid:a.qid,use:null})};row.append(n);document.body.append(box)};
+
+/* ---------- opcje po nieudanym rzucie obronnym ---------- */
+function saveOpts(g,ab,m,dc){const out=[];if(!g||!isPc(g))return out;
+  if(rm('gmind')!=='off'&&['int','wis','cha'].includes(ab)&&gmLeft(g)>0)out.push({k:'gmind',l:'🧠 Guarded Mind ('+tr('chAutoPass')+')'});
+  if(rm('indom')!=='off'&&indomLeft(g)>0){const lv=clsLv(g.sheet.info,'fighter');if(20+m+lv>=dc)out.push({k:'indom',l:`🛡 Indomitable (d20${sg(m)}+${lv})`})}
+  return out}
+function saveUse(g,k,m,dc){/* zwraca {pass,txt} */
+  if(k==='gmind'){gmSpend(g);return{pass:true,txt:tr('gmLog',g.name)}}
+  if(k==='indom'){const lv=clsLv(g.sheet.info,'fighter'),n=rnd(20),tot=n+m+lv;indomSpend(g);return{pass:tot>=dc,txt:tr('indLog',g.name,`${n}${sg(m)}+${lv} = ${tot}`,dc,tot>=dc?'✓':'✗'),n}}
+  return{pass:false,txt:''}}
+/* wybór: auto → pierwsza opcja (Guarded Mind przed Indomitable), ask → okienko u właściciela */
+function saveChoice(att,g,ab,m,dc,cb){const opts=saveOpts(g,ab,m,dc);if(!opts.length)return cb(null);
+  const auto=opts.filter(o=>rm(o.k)==='auto'),ask=opts.filter(o=>rm(o.k)==='ask');
+  if(auto.length)return cb(auto[0].k);
+  if(!ask.length)return cb(null);
+  chAsk(att,g,{title:'⚡ '+tr('chSaveT',g.name),body:tr('chSaveB',g.name,String(ab).toUpperCase(),dc),btns:ask.map(o=>[o.k,o.l])},u=>cb(u||null))}
+
+/* panel ataku (zdolności potworów, oddechy): przed wysłaniem */
+const _ss41=strikeSend;
+strikeSend=function(t,res,dice,extra){
+  if(!K||K.opt.kind!=='save')return _ss41(t,res,dice,extra);const o=K.opt,ab=o.ab||(extra&&extra.ab),dc=o.dc||(extra&&extra.dc)||13;
+  const fails=res.filter(x=>x.t==='s'&&!x.pass&&saveOpts(tokById(x.id),ab,x.m||0,dc).length);if(!fails.length)return _ss41(t,res,dice,extra);
+  let i=0;const next=()=>{if(i>=fails.length)return _ss41(t,res,dice,extra);const x=fails[i++],g=tokById(x.id);
+    saveChoice(t,g,ab,x.m||0,dc,k=>{if(k){const r=saveUse(g,k,x.m||0,dc);send({k:'sys',text:r.txt});if(k==='indom'&&r.n){x.r=r.n;x.alt=null;x.m=(x.m||0)+clsLv(g.sheet.info,'fighter');x.bt=(x.bt||'')+' Indomitable'}if(k==='gmind')x.bt=(x.bt||'')+' Guarded Mind';if(r.pass){x.pass=true;x.out='pass';x.parts=o.half?(x.parts||[]).map(p=>[Math.floor(p[0]/2),p[1]]):[]}}next()})};
+  next()};
+/* czary: przed rzutem obrażeń (rzuty obronne są już znane) */
+const _sr41=startRoll;
+startRoll=function(manual){
+  if(!cast||cast.stage!=='pre'||cast.busy||cast.svDone||!cast.saves||!castSpell||!castSpell.save)return _sr41(manual);
+  const ab=castSpell.save,dc=+($('#cbDc')&&$('#cbDc').value)||13;
+  const fails=Object.entries(cast.saves).filter(([id,s])=>!s.pass&&saveOpts(tokById(id),ab,s.m||0,dc).length);
+  if(!fails.length){cast.svDone=true;return _sr41(manual)}
+  cast.busy=true;const c0=cast;let i=0;
+  const next=()=>{if(cast!==c0)return;if(i>=fails.length){cast.busy=false;cast.svDone=true;renderCast();return _sr41(manual)}
+    const [id,s]=fails[i++],g=tokById(id);
+    saveChoice(selected,g,ab,s.m||0,dc,k=>{if(cast!==c0)return;if(k){const r=saveUse(g,k,s.m||0,dc);send({k:'sys',text:r.txt});if(r.pass){s.pass=true;s.ind=1}}renderCast();next()})};
+  next()};
+/* pozostałe rzuty (pułapki, strefy, efekty na koniec tury): wybór lokalny */
+const _rsf41=rollSaveFor;
+rollSaveFor=function(t,ab,dc,o){const r=_rsf41(t,ab,dc,o);
+  if(r.pass||r.af||!t||!isPc(t))return r;
+  if(K&&K.opt&&K.opt.kind==='save'&&(K.tg||[]).includes(t.id))return r;/* obsłuży strikeSend */
+  const opts=saveOpts(t,ab,r.m,dc);if(!opts.length)return r;
+  let pick=null;const auto=opts.find(x=>rm(x.k)==='auto');
+  if(auto)pick=auto.k;else{const ask=opts.filter(x=>rm(x.k)==='ask');for(const x of ask){if(confirm(tr('chConfirm',t.name,String(ab).toUpperCase(),dc,x.l))){pick=x.k;break}}}
+  if(!pick)return r;const u=saveUse(t,pick,r.m,dc);send({k:'sys',text:u.txt});
+  return u.pass?Object.assign({},r,{pass:true,txt:r.txt+' → '+(pick==='gmind'?'Guarded Mind':'Indomitable')+' ✓'}):r};
+
+/* ---------- Legendary Resistance ---------- */
+const _lr41=lrAsk;
+lrAsk=function(att,g,cb){const m=rm('lr');if(m==='off')return cb(false);
+  if(m==='auto'){monPatch(g,x=>{x.lru=(x.lru||0)+1});send({k:'sys',text:tr('lrLog',g.name)});return cb(true)}
+  return _lr41(att,g,cb)};
+
+/* ---------- Heroic Inspiration ---------- */
+const _hio41=hiOffer;
+hiOffer=function(t,g,vals,mode,mod,o,cb){const m=rm('hi');if(m==='off')return false;
+  if(m==='auto'){const c0=window.confirm;window.confirm=()=>true;try{return _hio41(t,g,vals,mode,mod,o,cb)}finally{window.confirm=c0}}
+  return _hio41(t,g,vals,mode,mod,o,cb)};
+
+/* ---------- Sculpt Spells – u rzucającego, przed wysłaniem ---------- */
+const _sn41=send;
+send=function(a){
+  if(a&&a.k==='cast'&&a.sv&&!a.sc41&&rm('sculpt')!=='off'){a.sc41=1;const sp=getSpell(a.sid)||{},c=tokById(a.cid),ci=c&&c.sheet&&c.sheet.info;
+    if(ci&&clsLv(ci,'wizard')>=3&&/evoc/i.test(String(ci.subclass||''))&&/evocation/i.test(sp.school||'')){
+      const allies=a.sv.map(x=>tokById(x[0])).filter(t=>t&&sameSide(t,c)).slice(0,1+(sp.level||0));
+      if(allies.length&&(rm('sculpt')==='auto'||confirm(tr('sculptQ',allies.map(t=>t.name).join(', '),1+(sp.level||0))))){
+        const ids=new Set(allies.map(t=>t.id));a.sv.forEach(x=>{if(ids.has(x[0]))x[3]=true});(a.per||[]).forEach(p=>{if(ids.has(p.id))p.dmg=0});
+        setTimeout(()=>_sn41({k:'sys',text:tr('sculptLog',c.name,allies.map(t=>t.name).join(', '))}),50)}}}
+  return _sn41(a)};
+
+/* ---------- Relentless Endurance (Orc) ---------- */
+const relOk=t=>{const i=t&&t.sheet&&t.sheet.info;return !!(i&&i.species&&/orc/i.test(i.species.id||i.species.name||'')&&!i.relUsed)};
+function relUse(t){const i=Object.assign({},t.sheet.info,{relUsed:1});send({k:'sp',id:t.id,p:{hp:1,info:i,death:null,dead:false,fx:fxOf(t).filter(f=>!f.dy&&f.c!=='unconscious')}});send({k:'sys',text:tr('relLog',t.name)})}
+const _dd41=dealDmg;
+dealDmg=function(t,amt,type,o){const s=t&&t.sheet,old=s?s.hp:0;const real=_dd41(t,amt,type,o);
+  if(isHost&&s&&old>0&&s.hp===0&&isPc(t)&&relOk(t)&&real-old<s.maxHp&&rm('relentless')!=='off'){
+    if(rm('relentless')==='auto')setTimeout(()=>relUse(t),40);
+    else setTimeout(()=>chAsk(null,t,{title:'💪 '+tr('relT',t.name),body:tr('relB'),btns:[['rel','💪 Relentless Endurance']]},u=>{if(u==='rel'&&t.sheet.hp===0)relUse(t)}),40)}
+  return real};
+const _lrt41=longRestTok;
+longRestTok=function(t){_lrt41(t);const i=t.sheet&&t.sheet.info;if(i&&i.relUsed)setTimeout(()=>send({k:'sp',id:t.id,p:{info:Object.assign({},t.sheet.info,{relUsed:0})}}),40)};
+
+/* ---------- Mage Slayer: Concentration Breaker (zawsze) ---------- */
+let MS_UNTIL={};
+const _ap41=apply;
+apply=function(a){if(a&&a.k==='atk'){const att=tokById(a.aid);if(hasFt(att,'mage-slayer'))(a.res||[]).forEach(x=>{const g=tokById(x.id);if(g&&g.sheet&&g.sheet.conc)MS_UNTIL[x.id]=Date.now()+1500})}return _ap41(a)};
+const _rmo41=rollModeOf;
+rollModeOf=function(t,kind,ab){const m=_rmo41(t,kind,ab);if(kind==='save'&&ab==='con'&&t&&MS_UNTIL[t.id]>Date.now()&&t.sheet&&t.sheet.conc){delete MS_UNTIL[t.id];return m==='a'?'n':'d'}return m};
+
+/* ---------- reakcje do wyłączenia ---------- */
+const _cs41=csCands;csCands=function(c){return rm('counter')==='off'?[]:_cs41(c)};
+const _cw41=cwCands;cwCands=function(a,g){return rm('cutting')==='off'?[]:_cw41(a,g)};
+const _ro41=reactOpts;reactOpts=function(g,t,ac,out){const o=_ro41(g,t,ac,out);return rm('deflect')==='off'?o.filter(x=>x!=='deflect'):o};
+
+/* ---------- okno ustawień (Sesja → ⚙ Zasady sesji) ---------- */
+function rulesOpen(){let m=$('#rulesBox');if(m)m.remove();
+  m=hE('div',{id:'rulesBox',className:'rxBox'},hE('b',{textContent:'⚙ '+tr('rulesH')}),hE('div',{className:'smd',textContent:tr('rulesHint')}));
+  const tb=hE('div',{className:'rulesList'});
+  Object.keys(RULE_OPTS).forEach(k=>{const sel=hE('select');RULE_OPTS[k].modes.forEach(v=>sel.append(new Option(tr('rm_'+v),v)));sel.value=rm(k);
+    sel.onchange=()=>{const r=Object.assign({},(S.settings&&S.settings.rules)||{},{[k]:sel.value});send({k:'setting',key:'rules',val:r})};
+    tb.append(hE('div',{className:'rulesRow'},hE('div',{},hE('b',{textContent:tr('rn_'+k)}),hE('small',{textContent:tr('rd_'+k)})),sel))});
+  const x=hE('button',{textContent:tr('close')});x.onclick=()=>m.remove();m.append(tb,x);document.body.append(m)}
+setTimeout(()=>{const p=$('#hmSess')&&$('#hmSess')._p;if(p&&!p.querySelector('#bRules')){const b=hE('button',{id:'bRules',className:'hmItem',textContent:'⚙ '+tr('rulesB')});b.onclick=rulesOpen;p.prepend(b)}},1600);
+
+addI18n({rulesB:'Session rules',rulesH:'Session rules',rulesHint:'Features that say “you can”: Ask shows a pop-up to the character’s owner, Automatic uses it whenever it can help, Off never uses it.',
+  rm_ask:'Ask',rm_auto:'Automatic',rm_off:'Off',
+  rn_indom:'Indomitable',rd_indom:'Fighter 9+: reroll a failed saving throw (+ fighter level).',
+  rn_gmind:'Mage Slayer – Guarded Mind',rd_gmind:'Turn a failed INT, WIS or CHA save into a success (1 per rest).',
+  rn_relentless:'Relentless Endurance',rd_relentless:'Orc: drop to 1 HP instead of 0 (1 per Long Rest).',
+  rn_lr:'Legendary Resistance',rd_lr:'Monster turns a failed save into a success.',
+  rn_hi:'Heroic Inspiration',rd_hi:'Reroll the d20 after a missed attack.',
+  rn_sculpt:'Sculpt Spells',rd_sculpt:'Evoker: allies in the area automatically succeed and take no damage.',
+  rn_counter:'Counterspell',rd_counter:'Reaction window when an enemy within 60 ft casts a spell.',
+  rn_cutting:'Cutting Words',rd_cutting:'Lore Bard: reaction to subtract Bardic Inspiration from an enemy’s hit.',
+  rn_deflect:'Deflect Attacks',rd_deflect:'Monk: reaction to reduce weapon damage.',
+  chAutoPass:'success',chSaveT:'{0}: failed saving throw',chSaveB:'{0} failed a {1} save (DC {2}). Use a feature?',chConfirm:'{0} failed a {1} save (DC {2}). Use {3}?',
+  gmLog:'🧠 {0}: Guarded Mind — the save succeeds.',sculptQ:'Sculpt Spells: protect {0}? (up to {1} creatures)',
+  relT:'{0} drops to 0 HP',relB:'Use Relentless Endurance and drop to 1 HP instead?',relLog:'💪 {0}: Relentless Endurance — stays at 1 HP!'},
+ {rulesB:'Zasady sesji',rulesH:'Zasady sesji',rulesHint:'Zdolności typu „you can”: Pytaj pokazuje okienko właścicielowi postaci, Automatycznie używa zawsze, gdy może pomóc, Wyłączone nigdy.',
+  rm_ask:'Pytaj',rm_auto:'Automatycznie',rm_off:'Wyłączone',
+  rn_indom:'Indomitable',rd_indom:'Wojownik 9+: przerzut nieudanego rzutu obronnego (+ poziom wojownika).',
+  rn_gmind:'Mage Slayer – Guarded Mind',rd_gmind:'Nieudany rzut INT, MDR lub CHA staje się udany (raz na odpoczynek).',
+  rn_relentless:'Relentless Endurance',rd_relentless:'Ork: spada do 1 PW zamiast 0 (raz na długi odpoczynek).',
+  rn_lr:'Legendary Resistance',rd_lr:'Potwór zamienia nieudany rzut obronny w udany.',
+  rn_hi:'Heroic Inspiration',rd_hi:'Przerzut k20 po pudle.',
+  rn_sculpt:'Sculpt Spells',rd_sculpt:'Evoker: sojusznicy w obszarze zdają rzut i nie dostają obrażeń.',
+  rn_counter:'Counterspell',rd_counter:'Okno reakcji, gdy wróg w 60 ft rzuca czar.',
+  rn_cutting:'Cutting Words',rd_cutting:'Bard Lore: reakcja odejmująca kość Bardic Inspiration od trafienia wroga.',
+  rn_deflect:'Deflect Attacks',rd_deflect:'Mnich: reakcja zmniejszająca obrażenia od broni.',
+  chAutoPass:'sukces',chSaveT:'{0}: nieudany rzut obronny',chSaveB:'{0} oblewa rzut {1} (ST {2}). Użyć zdolności?',chConfirm:'{0} oblewa rzut {1} (ST {2}). Użyć: {3}?',
+  gmLog:'🧠 {0}: Guarded Mind — rzut udany.',sculptQ:'Sculpt Spells: ochronić {0}? (maks. {1} stworzeń)',
+  relT:'{0} spada do 0 PW',relB:'Użyć Relentless Endurance i zostać z 1 PW?',relLog:'💪 {0}: Relentless Endurance — zostaje z 1 PW!'});
 
 </script>
 </body>
