@@ -456,6 +456,23 @@ body.tpMode #map{cursor:crosshair}
 .wzEqOpt.on{border-color:#8a7cff;background:#8a7cff14}
 .wzEqOpt input{margin-top:3px}
 .wzEqL{font-weight:700;color:#b6a9ff;min-width:1em}
+/* v28: źródła */
+.pkHead{display:flex;flex-direction:column;gap:2px;margin:2px 0 8px}
+.pkHead small{color:var(--mute)}
+.pk.pkSrc{display:flex;align-items:center;gap:10px}
+.pk.pkSrc.off .pkTxt{opacity:.45}
+.pkTxt{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.pkTxt small{color:var(--mute)}
+.pkLic{font-size:.78em}
+.pkSw{position:relative;width:38px;height:22px;flex:none;cursor:pointer}
+.pkSw input{opacity:0;width:0;height:0;position:absolute}
+.pkSw span{position:absolute;inset:0;border-radius:999px;background:#3a3f55;transition:.15s}
+.pkSw span::after{content:'';position:absolute;left:3px;top:3px;width:16px;height:16px;border-radius:50%;background:#cfd3e6;transition:.15s}
+.pkSw input:checked+span{background:#5b4fd6}
+.pkSw input:checked+span::after{left:19px;background:#fff}
+#catSrc{max-width:200px}
+.ibSrc{align-self:flex-start;font-size:.85em}
+#pkList{max-height:min(300px,38vh)!important;overflow:auto}
 
 </style>
 </head>
@@ -8673,6 +8690,76 @@ sheetExtra=function(t,E){_se38(t,E);try{const info=smInfo,x=subInfo(info),fe=Q('
   fe.append(sec)}catch(e){console.error(e)}};
 
 addI18n({sbCustom:'Other (type it in)…',sbTooLow:'{0} starts at class level {1}.',sbSpells:'Always prepared'},{sbCustom:'Inna (wpisz)…',sbTooLow:'{0} zaczyna się od {1} poziomu klasy.',sbSpells:'Zawsze przygotowane'});
+
+/* ================= m39: źródła – włączanie/wyłączanie paczek i oznaczenie, skąd jest wpis ================= */
+let PK_ALL=false;
+const _po39=packsOp;
+packsOp=async function(mode,fn){const r=await _po39(mode,fn);if(!PK_ALL&&mode==='readonly'&&Array.isArray(r)&&r.length&&r.every(x=>x&&Array.isArray(x.spells)))return r.filter(p=>!p.off);return r};
+const SRC_SECT=['spells','monsters','feats','species','items','subclasses','backgrounds','packs'];
+const _lc39=loadCatalog;
+loadCatalog=async function(){const packs=await _lc39.apply(this,arguments);
+  const tag=(arr,name)=>(arr||[]).forEach(x=>{if(x&&typeof x==='object')x.src=name});
+  tag(CAT.spells,tr('srcBuiltin'));tag(BASE_ITEMS,tr('srcBuiltin'));tag(MAGIC_ITEMS,tr('srcBuiltin'));tag(PACKS,tr('srcBuiltin'));tag(BACKGROUNDS,tr('srcBuiltin'));
+  packs.forEach(p=>SRC_SECT.forEach(k=>tag(p[k],p.id==='homebrew'?'Homebrew':p.name)));
+  return packs};
+const srcOf=x=>(x&&x.src)||tr('srcBuiltin');
+const pkCount=p=>SRC_SECT.map(k=>[k,(p[k]||[]).length]).filter(([,n])=>n);
+
+/* okno paczek: lista źródeł z przełącznikiem */
+packsRender=async function(){
+  PK_ALL=true;let all=[];try{all=await packsOp('readonly',s=>s.getAll())}finally{PK_ALL=false}
+  all.sort((a,b)=>(a.added||0)-(b.added||0));
+  await loadCatalog();
+  const l=$('#pkList');l.innerHTML='';
+  const head=hE('div',{className:'pkHead'},hE('b',{textContent:tr('srcH')}),hE('small',{textContent:tr('srcHint')}));l.append(head);
+  if(!all.length)l.append(hE('div',{className:'empty',textContent:tr('packsEmpty')}));
+  all.forEach(p=>{
+    const on=!p.off,d=hE('div',{className:'pk pkSrc'+(on?'':' off')});
+    const sw=hE('label',{className:'pkSw',title:on?tr('srcOff'):tr('srcOn')},hE('input',{type:'checkbox',checked:on}),hE('span'));
+    sw.querySelector('input').onchange=async e=>{p.off=!e.target.checked;PK_ALL=true;try{await packsOp('readwrite',s=>s.put(p))}finally{PK_ALL=false}
+      say(tr(p.off?'srcOffLog':'srcOnLog',esc(p.name)),'sys');packsRender()};
+    const counts=pkCount(p).map(([k,n])=>`${n} ${tr('srcK_'+k)}`).join(' · ')||tr('srcEmpty');
+    const txt=hE('span',{className:'pkTxt'},hE('b',{textContent:p.name}),hE('small',{textContent:counts+(p.source?' · '+p.source:'')}));
+    if(p.license)txt.append(hE('small',{className:'pkLic',textContent:p.license}));
+    const del=hE('button',{textContent:'×',title:tr('delPack')});del.onclick=async()=>{if(confirm(tr('delPackQ',p.name))){PK_ALL=true;try{await packsOp('readwrite',s=>s.delete(p.id))}finally{PK_ALL=false}packsRender()}};
+    d.append(sw,txt,del);l.append(d)});
+  catSrcSel();catRender();renderHud()};
+
+/* katalog: filtr źródła i oznaczenie */
+let catSrc='';
+function catSrcSel(){let s=$('#catSrc');const q=$('#catQ');if(!q)return;
+  if(!s){s=hE('select',{id:'catSrc'});s.onchange=()=>{catSrc=s.value;catRender()};q.after(s)}
+  const names=[...new Set(['spells','monsters','feats'].flatMap(k=>(CAT[k]||[]).map(srcOf)))].sort();
+  s.innerHTML='';[['',tr('srcAll')],...names.map(n=>[n,n])].forEach(([v,l])=>s.append(new Option(l,v)));if(!names.includes(catSrc))catSrc='';s.value=catSrc}
+const _cr39=catRender;
+catRender=function(){
+  if(!catSrc)return _cr39.apply(this,arguments),catTagSrc();
+  const keep={};['spells','monsters','feats'].forEach(k=>{keep[k]=CAT[k];CAT[k]=CAT[k].filter(x=>srcOf(x)===catSrc)});
+  try{_cr39.apply(this,arguments)}finally{Object.assign(CAT,keep)}
+  const tb=$('#catTabs');if(tb)[...tb.children].forEach((b,i)=>{const k=['spells','monsters','feats'][i];if(k)b.textContent=b.textContent.replace(/\(\d+\)/,`(${CAT[k].filter(x=>srcOf(x)===catSrc).length})`)});
+  catTagSrc()};
+function catTagSrc(){const many=new Set(['spells','monsters','feats'].flatMap(k=>(CAT[k]||[]).map(srcOf))).size>1;if(!many)return;
+  const list=(CAT[catTab]||[]).filter(x=>!catSrc||srcOf(x)===catSrc);const by=new Map(list.map(x=>[x.name,x]));
+  document.querySelectorAll('#catList .ci').forEach(d=>{const b=d.querySelector('b');const x=b&&by.get(b.textContent);const sm=d.querySelector('small');if(x&&sm&&!sm.dataset.src){sm.dataset.src=1;sm.textContent+=' · 📦 '+srcOf(x)}})}
+
+$('#catQ').oninput=()=>catRender();
+/* wyszukiwarka przedmiotów: znacznik i filtr źródła */
+const _it39=itemTags;
+itemTags=function(b,info){const t=_it39(b,info);if(b&&b.src&&b.src!==tr('srcBuiltin'))t.push('📦 '+b.src);return t};
+const _if39=ibFilter;
+ibFilter=function(info){const r=_if39(info);return IB.src?r.filter(b=>srcOf(b)===IB.src):r};
+const _ib39=itemBrowser;
+itemBrowser=function(info,onAdd){const box=_ib39(info,onAdd);try{
+  const names=[...new Set(ibCatalog().map(srcOf))];if(names.length<2)return box;
+  const sel=wzSel([['',tr('srcAll')],...names.sort().map(n=>[n,n])],IB.src||'',v=>{IB.src=v;IB.lim=40;const s=box.querySelector('.ibSearch');s.dispatchEvent(new Event('input'))});
+  sel.className='ibSrc';box.querySelector('.ibChips').after(sel)}catch(e){console.error(e)}return box};
+
+addI18n({srcBuiltin:'Built-in',srcH:'Sources',srcHint:'Turn a source off to hide its spells, monsters, items, species, backgrounds and subclasses from the game. Nothing is deleted.',srcOn:'Turn on',srcOff:'Turn off',
+  srcOnLog:'📦 Source on: {0}',srcOffLog:'📦 Source off: {0}',srcAll:'All sources',srcEmpty:'empty',
+  srcK_spells:'spells',srcK_monsters:'monsters',srcK_feats:'feats',srcK_species:'species',srcK_items:'items',srcK_subclasses:'subclasses',srcK_backgrounds:'backgrounds',srcK_packs:'packs'},
+ {srcBuiltin:'Wbudowane',srcH:'Źródła',srcHint:'Wyłącz źródło, żeby schować z gry jego czary, potwory, przedmioty, gatunki, pochodzenia i podklasy. Nic nie jest usuwane.',srcOn:'Włącz',srcOff:'Wyłącz',
+  srcOnLog:'📦 Źródło włączone: {0}',srcOffLog:'📦 Źródło wyłączone: {0}',srcAll:'Wszystkie źródła',srcEmpty:'puste',
+  srcK_spells:'czarów',srcK_monsters:'potworów',srcK_feats:'featów',srcK_species:'gatunków',srcK_items:'przedmiotów',srcK_subclasses:'podklas',srcK_backgrounds:'pochodzeń',srcK_packs:'pakietów'});
 
 </script>
 </body>
