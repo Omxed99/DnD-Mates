@@ -1,0 +1,338 @@
+# Format paczki danych D&D Mates (`dndmates-pack` v1)
+
+Paczka to zwykły plik `.json`. DM wczytuje go w **📚 Dane → Paczki danych → Importuj paczkę**. Dane zapisują się w przeglądarce DM-a. Gracze dostają przez połączenie tylko to, czego używasz w grze (np. definicje rzucanych czarów).
+
+**Kolejność łączenia:** wbudowane dane → paczki w kolejności importu. Wpis z tym samym `id` co wcześniejszy go **nadpisuje**. Dzięki temu możesz poprawić np. czar z SRD, wgrywając paczkę z tym samym `id`.
+
+**Zasady ogólne**
+- Każda sekcja jest opcjonalna. Paczka może zawierać np. same potwory.
+- Wpis bez `id` albo `name` jest pomijany.
+- `id` to małe litery i myślniki, np. `light-domain`, `hermits-staff`. Musi być unikalne w obrębie sekcji.
+- Nieznane pola są ignorowane, a błędne wartości zastępowane domyślnymi. Zły plik nic nie zepsuje.
+- Typy obrażeń (wszędzie te same): `fire` `cold` `lightning` `thunder` `acid` `poison` `necrotic` `radiant` `force` `psychic` `bludgeoning` `piercing` `slashing`.
+- Cechy: `str` `dex` `con` `int` `wis` `cha`.
+- Klasy: `barbarian` `bard` `cleric` `druid` `fighter` `monk` `paladin` `ranger` `rogue` `sorcerer` `warlock` `wizard`.
+- Kości: `8d6`, `1d10+3`, `2d4-1`.
+
+## Szkielet
+
+```json
+{
+  "format": "dndmates-pack",
+  "version": 1,
+  "name": "Moja kampania",
+  "source": "Homebrew Jana",
+  "license": "Tekst licencji / uznania autorstwa (opcjonalnie)",
+
+  "subclasses": [],
+  "species": [],
+  "backgrounds": [],
+  "feats": [],
+  "spells": [],
+  "monsters": [],
+  "items": [],
+  "packs": [],
+  "classEquipment": {}
+}
+```
+
+`format` i `version` są wymagane. Bez nich paczka zostanie odrzucona.
+
+---
+
+## Podklasa (`subclasses`)
+
+Pojawia się w kreatorze postaci jako lista do wyboru (dla pasującej klasy). Na karcie postaci jest karta z cechami do obecnego poziomu.
+
+| pole | typ | uwagi |
+|---|---|---|
+| `id` | string | np. `light-domain` |
+| `name` | string | nazwa, która zapisze się na karcie, np. `Light Domain` |
+| `class` | string | jedna z klas, np. `cleric` |
+| `level` | liczba | od którego poziomu klasy, zwykle `3` |
+| `desc` | string | krótki opis (opcjonalnie) |
+| `features` | tablica `{level, name, text}` | cechy podklasy; widać te, których `level` ≤ poziom klasy |
+| `spells` | tablica `{level, ids:[…]}` | czary **zawsze przygotowane** od danego poziomu klasy (`id` czarów z katalogu) |
+
+```json
+{
+  "id": "light-domain", "name": "Light Domain", "class": "cleric", "level": 3,
+  "desc": "Kapłani światła i ognia.",
+  "features": [
+    { "level": 3, "name": "Warding Flare", "text": "Reakcja: atakujący widoczny w 30 ft ma utrudnienie." },
+    { "level": 6, "name": "Improved Warding Flare", "text": "Możesz chronić też sojuszników." }
+  ],
+  "spells": [
+    { "level": 3, "ids": ["burning-hands", "faerie-fire"] },
+    { "level": 5, "ids": ["fireball"] }
+  ]
+}
+```
+
+> Cechy podklas są **opisem**. Automatycznie działają tylko czary z `spells` i kilka podklas rozpoznawanych po nazwie: *Champion* (krytyk 19–20), *Life* (Disciple of Life), *Fiend* (Dark One's Blessing), *Evoker/Evocation* (Potent Cantrip), *Thief* (4. slot zestrojenia).
+
+---
+
+## Rasa / gatunek (`species`)
+
+W zasadach 2024 „race” nazywa się „species”. Pole w kreatorze: **Gatunek**.
+
+| pole | typ | uwagi |
+|---|---|---|
+| `id`, `name` | string | |
+| `size` | string | `Small`, `Medium`… |
+| `sizeChoice` | tablica | gdy można wybrać, np. `["Small","Medium"]` |
+| `speed` | liczba (ft) | domyślnie 30 |
+| `darkvision` | liczba (ft) | 0 = brak |
+| `hpPerLevel` | liczba | dodatkowe PW na poziom (np. krasnolud: `1`) |
+| `resist` | tablica typów obrażeń | odporności |
+| `cantrips` | tablica `id` czarów | sztuczki od 1. poziomu |
+| `extraOriginFeat` | bool | dodatkowy feat pochodzenia (jak człowiek) |
+| `traits` | tablica `{name, text}` | opis cech |
+| `choices` | tablica wyborów | np. smocze pochodzenie, linia elfów — patrz niżej |
+
+Wybór (`choices[]`): `{ "id", "label", "options": [ … ] }`. Każda opcja może mieć: `id`, `name`, `resist`, `speed`, `darkvision`, `cantrips`, `spells: [{ "id", "level" }]` (czar dostępny od poziomu postaci).
+
+```json
+{
+  "id": "sea-elf", "name": "Sea Elf", "size": "Medium", "speed": 30, "darkvision": 60,
+  "resist": ["cold"], "cantrips": ["shape-water"],
+  "traits": [ { "name": "Child of the Sea", "text": "Prędkość pływania 30 ft, oddychasz pod wodą." } ],
+  "choices": [
+    { "id": "gift", "label": "Dar morza", "options": [
+      { "id": "tide", "name": "Tide", "spells": [ { "id": "fog-cloud", "level": 3 } ] },
+      { "id": "storm", "name": "Storm", "resist": ["lightning"] }
+    ] }
+  ]
+}
+```
+
+---
+
+## Pochodzenie (`backgrounds`)
+
+W zasadach 2024 **pochodzenie (Origin) = gatunek + background**. Background daje +2/+1 (albo +1/+1/+1) do trzech cech, dwie umiejętności, narzędzie, **feat pochodzenia** i wyposażenie startowe. Sam „Origin feat” to zwykły feat z kategorią `Origin` (sekcja Featy niżej).
+
+| pole | typ | uwagi |
+|---|---|---|
+| `id`, `name` | string | |
+| `abilities` | tablica 3 cech | z których rozdziela się +2/+1 lub +1/+1/+1 |
+| `feat` | `id` featu | feat pochodzenia, który dostaje postać |
+| `featNote` | string | dopisek, np. `Cleric` przy Magic Initiate |
+| `skills` | tablica 2 umiejętności | `id` umiejętności (lista niżej) |
+| `tool` | string | biegłość w narzędziu (tekst) |
+| `desc` | string | opis (opcjonalnie) |
+| `equipment` | tablica opcji A/B | jak w `classEquipment` (niżej) |
+
+**Umiejętności:** `acrobatics` `animal-handling` `arcana` `athletics` `deception` `history` `insight` `intimidation` `investigation` `medicine` `nature` `perception` `performance` `persuasion` `religion` `sleight-of-hand` `stealth` `survival`.
+
+```json
+{
+  "id": "hermit", "name": "Hermit",
+  "abilities": ["con", "wis", "cha"], "feat": "healer",
+  "skills": ["medicine", "religion"], "tool": "Herbalism Kit",
+  "equipment": [
+    { "items": [["quarterstaff", 1], ["herbalism-kit", 1], ["lamp", 1]], "pack": "explorers-pack", "gp": 16 },
+    { "gp": 50 }
+  ]
+}
+```
+
+---
+
+## Feat (`feats`)
+
+| pole | typ | uwagi |
+|---|---|---|
+| `id`, `name` | string | |
+| `category` | string | `Origin`, `General`, `Fighting Style`, `Epic Boon` |
+| `prereq` | string | wymagania jako tekst |
+| `minLevel` | liczba | od którego poziomu można wziąć (General: 4, Epic Boon: 19) |
+| `repeatable` | bool | czy można wziąć kilka razy |
+| `asi` | `{amount, max, choose:[…]}` | zwiększenie cechy, np. `+1` do jednej z `choose`, maks. `max` |
+| `needs` | `{any:[…], min}` | wymóg cechy, np. `{ "any": ["str","dex"], "min": 13 }` |
+| `desc` | string | opis |
+
+```json
+{
+  "id": "healer", "name": "Healer", "category": "Origin", "minLevel": 1,
+  "desc": "Battle Medic: zużyj Healer's Kit, cel wydaje Kość Wytrzymałości i leczy się. Rzuty leczenia: przerzucasz 1."
+}
+```
+
+> Mechanicznie działają featy rozpoznawane po `id`: `alert`, `archery`, `defense`, `dueling`, `grappler`, `great-weapon-fighting`, `great-weapon-master`, `lucky`, `magic-initiate`, `polearm-master`, `savage-attacker`, `sentinel`, `sharpshooter`, `skilled`, `two-weapon-fighting`. Pozostałe są opisem; `asi` działa dla każdego featu.
+
+---
+
+## Czar (`spells`)
+
+| pole | typ | uwagi |
+|---|---|---|
+| `id`, `name` | string | |
+| `level` | liczba | `0` = sztuczka |
+| `school` | string | np. `evocation` |
+| `classes` | tablica klas | na czyich listach jest czar |
+| `range` | liczba (ft) | `0` = na siebie |
+| `rangeText` | string | do wyświetlania, np. `150 feet` |
+| `shape` | `circle` `cone` `line` `cube` `single` | kształt na mapie; bez niego czar jest tylko opisem |
+| `size` | liczba (ft) | promień / długość / bok |
+| `dice` | kości | główne obrażenia albo leczenie |
+| `type` | typ obrażeń | |
+| `damage` | tablica `{dice, type}` | gdy kilka typów naraz (do 6) |
+| `save` | cecha | rzut obronny celu |
+| `half` | bool | połowa obrażeń przy udanym rzucie |
+| `attack` | `melee` / `ranged` | czar z rzutem na atak |
+| `autoHit` | bool | trafia zawsze (jak Magic Missile) |
+| `rays` | `{base, perSlot, byLevel}` | wiele pocisków/promieni |
+| `scaling` | `{dice, above}` | `+dice` za każdy slot powyżej `above` |
+| `castingTime`, `duration` | string | |
+| `concentration`, `ritual` | bool | |
+| `components` | tablica | `["V","S","M"]` |
+| `material` | string | |
+| `higher`, `desc` | string | opisy |
+
+Czar jest **rzucalny na mapie**, gdy ma `shape` oraz `dice` i `type`.
+
+```json
+{
+  "id": "frost-lance", "name": "Frost Lance", "level": 2, "school": "evocation",
+  "classes": ["sorcerer", "wizard"], "range": 60, "shape": "line", "size": 60,
+  "dice": "4d8", "type": "cold", "save": "con", "half": true,
+  "scaling": { "dice": "1d8", "above": 2 },
+  "castingTime": "Action", "duration": "Instantaneous", "components": ["V", "S"],
+  "desc": "Lodowa włócznia przebija wszystko na linii."
+}
+```
+
+> Efekty dodatkowe (stany, wzmocnienia) działają dla czarów z SRD rozpoznawanych po `id`. Dla własnych czarów automatyczne są obrażenia, leczenie, rzuty obronne i koncentracja.
+
+---
+
+## Potwór (`monsters`)
+
+| pole | typ | uwagi |
+|---|---|---|
+| `id`, `name` | string | |
+| `cr` | string | `1/4`, `5`… (z tego liczy się XP i budżet spotkań) |
+| `hp`, `ac` | liczby | |
+| `hitDice` | string | np. `2d8+2` |
+| `size`, `type`, `alignment` | string | `type` ważny dla Turn Undead (`Undead`) |
+| `speed` | string | np. `40 ft., Fly 60 ft.` |
+| `stats` | `{str, dex, con, int, wis, cha}` | wartości cech |
+| `initiative` | liczba | modyfikator inicjatywy |
+| `senses`, `languages` | string | |
+| `resist`, `vulnerable`, `immune` | tablice typów obrażeń | |
+| `conditionImmunities` | tablica | np. `["poisoned","charmed"]` |
+| `traits`, `actions`, `bonusActions`, `reactions`, `legendary` | tablice stringów | format `"Nazwa. Tekst"` |
+| `spells` | tablica `id` czarów | czary na karcie żetonu |
+| `desc` | string | |
+
+**Akcje są czytane automatycznie**, jeśli trzymają się formatu z SRD 2024:
+- atak: `"Bite. Melee Attack Roll: +4, reach 5 ft. Hit: 5 (1d6 + 2) Piercing damage."`
+- rzut obronny: `"Fire Breath (Recharge 5–6). Dexterity Saving Throw: DC 13, each creature in a 15-foot Cone. Failure: 24 (7d6) Fire damage. Success: Half damage."`
+- ST czarów w `Spellcasting`: `"(spell save DC 17)"`.
+
+**Cechy działające mechanicznie (po nazwie na początku):** Pack Tactics, Magic Resistance, Sunlight Sensitivity, Undead Fortitude, Regeneration (`regains N Hit Points`, `takes acid or fire damage`), Legendary Resistance (`(3/Day)`). Counterspell w `reactions` daje okno reakcji.
+
+```json
+{
+  "id": "frost-wolf", "name": "Frost Wolf", "cr": "1", "hp": 26, "ac": 13, "hitDice": "4d8+8",
+  "size": "Medium", "type": "Beast", "speed": "50 ft.",
+  "stats": { "str": 15, "dex": 16, "con": 14, "int": 3, "wis": 12, "cha": 6 },
+  "immune": ["cold"],
+  "traits": ["Pack Tactics. The wolf has Advantage on attack rolls against a creature if an ally is within 5 feet of it."],
+  "actions": ["Bite. Melee Attack Roll: +5, reach 5 ft. Hit: 7 (1d8 + 3) Piercing damage plus 3 (1d6) Cold damage."]
+}
+```
+
+---
+
+## Przedmiot (`items`)
+
+| pole | typ | uwagi |
+|---|---|---|
+| `id`, `name` | string | |
+| `kind` | `weapon` `armor` `shield` `gear` `consumable` `magic` | |
+| `cat` | string | broń: `simple`/`martial`; zbroja: `light`/`medium`/`heavy`; tarcza: `shield` |
+| `weight` | liczba (lb) | |
+| `cost` | liczba (GP) | `0.1` = 1 SP, `0.01` = 1 CP |
+| `rarity` | string | `common` `uncommon` `rare` `very rare` `legendary` `artifact` |
+| `bonus` | 0–3 | magiczne +1/+2/+3 (broń, zbroja, tarcza) |
+| `attune`, `attuneBy` | bool, string | wymaga zestrojenia; `attuneBy` np. `Wizard`, `Spellcaster` |
+| `tool` | bool | narzędzie / instrument (filtr „Narzędzia”) |
+| `note`, `desc` | string | krótka notatka / pełny opis |
+| **broń** | | |
+| `dice`, `dtype` | kości, typ obrażeń | np. `1d8`, `slashing` |
+| `props` | tablica | `light` `finesse` `heavy` `two-handed` `versatile` `thrown` `reach` `ammunition` `loading` |
+| `vers` | kości | obrażenia oburącz (Versatile) |
+| `range` | string | np. `80/320` |
+| `ranged` | bool | broń dystansowa |
+| `mastery` | string | `cleave` `graze` `nick` `push` `sap` `slow` `topple` `vex` |
+| **zbroja / tarcza** | | |
+| `base` | liczba | KP zbroi (tarcza: `2`) |
+| `dexMax` | liczba | limit ZRĘ (`0` = bez ZRĘ; pomiń dla lekkiej) |
+| `str` | liczba | wymagana SIŁA |
+| `stealth` | bool | utrudnienie w Stealth |
+| **efekty magiczne** | | |
+| `acBonus`, `saveBonus` | liczby | premia do KP / rzutów (gdy zestrojony i założony) |
+| `spellAtk`, `spellDc` | liczby | premia do ataku / ST czarów |
+| `cond` | `noArmor` | premia tylko bez zbroi i tarczy |
+| `heal` | kości | mikstura leczenia, np. `2d4+2` |
+
+```json
+[
+  { "id": "hermits-staff", "name": "Hermit's Staff", "kind": "weapon", "cat": "simple",
+    "dice": "1d6", "dtype": "bludgeoning", "props": ["versatile"], "vers": "1d8",
+    "mastery": "topple", "weight": 4, "cost": 3, "note": "Rzeźbiony dąb." },
+  { "id": "frost-mail", "name": "Frost Mail", "kind": "armor", "cat": "medium",
+    "base": 14, "dexMax": 2, "bonus": 1, "rarity": "rare", "attune": true, "weight": 20,
+    "desc": "Odporność na zimno, gdy zestrojona." },
+  { "id": "amulet-of-focus", "name": "Amulet of Focus", "kind": "magic", "rarity": "uncommon",
+    "attune": true, "attuneBy": "Spellcaster", "spellDc": 1, "spellAtk": 1 }
+]
+```
+
+---
+
+## Pakiet ekwipunku (`packs`)
+
+Pakiet rozpakowuje się na pojedyncze przedmioty przy dodawaniu.
+
+| pole | typ | uwagi |
+|---|---|---|
+| `id`, `name` | string | |
+| `cost` | liczba (GP) | |
+| `contents` | tablica `[id_przedmiotu, ilość]` | |
+
+```json
+{ "id": "hunters-pack", "name": "Hunter's Pack", "cost": 12,
+  "contents": [["backpack", 1], ["hunting-trap", 1], ["rations", 5], ["rope", 1], ["waterskin", 1]] }
+```
+
+Wbudowane pakiety: `burglars-pack`, `diplomats-pack`, `dungeoneers-pack`, `entertainers-pack`, `explorers-pack`, `priests-pack`, `scholars-pack`.
+
+---
+
+## Wyposażenie startowe klas (`classEquipment`)
+
+Obiekt: klucz to klasa, wartość to lista opcji A, B, C… Każda opcja zawiera:
+- `items`: `[id, ilość, notatka?]`;
+- `pack`: `id` pakietu;
+- `gp`: złoto.
+
+Zastępuje wbudowane wyposażenie tej klasy.
+
+```json
+"classEquipment": {
+  "cleric": [
+    { "items": [["chain-shirt", 1], ["shield", 1], ["mace", 1], ["holy-symbol", 1]], "pack": "priests-pack", "gp": 7 },
+    { "gp": 110 }
+  ]
+}
+```
+
+---
+
+## Uwagi prawne
+
+Wgrywaj tylko dane, do których masz prawo. SRD 5.2 (CC-BY-4.0) można publikować z uznaniem autorstwa. Treści z płatnych podręczników trzymaj lokalnie i importuj ręcznie, bez wrzucania do publicznego repozytorium.
