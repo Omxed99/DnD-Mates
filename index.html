@@ -1858,7 +1858,7 @@ function skillBudget(info){
 const jackOfAll=info=>clsLv(info,'bard')>=2;
 function skillProfLv(info,k){return(info.skills||{})[k]|0}
 function skillMod(info,k){const d=SKILLS.find(x=>x[0]===k),p=skillProfLv(info,k);let m=abMod(info.abilities[d[2]]||10)+p*(info.prof||2);if(!p&&jackOfAll(info))m+=Math.floor((info.prof||2)/2);return m}
-const initMod=info=>abMod(info.abilities.dex||10)+((info.feats||[]).includes('alert')?info.prof:jackOfAll(info)?Math.floor(info.prof/2):0);
+let initMod=info=>abMod(info.abilities.dex||10)+((info.feats||[]).includes('alert')?info.prof:jackOfAll(info)?Math.floor(info.prof/2):0);
 function skillIsOption(info,k){return skillBudget(info).src.some(s=>s.list===ANY||s.list.includes(k))}
 function skillCycle(info,k){
   const b=skillBudget(info),sk=info.skills=info.skills||{},p=sk[k]|0,free=!!info.rulesOff,fixed=b.src.some(s=>s.fixed&&s.fixed.includes(k));
@@ -9124,8 +9124,8 @@ function conv5eFeat(f){
   if((m=/\+1 bonus to (?:your )?Armor Class/i.exec(txt)))out.effects.push({type:'bonus',stat:'ac',value:1});
   return out}
 function from5e(raw){const list=Array.isArray(raw)?raw:Array.isArray(raw.feat)?raw.feat:(raw&&raw.name&&raw.entries)?[raw]:null;if(!list)return null;
-  return{format:'dndmates-pack',version:1,name:raw._meta&&raw._meta.sources&&raw._meta.sources[0]?raw._meta.sources[0].full||'5etools import':'5etools import ('+[...new Set(list.map(f=>f.source).filter(Boolean))].join(', ')+')',
-    source:'5etools',feats:list.filter(f=>f&&f.name).map(conv5eFeat)}}
+  return{format:'dndmates-pack',version:1,name:raw._meta&&raw._meta.sources&&raw._meta.sources[0]?raw._meta.sources[0].full||'5etools import':'5etools: featy ('+list.filter(f=>f&&f.name&&!(f.reprintedAs&&list.length>1)).length+')',
+    source:'5etools',feats:list.filter(f=>f&&f.name&&!(f.reprintedAs&&list.length>1)).map(f=>conv5eFeat(f))}}
 const _cp42=cleanPack;
 cleanPack=function(raw){if(raw&&raw.format!=='dndmates-pack'){const c=from5e(raw);if(c)raw=c}
   const out=_cp42(raw);const ef=new Map((Array.isArray(raw.feats)?raw.feats:[]).filter(f=>f&&f.effects).map(f=>[f.id,cleanEffects(f.effects)]));
@@ -9200,6 +9200,172 @@ addI18n({feH:'Feat effects',feAb:'Spellcasting ability',feSpells:'Spells',feFree
   feAdv:'Advantage on {0} saving throws',feRes:'Resistance: {0}',feTrig:'Failed {0} save: {1}',feLogOk:'✨ {0}: {1} — the save succeeds.',feLogDie:'✨ {0}: {1} — {2}: {3} → {4} vs DC {5} {6}',feLogRe:'✨ {0}: {1} — reroll {2} vs DC {3} {4}',shortRest:'Short Rest',longRest:'Long Rest',cantrip:'cantrip'},
  {feH:'Efekty featów',feAb:'Cecha czarowania',feSpells:'Czary',feFree:'za darmo',feFreeNote:'Każdy wybrany czar 1+ poziomu możesz rzucić raz na {0} bez slotu (wybierz go na liście slotów).',feReroll:'przerzut',reactionW:'reakcja',
   feAdv:'Przewaga w rzutach {0}',feRes:'Odporność: {0}',feTrig:'Nieudany rzut {0}: {1}',feLogOk:'✨ {0}: {1} — rzut udany.',feLogDie:'✨ {0}: {1} — {2}: {3} → {4} vs ST {5} {6}',feLogRe:'✨ {0}: {1} — przerzut {2} vs ST {3} {4}',shortRest:'krótki odpoczynek',longRest:'długi odpoczynek',cantrip:'sztuczka'});
+
+/* ================= m43: więcej klocków efektów (biegłości, ekspertyza, zmysły, stany, inicjatywa, PW) + pełniejszy import 5etools ================= */
+const SK_IDS=SKILLS.map(s=>s[0]);
+const skId=n=>String(n).toLowerCase().replace(/\s+/g,'-');
+const _ce43=cleanEffects;
+cleanEffects=function(arr){const base=_ce43(arr);const extra=(Array.isArray(arr)?arr:[]).slice(0,30).map(e=>{if(!e||typeof e!=='object')return null;const t=String(e.type||'');
+  const list=(v,ok)=>(Array.isArray(v)?v:[]).map(x=>String(x).toLowerCase()).filter(ok||(()=>true)).slice(0,30);
+  const ch=c=>c&&typeof c==='object'?{what:['skill','tool','save','skillOrTool','resist','expertise'].includes(c.what)?c.what:'skill',from:c.from==='proficient'?'proficient':list(c.from),count:Math.max(1,Math.min(6,+c.count||1))}:null;
+  if(t==='prof')return{type:t,skills:list(e.skills,x=>SK_IDS.includes(x)),tools:list(e.tools),armor:list(e.armor,x=>['light','medium','heavy','shield'].includes(x)),weapons:list(e.weapons),saves:list(e.saves,x=>ABIL.includes(x)),choose:ch(e.choose)};
+  if(t==='expertise')return{type:t,skills:list(e.skills,x=>SK_IDS.includes(x)),choose:ch(e.choose)};
+  if(t==='sense'&&['darkvision','blindsight','truesight','tremorsense'].includes(e.kind))return{type:t,kind:e.kind,range:Math.max(0,Math.min(300,+e.range||0))};
+  if(t==='condImmune')return{type:t,conds:list(e.conds)};
+  if(t==='resist'&&e.choose)return{type:'resist',dmg:[],choose:Object.assign(ch(e.choose),{what:'resist'})};
+  if(t==='bonus'&&['init','hpPerLevel','hpFlat'].includes(e.stat))return{type:t,stat:e.stat,abs:null,value:e.value==='prof'||/^ab:/.test(String(e.value))?String(e.value):+e.value||0,when:null};
+  if(t==='note')return{type:t,text:String(e.text||'').slice(0,300)};
+  return null}).filter(Boolean);
+  return base.concat(extra)};
+
+/* --- wybory z efektów (na karcie) --- */
+function fePicks(info,f,idx){const ch=(info.fe||{})[f.id]||{};return((ch.pk||{})[idx])||[]}
+function fxProf(info,key){const out=new Set();fxList(info,'prof').forEach(e=>{(e[key]||[]).forEach(x=>out.add(x));if(e.choose&&(e.choose.what===key.slice(0,-1)||(e.choose.what==='skillOrTool'&&(key==='skills'||key==='tools'))))fePicks(info,e.feat,e.idx).forEach(x=>{if(key==='skills'?SK_IDS.includes(x):key==='tools'?!SK_IDS.includes(x):true)out.add(x)})});return out}
+function fxExpert(info){const out=new Set();fxList(info,'expertise').forEach(e=>{e.skills.forEach(x=>out.add(x));if(e.choose)fePicks(info,e.feat,e.idx).forEach(x=>out.add(x))});return out}
+const _spl43=skillProfLv;skillProfLv=function(info,k){const p=_spl43(info,k);if(!info)return p;const prof=p>=1||fxProf(info,'skills').has(k);if(!prof)return p;return fxExpert(info).has(k)?2:Math.max(p,1)};
+const _at43=armorTrained;armorTrained=function(info,cat){return _at43(info,cat)||fxProf(info,'armor').has(cat)};
+const _wp43=wpnProf;wpnProf=function(info,w){if(_wp43(info,w))return true;const s=fxProf(info,'weapons');return s.has(w.cat)||s.has(String(w.name||'').toLowerCase())||s.has(String(w.ref||w.id||'').toLowerCase())};
+const _sm43=saveMod;saveMod=function(t,k){let v=_sm43(t,k);const i=infoOf(t);if(i&&!(i.saveProf||[]).includes(k)&&fxProf(i,'saves').has(k))v+=i.prof||2;return v};
+const _sen43=senses;senses=function(t){const r=_sen43(t),i=infoOf(t);if(i)fxList(i,'sense').forEach(e=>{if(e.kind==='darkvision')r.dv=Math.max(r.dv,e.range);else r.bs=Math.max(r.bs||0,e.range)});return r};
+const _ra43=resistAdjust;resistAdjust=function(sheet,type,amount){const i=sheet&&sheet.info;if(i){const picked=fxList(i,'resist').filter(e=>e.choose).flatMap(e=>fePicks(i,e.feat,e.idx));if(picked.includes(type)&&!(sheet.resist||[]).includes(type)){return _ra43(Object.assign({},sheet,{resist:(sheet.resist||[]).concat([type])}),type,amount)}}return _ra43(sheet,type,amount)};
+const _af43=addFx;addFx=function(tid,o){const t=tokById(tid),i=infoOf(t);if(i&&o&&o.c&&fxList(i,'condImmune').some(e=>e.conds.includes(o.c))){send({k:'sys',text:tr('ciLog',t.name,o.n||o.c)});return}return _af43(tid,o)};
+initMod=(_im=>info=>{let v=_im(info);fxList(info,'bonus').forEach(e=>{if(e.stat==='init')v+=fxVal(info,e.value)});return v})(initMod);
+const _ah43=autoHp;autoHp=function(info){const r=_ah43(info);if(r==null)return r;let b=0;fxList(info,'bonus').forEach(e=>{if(e.stat==='hpFlat')b+=fxVal(info,e.value)});return r+b};
+/* PW na poziom z efektów → pole hpPerLevel (liczone przez istniejące featHp) */
+const _cp43=cleanPack;cleanPack=function(raw){const out=_cp43(raw);out.feats.forEach(f=>{const h=(f.effects||[]).find(e=>e.type==='bonus'&&e.stat==='hpPerLevel');if(h)f.hpPerLevel=+h.value||0});return out};
+
+/* --- karta: wybory dla prof/expertise/resist --- */
+const _sv43=smView;smView=function(){_sv43();try{const i=smInfo,box=Q('#pgFeatFx');if(!i||!box)return;
+  featsWithFx(i).forEach(f=>{const card=[...box.querySelectorAll('.feCard')].find(c=>c.querySelector('b')&&c.querySelector('b').textContent.startsWith(f.name));if(!card)return;
+    f.effects.forEach((e,idx)=>{if(!e.choose||!['prof','expertise','resist'].includes(e.type))return;const c=e.choose;
+      let pool=c.from==='proficient'?SK_IDS.filter(k=>_spl43(i,k)>=1||fxProf(i,'skills').has(k)):c.from.length?c.from:(c.what==='skill'||c.what==='expertise'?SK_IDS:c.what==='save'?ABIL:c.what==='resist'?DMG_TYPES.map(d=>d[0]):[]);
+      const lbl=x=>{const s=SKILLS.find(q=>q[0]===x);return s?s[1]:ABIL.includes(x)?x.toUpperCase():DMG_TYPES.some(d=>d[0]===x)?dmgName(x):cap1(x)};
+      const ch=featChoice(i,f.id);ch.pk=ch.pk||{};const cur=ch.pk[idx]||[];const row=wzEl('div',{className:'smRow'},wzEl('small',{textContent:tr('fePick_'+e.type)}));
+      for(let n=0;n<c.count;n++){const s=wzSel([['','—']].concat(pool.map(x=>[x,lbl(x)])),cur[n]||'',v=>{ch.pk[idx]=(ch.pk[idx]||[]).slice();ch.pk[idx][n]=v;smTouch();smView()});row.append(s)}
+      card.append(row)})})}catch(e){console.error('fe43',e)}};
+const _fd43=feDescribe;feDescribe=function(e,i){
+  if(e.type==='prof'){const p=[...e.skills.map(x=>(SKILLS.find(q=>q[0]===x)||[0,x])[1]),...e.tools.map(cap1),...e.armor.map(a=>cap1(a)+' armor'),...e.weapons.map(cap1),...e.saves.map(a=>a.toUpperCase()+' save')];return p.length?tr('feProf',p.join(', ')):''}
+  if(e.type==='expertise')return e.skills.length?tr('feExp',e.skills.map(x=>(SKILLS.find(q=>q[0]===x)||[0,x])[1]).join(', ')):'';
+  if(e.type==='sense')return`${cap1(e.kind)} ${e.range} ft`;if(e.type==='condImmune')return tr('feCi',e.conds.map(cap1).join(', '));if(e.type==='note')return'ℹ '+e.text;
+  if(e.type==='resist'&&e.choose)return'';
+  if(e.type==='bonus'&&e.stat==='init')return`Initiative ${sg(fxVal(i,e.value))}`;if(e.type==='bonus'&&e.stat==='hpPerLevel')return tr('feHpL',e.value);if(e.type==='bonus'&&e.stat==='hpFlat')return tr('feHpF',e.value);
+  return _fd43(e,i)};
+
+/* --- import 5etools: pola strukturalne i więcej zdań --- */
+const CI_5E=c=>String(c).toLowerCase();
+const _cv43=conv5eFeat;
+conv5eFeat=function(f){const out=_cv43(f);const E=out.effects;const keys=o=>Object.keys(o||{}).filter(k=>o[k]===true);
+  const chFrom=(o,what)=>o&&o.choose?{what,from:(o.choose.from||[]).map(x=>what==='skill'||what==='expertise'?skId(x):String(x).toLowerCase()),count:o.choose.count||1}:null;
+  (f.skillProficiencies||[]).slice(0,1).forEach(o=>{const ks=keys(o).map(skId).filter(k=>SK_IDS.includes(k));if(ks.length>=SK_IDS.length-1)E.push({type:'prof',choose:{what:'skill',from:[],count:1}});else if(ks.length)E.push({type:'prof',skills:ks});if(o.any)E.push({type:'prof',choose:{what:'skill',from:[],count:o.any}});const c=chFrom(o,'skill');if(c)E.push({type:'prof',choose:c})});
+  (f.toolProficiencies||[]).slice(0,1).forEach(o=>{const ks=keys(o);if(ks.length)E.push({type:'prof',tools:ks});if(o.any||o.anyArtisansTool||o.anyMusicalInstrument)E.push({type:'note',text:tr('feNoteTool')})});
+  (f.armorProficiencies||[]).slice(0,1).forEach(o=>{const ks=keys(o).filter(k=>['light','medium','heavy','shield'].includes(k));if(ks.length)E.push({type:'prof',armor:ks})});
+  (f.weaponProficiencies||[]).slice(0,1).forEach(o=>{const ks=keys(o).map(k=>k.split('|')[0]);if(ks.length)E.push({type:'prof',weapons:ks});if(o.choose)E.push({type:'note',text:tr('feNoteWpn')})});
+  (f.savingThrowProficiencies||[]).slice(0,1).forEach(o=>{const ks=keys(o).filter(k=>ABIL.includes(k));if(ks.length)E.push({type:'prof',saves:ks});const c=chFrom(o,'save');if(c)E.push({type:'prof',choose:c})});
+  (f.skillToolLanguageProficiencies||[]).slice(0,1).forEach(o=>{(o.choose||[]).forEach(c=>{if(/anySkill|anyTool/.test(JSON.stringify(c.from||[])))E.push({type:'prof',choose:{what:'skillOrTool',from:[],count:c.count||1}})})});
+  (f.expertise||[]).slice(0,1).forEach(o=>{const ks=keys(o).map(skId).filter(k=>SK_IDS.includes(k));if(ks.length)E.push({type:'expertise',skills:ks});if(o.anyProficientSkill)E.push({type:'expertise',choose:{what:'expertise',from:'proficient',count:o.anyProficientSkill}})});
+  (f.senses||[]).concat(f.bonusSenses||[]).forEach(o=>Object.entries(o||{}).forEach(([k,v])=>{if(['darkvision','blindsight','truesight','tremorsense'].includes(k)&&+v)E.push({type:'sense',kind:k,range:+v})}));
+  (f.resist||[]).forEach(r=>{if(typeof r==='string')E.push({type:'resist',dmg:[r]});else if(r&&r.choose)E.push({type:'resist',choose:{what:'resist',from:r.choose.from||[],count:r.choose.count||1}})});
+  (f.immune||[]).forEach(r=>{if(typeof r==='string')E.push({type:'resist',dmg:[r]})});
+  (f.conditionImmune||[]).forEach(c=>{if(typeof c==='string')E.push({type:'condImmune',conds:[CI_5E(c)]})});
+  /* zdania */
+  const txt=JSON.stringify(f.entries||[]);let m;
+  if(/bonus to (?:your )?Initiative rolls? equal to your Proficiency Bonus|add your Proficiency Bonus to (?:the|your) Initiative/i.test(txt))E.push({type:'bonus',stat:'init',value:'prof'});
+  else if((m=/\+(\d) bonus to (?:your )?Initiative/i.exec(txt)))E.push({type:'bonus',stat:'init',value:+m[1]});
+  if((m=/Hit Point maximum increases by an amount equal to (twice|three times)? ?your (?:character )?level/i.exec(txt)))E.push({type:'bonus',stat:'hpPerLevel',value:m[1]==='twice'?2:m[1]?3:1});
+  else if((m=/Hit Point maximum increases by (\d+)/i.exec(txt)))E.push({type:'bonus',stat:'hpFlat',value:+m[1]});
+  if((m=/Advantage on (Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma) saving throws/i.exec(txt))&&!/saving throws (?:you make )?(?:to|against)/i.test(txt.slice(m.index,m.index+80)))E.push({type:'adv',on:'save',abs:[m[1].slice(0,3).toLowerCase()]});
+  if((m=/When you fail an? (\w+) saving throw, you can (?:take a \{@variantrule Reaction[^}]*\} to )?reroll it/i.exec(txt))){const rid=out.id+'-reroll';E.push({type:'resource',id:rid,name:out.name,uses:1,rest:/Short or Long|Short/i.test(txt)?'short':'long'});E.push({type:'trigger',on:'failSave',abs:[m[1].slice(0,3).toLowerCase()],do:'reroll',cost:rid,reaction:/Reaction/.test(m[0]),name:out.name})}
+  if((m=/When you fail a saving throw, you can (?:choose to )?succeed instead/i.exec(txt))){const rid=out.id+'-succ';E.push({type:'resource',id:rid,name:out.name,uses:1,rest:/Short or Long/i.test(txt)?'short':'long'});E.push({type:'trigger',on:'failSave',abs:'all',do:'succeed',cost:rid,name:out.name})}
+  return out};
+addI18n({ciLog:'{0} is immune: {1}.',fePick_prof:'Proficiency:',fePick_expertise:'Expertise:',fePick_resist:'Resistance:',feProf:'Proficiency: {0}',feExp:'Expertise: {0}',feCi:'Immune: {0}',feHpL:'Hit Point maximum +{0} per level',feHpF:'Hit Point maximum +{0}',
+  feNoteTool:'Tool proficiency of your choice (set it on the sheet).',feNoteWpn:'Weapon proficiency of your choice (set it on the sheet).'},
+ {ciLog:'{0} jest odporny: {1}.',fePick_prof:'Biegłość:',fePick_expertise:'Ekspertyza:',fePick_resist:'Odporność:',feProf:'Biegłość: {0}',feExp:'Ekspertyza: {0}',feCi:'Odporność na stan: {0}',feHpL:'Maks. PW +{0} na poziom',feHpF:'Maks. PW +{0}',
+  feNoteTool:'Biegłość w wybranym narzędziu (ustaw na karcie).',feNoteWpn:'Biegłość w wybranej broni (ustaw na karcie).'});
+
+/* ================= m44: klocki onHit, dmgReduce, immune, drop0 + więcej zdań w imporcie 5etools ================= */
+const _ce44=cleanEffects;
+cleanEffects=function(arr){const base=_ce44(arr);const extra=(Array.isArray(arr)?arr:[]).slice(0,30).map(e=>{if(!e||typeof e!=='object')return null;const t=String(e.type||'');
+  const dmgs=v=>(Array.isArray(v)?v:[v]).filter(d=>DMG_TYPES.some(x=>x[0]===d));const val=v=>v==='prof'||/^ab:(str|dex|con|int|wis|cha)$/.test(String(v))?String(v):Number.isFinite(+v)?+v:0;
+  if(t==='immune')return{type:t,dmg:dmgs(e.dmg)};
+  if(t==='dmgReduce')return{type:t,value:val(e.value),dmg:dmgs(e.dmg),armor:['light','medium','heavy'].includes(e.armor)?e.armor:null,attacksOnly:e.attacksOnly!==false};
+  if(t==='onHit')return{type:t,name:String(e.name||'').slice(0,60),dice:/^\d*d\d+$/.test(e.dice||'')?e.dice:'',dmgType:e.dmgType==='weapon'?'weapon':dmgs(e.dmgType)[0]||'',bonus:val(e.bonus||0),
+    when:['melee','ranged','weapon','any','thrown'].includes(e.when)?e.when:'any',reqDmg:dmgs(e.reqDmg)[0]||null,needBloodied:!!e.needBloodied,heal:!!e.heal,
+    targetFx:e.targetFx&&typeof e.targetFx==='object'?{n:String(e.targetFx.n||e.name||'').slice(0,60),spd:+e.targetFx.spd||0,dAdv:!!e.targetFx.dAdv,atkDis:!!e.targetFx.atkDis}:null,cost:typeof e.cost==='string'?e.cost.slice(0,40):null};
+  if(t==='trigger'&&e.on==='drop0')return{type:t,on:'drop0',healHalf:!!e.healHalf,cost:typeof e.cost==='string'?e.cost.slice(0,40):null,name:String(e.name||'').slice(0,60)};
+  if(t==='bonus'&&e.stat==='ac'&&e.armor)return{type:t,stat:'ac',value:val(e.value),armor:['light','medium','heavy','none'].includes(e.armor)?e.armor:null,dexMin:+e.dexMin||0,abs:null,when:null,cond:1};
+  if(t==='bonus'&&e.stat==='dmg'&&e.when==='thrown')return{type:t,stat:'dmgThrown',value:val(e.value),abs:null,when:null};
+  return null}).filter(Boolean);
+  /* warunkowe KP nie może dublować się z bazowym klockiem bonus:ac */
+  const condAc=extra.filter(x=>x.cond);return base.filter(b=>!(b.type==='bonus'&&b.stat==='ac'&&condAc.length)).concat(extra)};
+/* odporność całkowita */
+const _ra44=resistAdjust;resistAdjust=function(sheet,type,amount){const i=sheet&&sheet.info;if(i&&fxList(i,'immune').some(e=>e.dmg.includes(type)))return 0;return _ra44(sheet,type,amount)};
+/* KP zależne od zbroi */
+const _aa44=autoAc;autoAc=function(info){const r=_aa44(info);if(!r)return r;fxList(info,'bonus').filter(e=>e.stat==='ac'&&e.cond).forEach(e=>{const w=wornArmor(info);const cat=w?w.cat:'none';if(e.armor&&e.armor!==cat)return;if(e.dexMin&&((info.abilities||{}).dex||10)<e.dexMin)return;r.ac+=fxVal(info,e.value)});return r};
+/* obrażenia broni rzucanej */
+const _pso44=pcStrikeOpts;pcStrikeOpts=function(t){const o=_pso44(t),i=infoOf(t);if(!i)return o;const b=fxList(i,'bonus').filter(e=>e.stat==='dmgThrown');if(!b.length)return o;
+  o.forEach(x=>{if(x.w&&!x.melee&&(x.w.props||[]).includes('thrown')&&x.parts&&x.parts[0])b.forEach(e=>x.parts[0].f=(x.parts[0].f||0)+fxVal(i,e.value))});return o};
+/* zmniejszenie obrażeń (np. Heavy Armor Master) – deterministycznie u wszystkich */
+const _ap44=apply;apply=function(a){
+  if(a&&a.k==='atk'&&a.res)a.res.forEach(x=>{if(x.t!=='a'||!(x.out==='hit'||x.out==='crit')||x.dr44!=null)return;const g=tokById(x.id),i=infoOf(g);if(!i)return;
+    let red=0;fxList(i,'dmgReduce').forEach(e=>{if(e.armor){const w=wornArmor(i);if(!w||w.cat!==e.armor)return}red+=fxVal(i,e.value)});if(!red){x.dr44=0;return}
+    const types=new Set(fxList(i,'dmgReduce').flatMap(e=>e.dmg));let left=red,cut=0;x.parts=(x.parts||[]).map(p=>{if(!types.has(p[1])||left<=0)return p;const c=Math.min(left,p[0]);left-=c;cut+=c;return[p[0]-c,p[1]]});
+    x.dr44=cut;if(cut){a.total=Math.max(0,(a.total||0)-cut);x.bt=(x.bt||'')+` −${cut}`}});
+  return _ap44(a)};
+/* spadek do 0 PW → 1 PW (np. Boon of Recovery: Last Stand) */
+const _dd44=dealDmg;dealDmg=function(t,amt,type,o){const s=t&&t.sheet,old=s?s.hp:0;const real=_dd44(t,amt,type,o);
+  if(isHost&&s&&old>0&&s.hp===0&&isPc(t)&&s.info&&rm('feat')!=='off'){const tg=fxList(s.info,'trigger').find(e=>e.on==='drop0'&&(!e.cost||resIdLeft(t,'fe_'+e.cost)>0));
+    if(tg){const go=()=>{if(t.sheet.hp!==0)return;if(tg.cost)resIdSpend(t,'fe_'+tg.cost);const hp=tg.healHalf?Math.max(1,Math.floor(t.sheet.maxHp/2)):1;
+        send({k:'sp',id:t.id,p:{hp,death:null,dead:false,fx:fxOf(t).filter(f=>!f.dy&&f.c!=='unconscious')}});send({k:'sys',text:tr('d0Log',t.name,tg.name||tg.feat.name,hp)})};
+      if(rm('feat')==='auto')setTimeout(go,50);else setTimeout(()=>chAsk(null,t,{title:'✨ '+tr('relT',t.name),body:tr('d0Q',tg.name||tg.feat.name),btns:[['d0','✨ '+(tg.name||tg.feat.name)]]},u=>{if(u==='d0')go()}),50)}}
+  return real};
+/* dodatkowe obrażenia przy trafieniu (raz na turę) – pole wyboru w panelu ataku */
+function onHitList(t,o){const i=infoOf(t);if(!i||!K)return[];return fxList(i,'onHit').filter(e=>{const used=t.sheet.econ&&t.sheet.econ['oh_'+e.feat.id+e.idx];if(used)return false;if(e.cost&&resIdLeft(t,'fe_'+e.cost)<=0)return false;
+  if(e.when==='melee'&&!o.melee)return false;if(e.when==='ranged'&&o.melee)return false;if(e.when==='weapon'&&!o.w&&!o.unarmed)return false;if(e.when==='thrown'&&!(o.w&&(o.w.props||[]).includes('thrown')))return false;
+  if(e.reqDmg&&!(o.parts||[]).some(p=>p.type===e.reqDmg))return false;if(e.needBloodied&&!(t.sheet.hp<=t.sheet.maxHp/2))return false;return true})}
+const _str44=stRender;stRender=function(){_str44.apply(this,arguments);try{const p=$('#stPanel');if(!K||!p||p.hidden||K.opt.kind!=='atk')return;const t=K.att;const L=onHitList(t,K.opt);if(!L.length)return;
+  let opts=p.querySelector('.stOpts');if(!opts){opts=hE('div',{className:'stOpts'});p.insertBefore(opts,p.querySelector('.stBtns'))}K.oh=K.oh||{};
+  L.forEach(e=>{const k=e.feat.id+e.idx,l=hE('label',{title:e.feat.name});const c=hE('input',{type:'checkbox'});c.checked=!!K.oh[k];c.onchange=()=>K.oh[k]=c.checked;
+    const what=[e.dice?`+${e.dice}${e.bonus?sg(fxVal(infoOf(t),e.bonus)):''}${e.dmgType&&e.dmgType!=='weapon'?' '+dmgName(e.dmgType):''}`:'',e.targetFx?e.targetFx.n:''].filter(Boolean).join(' · ');
+    l.append(c,document.createTextNode(` ✨ ${e.name||e.feat.name}${what?' ('+what+')':''}`));opts.append(l)})}catch(e){console.error(e)}};
+const _sep44=stExtraParts;stExtraParts=function(g){const ex=_sep44(g);try{const t=K.att,i=infoOf(t);if(!K.oh||!i)return ex;onHitList(t,K.opt).forEach(e=>{if(!K.oh[e.feat.id+e.idx]||(!e.dice&&!e.bonus))return;const p=e.dice?parseDmgExpr(e.dice):{n:0,s:4,f:0};
+  ex.push({n:p.n,s:p.s,f:(p.f||0)+fxVal(i,e.bonus),type:e.dmgType==='weapon'||!e.dmgType?(K.opt.parts[0]||{}).type:e.dmgType})})}catch(e){}return ex};
+const _ah44=afterHit;afterHit=function(t,g,o,abm){const sel=K&&K.oh?Object.assign({},K.oh):null;const L=sel?onHitList(t,o):[];_ah44(t,g,o,abm);if(!sel)return;
+  L.forEach(e=>{const k=e.feat.id+e.idx;if(!sel[k])return;if(S.combat&&S.combat.started)setTimeout(()=>econSet(t,{['oh_'+k]:1}),30);if(e.cost)resIdSpend(t,'fe_'+e.cost);
+    if(e.targetFx)setTimeout(()=>addFx(g.id,{c:'custom',n:e.targetFx.n,spd:e.targetFx.spd||undefined,dAdv:e.targetFx.dAdv||undefined,u:'srcStart',src:t.id}),80);
+    if(e.heal&&e.dice){const p=parseDmgExpr(e.dice);let n=(p.f||0)+fxVal(infoOf(t),e.bonus);for(let q=0;q<p.n;q++)n+=rnd(p.s);setTimeout(()=>healTok(t,n,e.name||e.feat.name),120)}
+    send({k:'sys',text:tr('ohLog',t.name,e.name||e.feat.name,g.name)})});if(K)K.oh={}};
+
+/* --- import 5etools: kolejne zdania (na tekście bez znaczników) --- */
+const _cv44=conv5eFeat;
+conv5eFeat=function(f){const out=_cv44(f);const E=out.effects;const txt=strip5e(JSON.stringify(f.entries||[]));let m;
+  const has=(type,stat)=>E.some(e=>e.type===type&&(!stat||e.stat===stat));
+  /* poprawione (bez znaczników) wersje wcześniejszych wzorców */
+  if(!has('bonus','speed')&&(m=/Your Speed increases by (\d+) feet/i.exec(txt)))E.push({type:'bonus',stat:'speed',value:+m[1]});
+  if(!has('bonus','hpPerLevel')&&!has('bonus','hpFlat')){if((m=/Hit Points? maximum increases by an amount equal to (twice|three times)? ?your (?:character )?level/i.exec(txt)))E.push({type:'bonus',stat:'hpPerLevel',value:m[1]==='twice'?2:m[1]?3:1});else if((m=/Hit Points? maximum increases by (\d+)/i.exec(txt)))E.push({type:'bonus',stat:'hpFlat',value:+m[1]})}
+  if(!has('bonus','init')&&/add your Proficiency(?: Bonus)? to (?:the|your) Initiative|bonus to (?:your )?Initiative (?:rolls )?equal to your Proficiency/i.test(txt))E.push({type:'bonus',stat:'init',value:'prof'});
+  /* odporność całkowita z pola immune zamiast odporności */
+  (f.immune||[]).forEach(r=>{if(typeof r==='string'){const k=E.findIndex(e=>e.type==='resist'&&e.dmg&&e.dmg.length===1&&e.dmg[0]===r);if(k>=0)E.splice(k,1);E.push({type:'immune',dmg:[r]})}});
+  if((m=/You have Immunity to (\w+) damage/i.exec(txt))&&!E.some(e=>e.type==='immune'))E.push({type:'immune',dmg:[m[1].toLowerCase()]});
+  /* Heavy Armor Master i podobne */
+  if((m=/wearing (Heavy|Medium|Light) armor, any Bludgeoning, Piercing, and Slashing damage dealt to you by that attack is reduced by an amount equal to your Proficiency/i.exec(txt)))E.push({type:'dmgReduce',value:'prof',dmg:['bludgeoning','piercing','slashing'],armor:m[1].toLowerCase()});
+  if(/wearing Medium armor, you can add 3, rather than 2/i.test(txt))E.push({type:'bonus',stat:'ac',value:1,armor:'medium',dexMin:16});
+  if((m=/ranged attack roll using a weapon that has the (?:T|Thrown) property, you gain a \+(\d) bonus to the damage roll/i.exec(txt)))E.push({type:'bonus',stat:'dmg',when:'thrown',value:+m[1]});
+  /* spadek do 0 PW */
+  if(/When you would be reduced to 0 Hit Points, you can drop to 1 Hit Points? instead and regain a number of Hit Points equal to half your Hit Points maximum/i.test(txt)){const rid=out.id+'-d0';E.push({type:'resource',id:rid,name:out.name,uses:1,rest:'long'});E.push({type:'trigger',on:'drop0',healHalf:true,cost:rid,name:(/"([^".]+)\. When you would be reduced to 0/.exec(txt)||[])[1]||out.name})}
+  else if(/(?:drop|reduced) to 0 Hit Points but (?:aren't|are not) killed outright, you can (?:instead )?drop to 1 Hit Points?/i.test(txt)){const rid=out.id+'-d0';E.push({type:'resource',id:rid,name:out.name,uses:1,rest:'long'});E.push({type:'trigger',on:'drop0',cost:rid,name:out.name})}
+  /* ponowny rzut obronny bez podanej cechy */
+  if(!E.some(e=>e.type==='trigger'&&e.on==='failSave')&&/When you fail a saving throw, you can reroll it/i.test(txt))E.push({type:'trigger',on:'failSave',abs:'all',do:'reroll',name:out.name});
+  /* raz na turę: dodatkowe obrażenia */
+  if((m=/Once per turn,? when you (hit|damage) a creature[^.]*?, you can (?:also )?deal (?:an )?extra (\d*d\d+)(?: plus your Proficiency(?: Bonus)?)? (\w+) damage/i.exec(txt))){
+    const ent=(function find(a){for(const x of a||[]){if(x&&typeof x==='object'&&x.name&&/Once per turn/i.test(strip5e(JSON.stringify(x.entries||[]))))return x;if(x&&x.entries){const r=find(x.entries);if(r)return r}}return null})(f.entries);
+    E.push({type:'onHit',dice:m[2],bonus:/plus your Proficiency/i.test(m[0])?'prof':0,dmgType:m[3].toLowerCase(),when:/weapon/i.test(m[0])?'weapon':'any',name:ent?strip5e(ent.name):out.name})}
+  if((m=/Once per turn,? when you damage a creature[^.]*?, you can also deal (\w+) damage to it\. The \w+ damage equals (\d*d\d+) \+ your proficiency bonus/i.exec(txt)))E.push({type:'onHit',dice:m[2],bonus:'prof',dmgType:m[1].toLowerCase(),when:'any',heal:/regain a number of hit points equal/i.test(txt),name:out.name});
+  if(/Once per turn when you hit a creature with an attack that deals Slashing damage, you can reduce the Speed of that creature by 10 feet/i.test(txt))E.push({type:'onHit',reqDmg:'slashing',when:'any',targetFx:{n:'−10 ft Speed',spd:-10},name:'Hamstring'});
+  if(/move at least 10 feet in a straight line toward a target immediately before hitting it with a melee attack roll/i.test(txt))E.push({type:'onHit',dice:'1d8',dmgType:'weapon',when:'melee',name:'Charge Attack'});
+  if((m=/Once per turn, when you make an attack roll while Bloodied, you can deal extra damage to the target equal to your Proficiency/i.exec(txt)))E.push({type:'onHit',dice:'',bonus:'prof',dmgType:'weapon',needBloodied:true,when:'any',name:'Power from Pain'});
+  return out};
+addI18n({d0Q:'Use {0} and stay up instead of dropping to 0 HP?',d0Log:'✨ {0}: {1} — stays at {2} HP!',ohLog:'✨ {0}: {1} on {2}.'},
+ {d0Q:'Użyć {0} i nie spaść do 0 PW?',d0Log:'✨ {0}: {1} — zostaje z {2} PW!',ohLog:'✨ {0}: {1} na {2}.'});
 
 </script>
 </body>
