@@ -414,6 +414,19 @@ input[type=range],input[type=checkbox],input[type=radio]{accent-color:var(--gold
 .miniMenu{max-width:360px}.miniMenu .cbBtns{flex-wrap:wrap}
 .hiN{color:#c99a00;margin-left:8px}
 body.tpMode #map{cursor:crosshair}
+/* v26: menu paska DM-a */
+.hmWrap{display:inline-flex}
+.hmBtn .hmCaret{opacity:.6;font-size:.8em;margin-left:2px}
+.hmBtn.on{border-color:#8a7cff;background:#2a2550}
+.hmPanel{position:fixed;z-index:9000;min-width:230px;display:flex;flex-direction:column;gap:4px;padding:8px;background:var(--panel,#1c1f2b);border:1px solid #3a3f55;border-radius:12px;box-shadow:0 12px 36px #000b;animation:hmIn .14s ease}
+.hmPanel[hidden]{display:none}
+@keyframes hmIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.hmPanel>.hmItem{width:100%;justify-content:flex-start;text-align:left;display:flex;align-items:center;gap:6px;margin:0;box-sizing:border-box}
+.hmPanel>label.hmItem:not(.btn){padding:6px 8px;font-size:.92em;opacity:.95;justify-content:space-between}
+.hmPanel>label.hmItem:not(.btn) select,.hmPanel>label.hmItem:not(.btn) input{margin-left:auto}
+.hmPanel>.hmItem.warn{border-color:#d9a400}
+#bSun.hmItem.on{background:#ffe08a;color:#5a3d00}
+.hmPanel>.hmItem[data-ic]::before{content:attr(data-ic);width:1.2em;text-align:center;display:inline-block}
 
 </style>
 </head>
@@ -8332,6 +8345,41 @@ addI18n({dispelLog:'{0}: Dispel Magic on {1} — ended: {2}',nothing:'nothing',r
   csTitle:'{0}: reakcja — Counterspell',csWait:'Czekam: {0} może użyć Counterspell…',csBody:'{0} rzuca {1}. Counterspell?',csLog:'{0} kontruje {1} ({2}): {1} KON ST {3}: {4} {5}',csFail:'🚫 Czar {0} nie działa (slot nie przepada).',csUse:'{0} używa Counterspell!',
   innD:'Akcja bonusowa, 1 minuta: ST czarów +1 i przewaga w atakach czarami. 2 razy na długi odpoczynek.',innOn:'Innate Sorcery już działa.',innLog:'✨ {0} włącza Innate Sorcery (ST +1, przewaga w atakach czarami).',
   evLog:'{0}: Evasion → {1}',pcLog:'{0}: Potent Cantrip → {1}',dolLog:'Disciple of Life +{0}',beaconLog:'{0}: Beacon of Hope (maks. leczenie)',dobLog:'{0}: Dark One’s Blessing — {1} tymczasowych PW.'});
+
+/* ================= m36: porządek w pasku DM-a – menu Sesja / Dane / Postacie ================= */
+const HM_GROUPS=[
+  {id:'hmSess',k:'hmSess',ic:'🎲',items:['bStats','bPlayers','bBackup','bNet','bExp','@fImp','@rulerVis']},
+  {id:'hmData',k:'hmData',ic:'📚',items:['bLib','bPacks','bMapGen','bSun','bHb','@gSize']},
+  {id:'hmChar',k:'hmChar',ic:'🧙',items:['bNewPc','@lChar','@fDdb','bTok','bHi']}
+];
+const HM_LABEL={bSun:()=>'☀ '+tr('hmSun'),bHi:()=>'✦ Heroic Inspiration'};
+const HM_IC={bLib:'🖼',bPacks:'📦',bExp:'⬇',fImp:'⬆',gSize:'▦',rulerVis:'📏',bNewPc:'✍',lChar:'📄',fDdb:'🐉',bTok:'🪙'};
+function hmEl(ref){if(ref[0]!=='@')return document.getElementById(ref);const e=document.getElementById(ref.slice(1));return e&&e.closest('label')}
+function hmClose(){document.querySelectorAll('.hmPanel').forEach(p=>p.hidden=true);document.querySelectorAll('.hmBtn').forEach(b=>b.classList.remove('on'))}
+function hmBuild(){
+  const ht=$('#hdrTools .host-only');if(!ht)return;
+  HM_GROUPS.forEach(G=>{
+    let wrap=document.getElementById(G.id);
+    if(!wrap){wrap=hE('span',{id:G.id,className:'hmWrap'});
+      const b=hE('button',{className:'hmBtn'});const p=hE('div',{className:'hmPanel',hidden:true});
+      b.onclick=e=>{e.stopPropagation();const open=p.hidden;hmClose();if(!open)return;p.hidden=false;b.classList.add('on');const r=b.getBoundingClientRect();p.style.left=Math.min(r.left,innerWidth-p.offsetWidth-8)+'px';p.style.top=(r.bottom+6)+'px'};
+      p.onclick=e=>{e.stopPropagation();const t=e.target;if(t.closest('select,input[type=number]'))return;if(t.closest('button,label.btn'))setTimeout(hmClose,0)};
+      wrap.append(b);document.body.append(p);wrap._p=p;wrap._b=b;ht.prepend(wrap)}
+    wrap._b.innerHTML=`${G.ic} ${esc(tr(G.k))} <span class="hmCaret">▾</span>`;
+    G.items.forEach(ref=>{const el=hmEl(ref);if(!el)return;el.classList.add('hmItem');wrap._p.append(el);
+      const lf=HM_LABEL[el.id];if(lf)el.textContent=lf();const ic=HM_IC[ref.replace('@','')];if(ic)el.dataset.ic=ic});
+  });
+  /* kolejność paska: Copy room link · Sesja · Dane · Postacie · reszta (Undo) */
+  ['hmChar','hmData','hmSess'].forEach(id=>{const w=document.getElementById(id);if(w)ht.prepend(w)});
+}
+document.addEventListener('click',hmClose);
+document.addEventListener('keydown',e=>{if(e.key==='Escape')hmClose()});
+addEventListener('resize',hmClose);
+setTimeout(()=>{hmBuild();const ht=$('#hdrTools');if(ht)new MutationObserver(()=>{if(HM_GROUPS.some(G=>G.items.some(r=>{const e=hmEl(r);return e&&!e.classList.contains('hmItem')})))hmBuild()}).observe(ht,{childList:true,subtree:true})},1200);
+/* ponowne etykiety po zmianie języka */
+const _al36=applyLang;
+applyLang=function(){_al36.apply(this,arguments);try{hmBuild()}catch(e){}};
+addI18n({hmSess:'Session',hmData:'Data',hmChar:'Characters',hmSun:'Sunlight'},{hmSess:'Sesja',hmData:'Dane',hmChar:'Postacie',hmSun:'Słońce'});
 
 </script>
 </body>
