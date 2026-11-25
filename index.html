@@ -8603,6 +8603,77 @@ addI18n({itW_simpleM:'Simple Melee Weapon',itW_simpleR:'Simple Ranged Weapon',it
   ibSearch:'Szukaj po nazwie, typie albo właściwości…',ibAll:'Wszystko',ibAnyProp:'Dowolna właściwość',ibAnyRar:'Dowolna rzadkość',ibMundane:'Zwykłe',ibProfOnly:'Tylko z biegłością',ibCount:'{0} przedmiotów',ibAdd:'Dodaj do ekwipunku',ibMore:'Kliknij, żeby zobaczyć szczegóły',ibMoreN:'Pokaż więcej ({0})',
   wzEqH:'Wyposażenie startowe',wzEqNote:'Wybierz opcję A, B lub C dla klasy i pochodzenia. Pakiety rozpakowują się do ekwipunku.',wzEqClass:'{0}',wzEqBg:'Pochodzenie: {0}',wzEqNoBg:'Nie wybrano pochodzenia — bez jego wyposażenia.',wzEqSum:'Razem'});
 
+/* ================= m38: paczki – podklasy, pochodzenia (backgrounds), dodatkowe pola przedmiotów ================= */
+const BG_BUILTIN=BACKGROUNDS.slice();
+const SKILL_IDS=SKILLS.map(s=>s[0]);
+const pStr=(v,n)=>typeof v==='string'?v.slice(0,n):'';
+const pNum=(v,d)=>Number.isFinite(+v)?+v:(d||0);
+const pArr=v=>Array.isArray(v)?v:[];
+function pEquip(arr){return pArr(arr).slice(0,4).map(o=>({it:pArr(o&&o.items).slice(0,40).filter(x=>Array.isArray(x)&&typeof x[0]==='string').map(x=>[pStr(x[0],60),Math.max(1,Math.min(999,pNum(x[1],1))),pStr(x[2]||'',40)||undefined]),
+  pk:typeof (o&&o.pack)==='string'?pStr(o.pack,60):undefined,gp:Math.max(0,pNum(o&&o.gp))}))}
+const _cp38=cleanPack;
+cleanPack=function(raw){const out=_cp38(raw);
+  out.subclasses=pArr(raw.subclasses).slice(0,500).filter(s=>s&&typeof s.id==='string'&&typeof s.name==='string'&&CD[String(s.class||'').toLowerCase()]).map(s=>({
+    id:pStr(s.id,60),name:pStr(s.name,80),class:String(s.class).toLowerCase(),level:Math.max(1,Math.min(20,pNum(s.level,3))),desc:pStr(s.desc,4000),
+    features:pArr(s.features).slice(0,40).filter(f=>f&&typeof f.name==='string').map(f=>({level:Math.max(1,Math.min(20,pNum(f.level,s.level||3))),name:pStr(f.name,80),text:pStr(f.text,4000)})),
+    spells:pArr(s.spells).slice(0,20).filter(x=>x&&Array.isArray(x.ids)).map(x=>({level:Math.max(1,Math.min(20,pNum(x.level,3))),ids:x.ids.filter(i=>typeof i==='string').slice(0,10).map(i=>i.slice(0,60))}))}));
+  out.backgrounds=pArr(raw.backgrounds).slice(0,300).filter(b=>b&&typeof b.id==='string'&&typeof b.name==='string').map(b=>{
+    const ab=pArr(b.abilities).filter(a=>ABIL.includes(a)).slice(0,3),sk=pArr(b.skills).filter(k=>SKILL_IDS.includes(k)).slice(0,2);
+    return{id:pStr(b.id,60),name:pStr(b.name,80),ab:ab.length===3?ab:['str','dex','con'],feat:pStr(b.feat,60),featNote:pStr(b.featNote,40),skills:sk,tool:pStr(b.tool,80),desc:pStr(b.desc,4000),equip:pEquip(b.equipment)}});
+  /* przedmioty: cena, narzędzie, notatka; pakiety ekwipunku */
+  const extra=new Map(pArr(raw.items).filter(i=>i&&typeof i.id==='string').map(i=>[i.id,i]));
+  out.items.forEach(i=>{const r=extra.get(i.id);if(!r)return;if(r.cost!=null&&Number.isFinite(+r.cost))i.cost=Math.max(0,+r.cost);if(r.tool)i.tool=1;if(typeof r.note==='string')i.note=r.note.slice(0,400)});
+  out.packs=pArr(raw.packs).slice(0,100).filter(p=>p&&typeof p.id==='string'&&typeof p.name==='string').map(p=>({id:pStr(p.id,60),name:pStr(p.name,80),cost:Math.max(0,pNum(p.cost)),
+    c:pArr(p.contents).slice(0,60).filter(x=>Array.isArray(x)&&typeof x[0]==='string').map(x=>[pStr(x[0],60),Math.max(1,Math.min(999,pNum(x[1],1)))])}));
+  out.classEquipment={};const ce=raw.classEquipment&&typeof raw.classEquipment==='object'?raw.classEquipment:{};
+  Object.keys(ce).forEach(k=>{const c=k.toLowerCase();if(CD[c])out.classEquipment[c]=pEquip(ce[k])});
+  return out};
+const PACKS_BUILTIN=PACKS.slice(),EQC_BUILTIN=JSON.parse(JSON.stringify(EQ_CLASS)),EQB_BUILTIN=JSON.parse(JSON.stringify(EQ_BG));
+const _lc38=loadCatalog;
+loadCatalog=async function(){const packs=await _lc38.apply(this,arguments);
+  const m=(base,key)=>{const mp=new Map(base.map(x=>[x.id,x]));packs.forEach(p=>(p[key]||[]).forEach(x=>mp.set(x.id,x)));return[...mp.values()]};
+  CAT.subclasses=m([],'subclasses');
+  const bgs=m(BG_BUILTIN,'backgrounds');BACKGROUNDS.length=0;bgs.forEach(b=>BACKGROUNDS.push(b));
+  const pk=m(PACKS_BUILTIN,'packs');PACKS.length=0;pk.forEach(p=>PACKS.push(p));
+  Object.keys(EQ_CLASS).forEach(k=>delete EQ_CLASS[k]);Object.assign(EQ_CLASS,JSON.parse(JSON.stringify(EQC_BUILTIN)));packs.forEach(p=>Object.assign(EQ_CLASS,p.classEquipment||{}));
+  Object.keys(EQ_BG).forEach(k=>delete EQ_BG[k]);Object.assign(EQ_BG,JSON.parse(JSON.stringify(EQB_BUILTIN)));bgs.forEach(b=>{if(b.equip&&b.equip.length)EQ_BG[b.id]=b.equip});
+  try{_allItems=null}catch(e){}
+  return packs};
+const subsFor=cls=>(CAT.subclasses||[]).filter(s=>s.class===cls);
+const subByName=(cls,name)=>(CAT.subclasses||[]).find(s=>(!cls||s.class===cls)&&s.name.toLowerCase()===String(name||'').toLowerCase());
+function subInfo(info){if(!info||!info.subclass)return null;for(const c of info.classes||[]){const s=subByName(c.name,info.subclass);if(s)return{s,lv:c.level}}return null}
+function subSpellIds(info){const x=subInfo(info);if(!x)return[];return x.s.spells.filter(g=>g.level<=x.lv).flatMap(g=>g.ids)}
+
+/* kreator: lista podklas z paczek zamiast pustego pola */
+const _wzr38=wzRender;
+wzRender=function(){_wzr38.apply(this,arguments);try{
+  if(!wz||lu)return;const steps=wzSteps();if(steps[wz.step]!=='wzFinish')return;
+  const c0=wz.classes[0]||{},list=wz.classes.flatMap(c=>subsFor(c.name).map(s=>({s,c})));if(!list.length)return;
+  const inp=[...$('#wzBody').querySelectorAll('input')].find(i=>i.value===(wz.subclass||'')&&i.parentElement&&i.parentElement.textContent.startsWith(tr('subclass')));if(!inp)return;
+  const sel=wzSel([['',tr('none')],...list.map(({s,c})=>[s.name,`${s.name} (${clsLabel(c.name)} ${s.level}+)`]),['__custom',tr('sbCustom')]],subByName(null,wz.subclass)?subByName(null,wz.subclass).name:(wz.subclass?'__custom':''),v=>{if(v==='__custom'){wz.subclass=wz.subclass&&!subByName(null,wz.subclass)?wz.subclass:' ';}else wz.subclass=v;wzRender()});
+  inp.before(sel);if(subByName(null,wz.subclass)||!wz.subclass)inp.hidden=true;
+  const s=subByName(null,wz.subclass);if(s){const c=wz.classes.find(x=>x.name===s.class),lv=c?c.level:0;
+    const box=wzEl('div',{className:'smd wzSub'});if(lv<s.level)box.append(wzEl('div',{className:'bad',textContent:tr('sbTooLow',s.name,s.level)}));
+    s.features.filter(f=>f.level<=lv).forEach(f=>box.append(wzEl('div',{innerHTML:`<b>${esc(f.name)}</b> <small>(${tr('level')} ${f.level})</small>. ${esc(f.text)}`})));
+    const sp=subSpellIds({classes:wz.classes,subclass:s.name});if(sp.length)box.append(wzEl('div',{textContent:tr('sbSpells')+': '+sp.map(id=>(getSpell(id)||{name:id}).name).join(', ')}));
+    sel.parentElement.after(box)}
+}catch(e){console.error(e)}};
+/* czary podklasy zawsze przygotowane */
+const _wzi38=wzInfo;
+wzInfo=function(){const info=_wzi38();if(wz&&wz.subclass)info.subclass=wz.subclass.trim();return info};
+const _ss38=speciesSpellIds;
+speciesSpellIds=function(info){const a=_ss38(info);return a.concat(subSpellIds(info).filter(id=>getSpell(id)&&!a.includes(id)))};
+
+/* karta: cechy podklasy */
+const _se38=sheetExtra;
+sheetExtra=function(t,E){_se38(t,E);try{const info=smInfo,x=subInfo(info),fe=Q('#pgFeat');const old=Q('#pgSubF');if(old)old.remove();if(!x||!fe)return;
+  const sec=E('section',{id:'pgSubF',className:'pgCard'},E('h3',{textContent:x.s.name}));if(x.s.desc)sec.append(E('div',{className:'smd',textContent:x.s.desc}));
+  x.s.features.filter(f=>f.level<=x.lv).forEach(f=>sec.append(E('div',{className:'smd',innerHTML:`<b>${esc(f.name)}</b> <small>(${tr('level')} ${f.level})</small>. ${esc(f.text)}`})));
+  const sp=subSpellIds(info);if(sp.length)sec.append(E('div',{className:'smd',textContent:tr('sbSpells')+': '+sp.map(id=>(getSpell(id)||{name:id}).name).join(', ')}));
+  fe.append(sec)}catch(e){console.error(e)}};
+
+addI18n({sbCustom:'Other (type it in)…',sbTooLow:'{0} starts at class level {1}.',sbSpells:'Always prepared'},{sbCustom:'Inna (wpisz)…',sbTooLow:'{0} zaczyna się od {1} poziomu klasy.',sbSpells:'Zawsze przygotowane'});
+
 </script>
 </body>
 </html>
