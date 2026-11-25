@@ -427,6 +427,35 @@ body.tpMode #map{cursor:crosshair}
 .hmPanel>.hmItem.warn{border-color:#d9a400}
 #bSun.hmItem.on{background:#ffe08a;color:#5a3d00}
 .hmPanel>.hmItem[data-ic]::before{content:attr(data-ic);width:1.2em;text-align:center;display:inline-block}
+/* v27: wyszukiwarka przedmiotów i wyposażenie startowe */
+.ibHolder{margin-top:8px}
+.ibBox{display:flex;flex-direction:column;gap:8px}
+.ibSearch{width:100%;box-sizing:border-box;padding:8px 10px;font-size:1em}
+.ibChips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.ibChip{border-radius:999px;padding:3px 11px;font-size:.88em}
+.ibChip.on{background:#4a3fb0;border-color:#8a7cff;color:#fff}
+.ibSub .ibChip{font-size:.82em;padding:2px 9px}
+.ibSub select{font-size:.85em}
+.ibCnt{opacity:.7}
+.ibList{display:flex;flex-direction:column;gap:6px;max-height:420px;overflow:auto;padding-right:4px}
+.ibRow{display:flex;gap:10px;align-items:flex-start;border:1px solid #33384d;border-radius:10px;padding:7px 9px;background:#ffffff06}
+.ibRow:hover{border-color:#5a5f80}
+.ibRow.noProf{opacity:.72}
+.ibMain{flex:1;min-width:0}
+.ibHead{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline}
+.ibType{font-size:.8em;opacity:.7}
+.ibTags{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.ibTag{font-size:.76em;padding:1px 7px;border-radius:6px;background:#ffffff10;border:1px solid #ffffff14}
+.ibDesc{white-space:pre-line;margin-top:6px}
+.ibAct{display:flex;gap:4px;align-items:center}
+.ibQty{width:52px}
+.wzEq{border:1px solid #3a3f55;border-radius:12px;padding:10px 12px;margin:10px 0;display:flex;flex-direction:column;gap:8px}
+.wzEq h3{margin:0}
+.wzEqGrp{display:flex;flex-direction:column;gap:5px}
+.wzEqOpt{display:flex;gap:8px;align-items:flex-start;border:1px solid #33384d;border-radius:9px;padding:6px 9px;cursor:pointer}
+.wzEqOpt.on{border-color:#8a7cff;background:#8a7cff14}
+.wzEqOpt input{margin-top:3px}
+.wzEqL{font-weight:700;color:#b6a9ff;min-width:1em}
 
 </style>
 </head>
@@ -8380,6 +8409,199 @@ setTimeout(()=>{hmBuild();const ht=$('#hdrTools');if(ht)new MutationObserver(()=
 const _al36=applyLang;
 applyLang=function(){_al36.apply(this,arguments);try{hmBuild()}catch(e){}};
 addI18n({hmSess:'Session',hmData:'Data',hmChar:'Characters',hmSun:'Sunlight'},{hmSess:'Sesja',hmData:'Dane',hmChar:'Postacie',hmSun:'Słońce'});
+
+/* ================= m37: przedmioty – więcej ekwipunku, pakiety, wyposażenie startowe, wyszukiwarka z filtrami ================= */
+/* --- dodatkowy ekwipunek SRD 5.2 (koszt w GP, waga w lb) --- */
+const GX=(id,name,weight,cost,x)=>Object.assign({id,name,kind:'gear',weight,cost},x||{});
+[GX('quiver','Quiver',1,1),GX('ball-bearings','Ball Bearings (bag of 1,000)',2,1),GX('bell','Bell',0,1),GX('candle','Candle',0,0.01),GX('crowbar','Crowbar',5,2),
+ GX('hooded-lantern','Hooded Lantern',2,5),GX('bullseye-lantern','Bullseye Lantern',2,10),GX('lamp','Lamp',1,0.5),GX('oil','Oil (flask)',1,0.1),GX('chest','Chest',25,5),
+ GX('fine-clothes','Fine Clothes',6,15),GX('travelers-clothes',"Traveler's Clothes",4,2),GX('costume','Costume',4,5),GX('robe','Robe',4,1),GX('ink','Ink (1 ounce bottle)',0,10),
+ GX('ink-pen','Ink Pen',0,0.02),GX('map-case','Map or Scroll Case',1,1),GX('paper','Paper (one sheet)',0,0.2),GX('parchment','Parchment (one sheet)',0,0.1),GX('perfume','Perfume (vial)',0,5),
+ GX('caltrops','Caltrops (bag of 20)',2,1),GX('mirror','Mirror',0.5,5),GX('blanket','Blanket',3,0.5),GX('holy-water','Holy Water (flask)',1,25,{note:'Throw: 2d8 Radiant to a Fiend or Undead.'}),
+ GX('book','Book',5,25),GX('pouch','Pouch',1,0.5),GX('shovel','Shovel',5,2),GX('hammer','Hammer',3,1),GX('piton','Piton',0.25,0.05),GX('chain','Chain (10 ft)',10,5),
+ GX('manacles','Manacles',6,2),GX('grappling-hook','Grappling Hook',4,2),GX('lock','Lock',1,10),GX('tent','Tent (two-person)',20,2),GX('pole','Pole (10 ft)',7,0.05),
+ GX('hunting-trap','Hunting Trap',25,5),GX('climbers-kit',"Climber's Kit",12,25),GX('spyglass','Spyglass',1,1000),GX('string','String (10 ft)',0,0.1),GX('signal-whistle','Signal Whistle',0,0.05),
+ GX('acid','Acid (vial)',1,25,{note:'Throw: 2d6 Acid.'}),GX('alchemists-fire',"Alchemist's Fire (flask)",1,50,{note:'Throw: 1d4 Fire, burning.'}),GX('antitoxin','Antitoxin (vial)',0,50),
+ GX('basic-poison','Basic Poison (vial)',0,100),GX('net','Net',3,1),GX('sling-bullets','Sling Bullets (20)',1.5,0.04),GX('needles','Needles (50)',1,1),GX('firearm-bullets','Firearm Bullets (10)',2,3),
+ GX('lute','Lute',2,35,{tool:1}),GX('flute','Flute',1,2,{tool:1}),GX('drum','Drum',3,6,{tool:1}),GX('dice-set','Dice Set',0,0.1,{tool:1}),GX('playing-cards','Playing Cards',0,0.5,{tool:1}),
+ GX('calligraphers-supplies',"Calligrapher's Supplies",5,10,{tool:1}),GX('herbalism-kit','Herbalism Kit',3,5,{tool:1}),GX('disguise-kit','Disguise Kit',3,25,{tool:1}),GX('forgery-kit','Forgery Kit',5,15,{tool:1}),
+ GX('poisoners-kit',"Poisoner's Kit",2,50,{tool:1}),GX('navigators-tools',"Navigator's Tools",2,25,{tool:1}),GX('smiths-tools',"Smith's Tools",8,20,{tool:1}),GX('woodcarvers-tools',"Woodcarver's Tools",5,1,{tool:1}),
+ GX('cooks-utensils',"Cook's Utensils",8,1,{tool:1}),GX('carpenters-tools',"Carpenter's Tools",6,8,{tool:1}),GX('tinkers-tools',"Tinker's Tools",10,50,{tool:1})
+].forEach(i=>{if(!BASE_ITEMS.some(b=>b.id===i.id))BASE_ITEMS.push(i)});
+['thieves-tools','healers-kit'].forEach(id=>{const b=BASE_ITEMS.find(x=>x.id===id);if(b)b.tool=1});
+const ICOST={club:.1,dagger:2,greatclub:.2,handaxe:5,javelin:.5,'light-hammer':2,mace:5,quarterstaff:.2,sickle:1,spear:1,dart:.05,'light-crossbow':25,shortbow:25,sling:.1,
+  battleaxe:10,flail:10,glaive:20,greataxe:30,greatsword:50,halberd:20,lance:10,longsword:15,maul:10,morningstar:15,pike:5,rapier:25,scimitar:25,shortsword:10,trident:5,warhammer:15,'war-pick':5,whip:2,
+  blowgun:10,'hand-crossbow':75,'heavy-crossbow':50,longbow:50,musket:500,pistol:250,padded:5,leather:10,'studded-leather':45,hide:10,'chain-shirt':50,'scale-mail':50,breastplate:400,'half-plate':750,
+  'ring-mail':30,'chain-mail':75,splint:200,plate:1500,shield:10,backpack:2,bedroll:1,rations:.5,rope:1,torch:.01,waterskin:.2,arrows:1,bolts:1,'component-pouch':25,'arcane-focus':10,'holy-symbol':5,
+  'druidic-focus':1,spellbook:50,'thieves-tools':25,'healers-kit':5,tinderbox:.5,'potion-of-healing':50};
+BASE_ITEMS.forEach(i=>{if(i.cost==null&&ICOST[i.id]!=null)i.cost=ICOST[i.id]});
+
+/* --- pakiety (2024) --- */
+const PACKS=[
+  {id:'burglars-pack',name:"Burglar's Pack",cost:16,c:[['backpack',1],['ball-bearings',1],['bell',1],['candle',10],['crowbar',1],['hooded-lantern',1],['oil',7],['rations',5],['rope',1],['tinderbox',1],['waterskin',1]]},
+  {id:'diplomats-pack',name:"Diplomat's Pack",cost:39,c:[['chest',1],['fine-clothes',1],['ink',1],['ink-pen',5],['lamp',1],['map-case',2],['oil',4],['paper',5],['parchment',5],['perfume',1],['tinderbox',1]]},
+  {id:'dungeoneers-pack',name:"Dungeoneer's Pack",cost:12,c:[['backpack',1],['caltrops',1],['crowbar',1],['oil',2],['rations',10],['rope',1],['tinderbox',1],['torch',10],['waterskin',1]]},
+  {id:'entertainers-pack',name:"Entertainer's Pack",cost:40,c:[['backpack',1],['bedroll',1],['bell',1],['bullseye-lantern',1],['costume',3],['mirror',1],['oil',8],['rations',9],['tinderbox',1],['waterskin',1]]},
+  {id:'explorers-pack',name:"Explorer's Pack",cost:10,c:[['backpack',1],['bedroll',1],['oil',2],['rations',10],['rope',1],['tinderbox',1],['torch',10],['waterskin',1]]},
+  {id:'priests-pack',name:"Priest's Pack",cost:33,c:[['backpack',1],['blanket',1],['holy-water',1],['lamp',1],['rations',7],['robe',1],['tinderbox',1]]},
+  {id:'scholars-pack',name:"Scholar's Pack",cost:40,c:[['backpack',1],['book',1],['ink',1],['ink-pen',1],['lamp',1],['oil',10],['parchment',10],['tinderbox',1]]}];
+const packById=id=>PACKS.find(p=>p.id===id);
+
+/* --- wyposażenie startowe klas i pochodzeń (2024) --- */
+const EQ_CLASS={
+  barbarian:[{it:[['greataxe',1],['handaxe',4]],pk:'explorers-pack',gp:15},{gp:75}],
+  bard:[{it:[['leather',1],['dagger',2],['lute',1]],pk:'entertainers-pack',gp:19},{gp:90}],
+  cleric:[{it:[['chain-shirt',1],['shield',1],['mace',1],['holy-symbol',1]],pk:'priests-pack',gp:7},{gp:110}],
+  druid:[{it:[['leather',1],['shield',1],['sickle',1],['quarterstaff',1,'Druidic Focus'],['herbalism-kit',1]],pk:'explorers-pack',gp:9},{gp:50}],
+  fighter:[{it:[['chain-mail',1],['greatsword',1],['flail',1],['javelin',8]],pk:'dungeoneers-pack',gp:4},{it:[['studded-leather',1],['scimitar',1],['shortsword',1],['longbow',1],['arrows',1],['quiver',1]],pk:'dungeoneers-pack',gp:11},{gp:155}],
+  monk:[{it:[['spear',1],['dagger',5],['lute',1]],pk:'explorers-pack',gp:11},{gp:50}],
+  paladin:[{it:[['chain-mail',1],['shield',1],['longsword',1],['javelin',6],['holy-symbol',1]],pk:'priests-pack',gp:9},{gp:150}],
+  ranger:[{it:[['studded-leather',1],['scimitar',1],['shortsword',1],['longbow',1],['arrows',1],['quiver',1],['druidic-focus',1]],pk:'explorers-pack',gp:7},{gp:150}],
+  rogue:[{it:[['leather',1],['dagger',2],['shortsword',1],['shortbow',1],['arrows',1],['quiver',1],['thieves-tools',1]],pk:'burglars-pack',gp:8},{gp:100}],
+  sorcerer:[{it:[['spear',1],['dagger',2],['arcane-focus',1]],pk:'dungeoneers-pack',gp:28},{gp:50}],
+  warlock:[{it:[['leather',1],['sickle',1],['dagger',2],['arcane-focus',1],['book',1]],pk:'scholars-pack',gp:15},{gp:100}],
+  wizard:[{it:[['dagger',2],['quarterstaff',1,'Arcane Focus'],['robe',1],['spellbook',1]],pk:'scholars-pack',gp:5},{gp:55}]};
+const EQ_BG={
+  acolyte:[{it:[['calligraphers-supplies',1],['book',1],['holy-symbol',1],['parchment',10],['robe',1]],gp:8},{gp:50}],
+  criminal:[{it:[['dagger',2],['thieves-tools',1],['crowbar',1],['pouch',2],['travelers-clothes',1]],gp:16},{gp:50}],
+  sage:[{it:[['quarterstaff',1],['calligraphers-supplies',1],['book',1],['parchment',8],['robe',1]],gp:8},{gp:50}],
+  soldier:[{it:[['spear',1],['shortbow',1],['arrows',1],['dice-set',1],['healers-kit',1],['quiver',1],['travelers-clothes',1]],gp:14},{gp:50}]};
+const itemDef=id=>itemCatalog().find(i=>i.id===id);
+function eqList(o){const l=[];(o.it||[]).forEach(([id,q,n])=>l.push([id,q,n]));if(o.pk)l.push(['@'+o.pk,1]);return l}
+function eqLabel(o){const parts=(o.it||[]).map(([id,q,n])=>{const d=itemDef(id);return(q>1?q+'× ':'')+(d?d.name:id)+(n?` (${n})`:'')});if(o.pk)parts.push(packById(o.pk).name);parts.push(o.gp+' GP');return parts.join(', ')}
+/* dodanie do ekwipunku (łączy ilości tych samych rzeczy) */
+function invAdd(info,id,qty,note){info.items=info.items||[];
+  if(id[0]==='@'){const p=packById(id.slice(1));if(p)p.c.forEach(([cid,q])=>invAdd(info,cid,q*(qty||1)));return}
+  const b=itemDef(id);if(!b)return;
+  const stack=!['armor','shield','magic'].includes(b.kind);const ex=stack&&info.items.find(i=>i.ref===b.id&&!i.note);
+  if(ex){ex.qty=(+ex.qty||0)+(qty||1);return}
+  const it=Object.assign(JSON.parse(JSON.stringify(b)),{uid:uid(),ref:b.id,qty:stack?(qty||1):1,attuned:false});delete it.id;
+  if(note){it.note=note;it.name+=` (${note})`}
+  it.equipped=['weapon','armor','shield','magic'].includes(b.kind)&&!(b.kind==='armor'&&wornArmor(info))&&!(b.kind==='shield'&&wornShield(info));
+  info.items.push(it);
+  if((it.kind==='armor'||it.kind==='shield')&&info.acAuto==null)info.acAuto=true}
+
+/* --- opis przedmiotu: typ i szczegóły (do listy i karty) --- */
+const PROP_PL={light:'Light',finesse:'Finesse',heavy:'Heavy','two-handed':'Two-Handed',versatile:'Versatile',thrown:'Thrown',reach:'Reach',ammunition:'Ammunition',loading:'Loading'};
+function itemType(b){
+  if(b.kind==='weapon')return tr('itW_'+(b.cat||'simple')+(b.ranged?'R':'M'));
+  if(b.kind==='armor')return tr('itA_'+b.cat);
+  if(b.kind==='shield')return tr('itShield');
+  if(b.kind==='consumable')return tr('itConsumable');
+  if(b.kind==='magic')return tr('itWondrous');
+  if(b.kind==='pack')return tr('itPack');
+  return b.tool?tr('itTool'):tr('itGear')}
+function itemTags(b,info){const t=[];
+  if(b.kind==='weapon'){t.push(`${b.dice} ${dmgName(b.dtype)}`);(b.props||[]).forEach(p=>t.push(p==='versatile'&&b.vers?`Versatile (${b.vers})`:p==='thrown'&&b.range&&!b.ranged?`Thrown (${b.range})`:p==='ammunition'&&b.range?`Ammunition (${b.range})`:PROP_PL[p]||cap1(p)));if(b.mastery)t.push('Mastery: '+cap1(b.mastery))}
+  if(b.kind==='armor'){const dm=b.dexMax??(b.cat==='light'?99:b.cat==='medium'?2:0);t.push(`AC ${b.base}${dm>=99?' + DEX':dm?` + DEX (max ${dm})`:''}`);if(b.str)t.push(`STR ${b.str}`);if(b.stealth)t.push(tr('itStealthDis'))}
+  if(b.kind==='shield')t.push('AC +2');
+  if(b.heal)t.push(`${tr('heal')} ${b.heal}`);
+  if(b.bonus)t.push('+'+b.bonus);
+  if(b.rarity)t.push(cap1(b.rarity));
+  if(b.attune)t.push(tr('reqAttune')+(b.attuneBy?` (${b.attuneBy})`:''));
+  if(b.kind==='pack')t.push(b.c.length+' '+tr('itThings'));
+  if(b.weight)t.push(+b.weight+' lb');
+  if(b.cost!=null)t.push(b.cost>=1?b.cost+' GP':b.cost>=.1?Math.round(b.cost*10)+' SP':Math.round(b.cost*100)+' CP');
+  return t}
+function itemProfOk(b,info){if(!info)return null;if(b.kind==='weapon')return wpnProf(info,b);if(b.kind==='armor'||b.kind==='shield')return armorTrained(info,b.cat);return null}
+function itemDesc(b){const d=[];if(b.desc)d.push(b.desc);if(b.note)d.push(b.note);if(b.mastery&&MASTERY[b.mastery])d.push(`Mastery (${cap1(b.mastery)}): ${MASTERY[b.mastery]}`);
+  if(b.kind==='pack')d.push(b.c.map(([id,q])=>{const x=itemDef(id);return(q>1?q+'× ':'')+(x?x.name:id)}).join(', '));
+  if(b.kind==='armor'&&b.cat)d.push(tr('itDon_'+b.cat)||'');return d.filter(Boolean).join('\n')}
+const _isum37=itemSummary;
+itemSummary=function(it,info){const s=_isum37(it,info),ty=itemType(it);return s?`${ty} · ${s}`:ty};
+
+/* --- wyszukiwarka przedmiotów --- */
+const IB={q:'',k:'all',sub:'',prop:'',rar:'',prof:false,lim:40};
+function ibCatalog(){return itemCatalog().concat(PACKS.map(p=>Object.assign({kind:'pack',weight:p.c.reduce((a,[id,q])=>a+((itemDef(id)||{}).weight||0)*q,0)},p)))}
+function ibFilter(info){const q=IB.q.trim().toLowerCase();return ibCatalog().filter(b=>{
+  if(IB.k!=='all'&&b.kind!==IB.k&&!(IB.k==='gear'&&b.kind==='gear'))return false;
+  if(IB.k==='weapon'&&IB.sub){if(['simple','martial'].includes(IB.sub)&&b.cat!==IB.sub)return false;if(IB.sub==='melee'&&b.ranged)return false;if(IB.sub==='ranged'&&!b.ranged)return false}
+  if(IB.k==='weapon'&&IB.prop&&!(b.props||[]).includes(IB.prop))return false;
+  if(IB.k==='armor'&&IB.sub&&b.cat!==IB.sub)return false;
+  if(IB.k==='gear'&&IB.sub==='tool'&&!b.tool)return false;if(IB.k==='gear'&&IB.sub==='other'&&b.tool)return false;
+  if(IB.rar){if(IB.rar==='mundane'){if(b.rarity||b.bonus)return false}else if((b.rarity||'')!==IB.rar)return false}
+  if(IB.prof&&itemProfOk(b,info)===false)return false;
+  if(q&&!(b.name.toLowerCase().includes(q)||itemTags(b,info).join(' ').toLowerCase().includes(q)||itemType(b).toLowerCase().includes(q)))return false;
+  return true})}
+function itemBrowser(info,onAdd){
+  const E=wzEl,box=E('div',{className:'ibBox'});
+  const search=E('input',{type:'search',placeholder:tr('ibSearch'),value:IB.q,className:'ibSearch'});
+  const chips=E('div',{className:'ibChips'}),subs=E('div',{className:'ibChips ibSub'}),list=E('div',{className:'ibList'}),cnt=E('div',{className:'smd ibCnt'});
+  const K=[['all',tr('ibAll')],['weapon',tr('k_weapon')],['armor',tr('k_armor')],['shield',tr('k_shield')],['gear',tr('k_gear')],['pack',tr('itPacks')],['consumable',tr('k_consumable')],['magic',tr('k_magic')]];
+  const chip=(row,l,on,fn)=>{const b=E('button',{className:'ibChip'+(on?' on':''),textContent:l});b.onclick=fn;row.append(b)};
+  const draw=()=>{
+    chips.innerHTML='';K.forEach(([k,l])=>chip(chips,l,IB.k===k,()=>{IB.k=k;IB.sub='';IB.prop='';IB.lim=40;draw()}));
+    subs.innerHTML='';
+    const subset=IB.k==='weapon'?[['simple','Simple'],['martial','Martial'],['melee',tr('itMelee')],['ranged',tr('itRanged')]]:IB.k==='armor'?[['light','Light'],['medium','Medium'],['heavy','Heavy']]:IB.k==='gear'?[['tool',tr('itTools')],['other',tr('itOther')]]:[];
+    subset.forEach(([k,l])=>chip(subs,l,IB.sub===k,()=>{IB.sub=IB.sub===k?'':k;IB.lim=40;draw()}));
+    if(IB.k==='weapon'){const ps=wzSel([['',tr('ibAnyProp')],...Object.entries(PROP_PL)],IB.prop,v=>{IB.prop=v;draw()});subs.append(ps)}
+    if(['all','weapon','armor','shield','magic','consumable'].includes(IB.k)){const rs=wzSel([['',tr('ibAnyRar')],['mundane',tr('ibMundane')],['common','Common'],['uncommon','Uncommon'],['rare','Rare'],['very rare','Very Rare'],['legendary','Legendary']],IB.rar,v=>{IB.rar=v;draw()});subs.append(rs)}
+    if(info&&['all','weapon','armor','shield'].includes(IB.k)){const pc=E('label',{className:'smd ibProf'},E('input',{type:'checkbox',checked:IB.prof,onchange:e=>{IB.prof=e.target.checked;draw()}}),' '+tr('ibProfOnly'));subs.append(pc)}
+    const res=ibFilter(info);cnt.textContent=tr('ibCount',res.length);list.innerHTML='';
+    res.slice(0,IB.lim).forEach(b=>{
+      const ok=itemProfOk(b,info);
+      const row=E('div',{className:'ibRow'+(ok===false?' noProf':'')});
+      const head=E('div',{className:'ibHead'},E('b',{textContent:b.name}),E('span',{className:'ibType',textContent:itemType(b)}));
+      if(ok===false)head.append(E('span',{className:'pgBadge bad',textContent:b.kind==='weapon'?tr('noProfB'):tr('untrainedB')}));
+      const tags=E('div',{className:'ibTags'},...itemTags(b,info).map(x=>E('span',{className:'ibTag',textContent:x})));
+      const qty=E('input',{type:'number',min:1,max:999,value:1,className:'ibQty'});
+      const add=E('button',{className:'primary',textContent:'＋'});add.title=tr('ibAdd');
+      add.onclick=()=>{onAdd(b.kind==='pack'?'@'+b.id:b.id,Math.max(1,+qty.value||1));add.textContent='✓';setTimeout(()=>add.textContent='＋',700)};
+      const ds=itemDesc(b);const more=ds?E('div',{className:'ibDesc smd',textContent:ds,hidden:true}):null;
+      if(more){head.style.cursor='pointer';head.title=tr('ibMore');head.onclick=()=>more.hidden=!more.hidden}
+      row.append(E('div',{className:'ibMain'},head,tags,...(more?[more]:[])),E('div',{className:'ibAct'},qty,add));list.append(row)});
+    if(res.length>IB.lim){const m=E('button',{textContent:tr('ibMoreN',res.length-IB.lim)});m.onclick=()=>{IB.lim+=60;draw()};list.append(m)}
+  };
+  search.oninput=()=>{IB.q=search.value;IB.lim=40;draw()};
+  box.append(search,chips,subs,cnt,list);draw();setTimeout(()=>search.focus(),0);
+  return box}
+
+/* karta postaci: przycisk zamiast długiej listy */
+let ibOpen=false;
+const _ri37=renderItems;
+renderItems=function(){_ri37.apply(this,arguments);try{
+  const box=Q('#pgItems');if(!box)return;const info=smInfo;
+  const sel=[...box.querySelectorAll('select')].find(s=>s.options[0]&&s.options[0].value===''&&s.options[0].text===tr('addItem'));if(!sel)return;
+  box.querySelectorAll('.pgItemSearch,#pgItemDl').forEach(e=>e.remove());const row=sel.parentElement;const btn=wzEl('button',{className:'primary',textContent:(ibOpen?'▾ ':'＋ ')+tr('addItem')});sel.replaceWith(btn);
+  const holder=wzEl('div',{className:'ibHolder'});row.after(holder);
+  const show=()=>{holder.innerHTML='';if(ibOpen)holder.append(itemBrowser(info,(id,q)=>{invAdd(info,id,q);smTouch();ibKeep()}))};
+  btn.onclick=()=>{ibOpen=!ibOpen;btn.textContent=(ibOpen?'▾ ':'＋ ')+tr('addItem');show()};show();
+}catch(e){console.error(e)}};
+/* po dodaniu odśwież widok, ale zostaw wyszukiwarkę otwartą i przewinięcie */
+function ibKeep(){const sc=Q('#pgItems');const y=sc?sc.closest('.smBody,.smPane,[data-pane]')||sc:null;const top=y?y.scrollTop:0;smView();setTimeout(()=>{const s=Q('#pgItems');const z=s?s.closest('.smBody,.smPane,[data-pane]')||s:null;if(z)z.scrollTop=top},0)}
+
+/* --- kreator postaci: wyposażenie startowe --- */
+const _wzi37=wzInfo;
+wzInfo=function(){const info=_wzi37();if(!wz)return info;
+  const c0=(wz.classes[0]||{}).name,co=(EQ_CLASS[c0]||[])[wz.eqC||0],bo=(EQ_BG[wz.background]||[])[wz.eqB||0];
+  info.items=[];info.coins={cp:0,sp:0,ep:0,gp:0,pp:0};
+  [co,bo].forEach(o=>{if(!o)return;eqList(o).forEach(([id,q,n])=>invAdd(info,id,q,n));info.coins.gp+=o.gp||0});
+  return info};
+const _wzac37=wzAc;
+wzAc=function(info){if(info&&(wornArmor(info)||wornShield(info)))return autoAc(info).ac;return _wzac37(info)};
+const _wzr37=wzRender;
+wzRender=function(){_wzr37.apply(this,arguments);try{
+  if(!wz||lu)return;const steps=wzSteps();if(steps[wz.step]!=='wzFinish')return;
+  const body=$('#wzBody'),E=wzEl,c0=(wz.classes[0]||{}).name,co=EQ_CLASS[c0]||[],bo=EQ_BG[wz.background]||[];
+  const sec=E('section',{className:'wzEq'},E('h3',{textContent:'🎒 '+tr('wzEqH')}),E('div',{className:'smd',textContent:tr('wzEqNote')}));
+  const opt=(title,arr,key)=>{if(!arr.length)return;const g=E('div',{className:'wzEqGrp'},E('b',{textContent:title}));
+    arr.forEach((o,i)=>{const lb=E('label',{className:'wzEqOpt'+((wz[key]||0)===i?' on':'')},E('input',{type:'radio',name:key,checked:(wz[key]||0)===i,onchange:()=>{wz[key]=i;wzRender()}}),E('span',{className:'wzEqL',textContent:String.fromCharCode(65+i)}),E('span',{textContent:eqLabel(o)}));g.append(lb)});sec.append(g)};
+  opt(tr('wzEqClass',clsLabel(c0)),co,'eqC');
+  if(bo.length)opt(tr('wzEqBg',(bgById(wz.background)||{}).name||''),bo,'eqB');else sec.append(E('div',{className:'smd',textContent:tr('wzEqNoBg')}));
+  const info=wzInfo(),w=itemWeight(info);
+  sec.append(E('div',{className:'smd',textContent:`${tr('wzEqSum')}: ${info.items.reduce((a,i)=>a+(+i.qty||1),0)} · ${+w.toFixed(1)} lb · ${info.coins.gp} GP`}));
+  const ac=$('#wzAc');if(ac)ac.value=wzAc(info);
+  const fin=body.querySelector('.smRow');if(fin)fin.before(sec);else body.append(sec);
+}catch(e){console.error(e)}};
+
+addI18n({itW_simpleM:'Simple Melee Weapon',itW_simpleR:'Simple Ranged Weapon',itW_martialM:'Martial Melee Weapon',itW_martialR:'Martial Ranged Weapon',itA_light:'Light Armor',itA_medium:'Medium Armor',itA_heavy:'Heavy Armor',itMelee:'Melee',itRanged:'Ranged',itWeapon:'Weapon',itArmor:'Armor',itShield:'Shield',itConsumable:'Consumable',itWondrous:'Magic Item',itPack:'Equipment Pack',itPacks:'Packs',itTool:'Tool',itTools:'Tools',itGear:'Adventuring Gear',itOther:'Other gear',itThings:'items',
+  itStealthDis:'Stealth Disadvantage',itDon_light:'Light Armor: 1 minute to don, 1 minute to doff.',itDon_medium:'Medium Armor: 5 minutes to don, 1 minute to doff.',itDon_heavy:'Heavy Armor: 10 minutes to don, 5 minutes to doff. Speed −10 ft without the required Strength.',
+  ibSearch:'Search by name, type or property…',ibAll:'All',ibAnyProp:'Any property',ibAnyRar:'Any rarity',ibMundane:'Mundane',ibProfOnly:'Only proficient',ibCount:'{0} items',ibAdd:'Add to inventory',ibMore:'Click for details',ibMoreN:'Show more ({0})',
+  wzEqH:'Starting equipment',wzEqNote:'Pick option A, B or C for your class and background. Packs are unpacked into the inventory.',wzEqClass:'{0}',wzEqBg:'Background: {0}',wzEqNoBg:'No background chosen — no background equipment.',wzEqSum:'Total'},
+ {itW_simpleM:'Broń prosta, wręcz',itW_simpleR:'Broń prosta, dystansowa',itW_martialM:'Broń żołnierska, wręcz',itW_martialR:'Broń żołnierska, dystansowa',itA_light:'Lekka zbroja (Light)',itA_medium:'Średnia zbroja (Medium)',itA_heavy:'Ciężka zbroja (Heavy)',itMelee:'Wręcz',itRanged:'Dystansowa',itWeapon:'broń',itArmor:'zbroja',itShield:'Tarcza',itConsumable:'Jednorazowy',itWondrous:'Przedmiot magiczny',itPack:'Pakiet',itPacks:'Pakiety',itTool:'Narzędzie',itTools:'Narzędzia',itGear:'Ekwipunek',itOther:'Pozostałe',itThings:'rzeczy',
+  itStealthDis:'Utrudnienie w Stealth',itDon_light:'Lekka zbroja: 1 minuta na założenie, 1 na zdjęcie.',itDon_medium:'Średnia zbroja: 5 minut na założenie, 1 na zdjęcie.',itDon_heavy:'Ciężka zbroja: 10 minut na założenie, 5 na zdjęcie. Prędkość −10 ft bez wymaganej Siły.',
+  ibSearch:'Szukaj po nazwie, typie albo właściwości…',ibAll:'Wszystko',ibAnyProp:'Dowolna właściwość',ibAnyRar:'Dowolna rzadkość',ibMundane:'Zwykłe',ibProfOnly:'Tylko z biegłością',ibCount:'{0} przedmiotów',ibAdd:'Dodaj do ekwipunku',ibMore:'Kliknij, żeby zobaczyć szczegóły',ibMoreN:'Pokaż więcej ({0})',
+  wzEqH:'Wyposażenie startowe',wzEqNote:'Wybierz opcję A, B lub C dla klasy i pochodzenia. Pakiety rozpakowują się do ekwipunku.',wzEqClass:'{0}',wzEqBg:'Pochodzenie: {0}',wzEqNoBg:'Nie wybrano pochodzenia — bez jego wyposażenia.',wzEqSum:'Razem'});
 
 </script>
 </body>
