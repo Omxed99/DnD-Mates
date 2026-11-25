@@ -190,11 +190,27 @@ Pole `effects` to lista klocków. Gra składa z nich mechanikę sama. Liczby mog
 }
 ```
 
+Kolejne klocki:
+
+| klocek | pola | co robi |
+|---|---|---|
+| `prof` | `skills`, `tools`, `armor` (`light`/`medium`/`heavy`/`shield`), `weapons` (`simple`/`martial`/nazwa), `saves`, `choose: {what, from, count}` | biegłości (wybór na karcie) |
+| `expertise` | `skills`, `choose: {from: "proficient", count}` | ekspertyza |
+| `sense` | `kind`: `darkvision`/`blindsight`/`truesight`/`tremorsense`, `range` | zmysły (darkvision liczy się do mgły) |
+| `immune` | `dmg: [...]` | niewrażliwość na typ obrażeń |
+| `condImmune` | `conds: ["frightened"]` | odporność na stan |
+| `resist` z `choose` | `choose: {from: [...], count}` | odporność do wyboru na karcie |
+| `bonus` | `stat`: `init`, `hpPerLevel`, `hpFlat`; `ac` z `armor` i `dexMin`; `dmg` z `when: "thrown"` | inicjatywa, PW, KP zależne od zbroi, broń rzucana |
+| `dmgReduce` | `value`, `dmg: [...]`, `armor` | zmniejsza obrażenia od trafień (np. Heavy Armor Master) |
+| `onHit` | `dice`, `bonus`, `dmgType` (`weapon` = typ broni), `when` (`melee`/`ranged`/`weapon`/`thrown`/`any`), `reqDmg`, `needBloodied`, `heal`, `targetFx: {n, spd, dAdv}`, `cost` | raz na turę: pole do zaznaczenia w panelu ataku |
+| `trigger` z `on: "drop0"` | `healHalf`, `cost`, `name` | zamiast spaść do 0 PW zostajesz z 1 PW (albo z połową maks. PW) |
+| `note` | `text` | sama notatka na karcie |
+
 Zdolności, których nie da się złożyć z klocków, trzeba dopisać w kodzie (zgłoś je z treścią featu).
 
 ### Import featów z 5etools
 
-Plik w formacie 5etools (`{"feat": [ … ]}`, sama lista albo pojedynczy feat) można wczytać tak samo jak paczkę. Gra przelicza go automatycznie:
+Plik w formacie 5etools (`{"feat": [ … ]}`, sama lista albo pojedynczy feat) można wczytać tak samo jak paczkę. Stare wersje featów, które mają nowszy odpowiednik (`reprintedAs`), są pomijane. Gra przelicza go automatycznie:
 - `name`, `category`, `prerequisite`, `ability` (zwiększenie cechy) i `entries` (opis);
 - `additionalSpells` zamienia na klocek `spells` (wybór z listy klasy, darmowe rzucenie raz na odpoczynek);
 - typowe zdania: „When you fail a … saving throw, you can (take a Reaction to) roll 1dN and add …” (z limitem „until you finish a Short/Long Rest”), „You have Resistance to … damage”, „Your Speed increases by N feet”, „+1 bonus to Armor Class”.
