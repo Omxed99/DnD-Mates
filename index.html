@@ -3821,7 +3821,7 @@ function strikeRoll(){
     diceFx(Array.from({length:n},()=>({s:20})),vals=>(mode==='a'?Math.max(...vals):mode==='d'?Math.min(...vals):vals[0])+mod,`${t.name}: ${o.name}`,function hiCb(vals){
       if(K!==K0)return;if(typeof hiOffer==='function'&&hiOffer(t,g,vals,mode,mod,o,hiCb))return;const r=mode==='a'?Math.max(...vals):mode==='d'?Math.min(...vals):vals[0],alt=n===2?(mode==='a'?Math.min(...vals):Math.max(...vals)):null;
       const ac=acOf(g)-(typeof sharpCover==='function'?sharpCover(t,o,g):0);let out=r>=critMin(t,o)?'crit':r===1?'miss':(r+mod>=ac?'hit':'miss');if(out==='hit'&&autoCritVs(t,g,o.melee))out='crit';let pv=0;if(out==='miss'&&r!==1&&K.man==='precision'&&typeof precTry==='function'){pv=precTry(t,ac-(r+mod));if(pv){bn.txt+=` +Precision[${pv}]`;if(r+mod+pv>=ac)out='hit'}}
-      rxGate(t,g,r+mod,ac,out,(out,rx)=>{if(K!==K0)return;
+      K.lastR=r;K.lastMod=mod+pv;K.lastO=o;rxGate(t,g,r+mod,ac,out,(out,rx)=>{if(K!==K0)return;
       const abm=o.parts[0]?(o.parts[0].f||0)-((o.w&&o.w.bonus)||0):0;
       if(out==='miss'){
         const graze=K.mast&&o.mast==='graze'&&abm>0;
@@ -9794,14 +9794,18 @@ const _rp47=rollParts;rollParts=function(parts,crit,label,cb){try{const t=K&&K.a
   if(crit)fxList(i,'critDie').filter(e=>w47(e,o)&&hasT(e)).forEach(e=>{const p=P.find(q=>q.s&&(!e.dmg.length||e.dmg.includes(q.type)));if(p){P.push({n:0.5,s:p.s,f:0,type:p.type});send({k:'sys',text:tr('fxCrit',t.name,e.name||e.feat.name)})}});
   const mins=fxList(i,'dmgDie').filter(e=>w47(e,o)&&!e.cost);const rr=fxList(i,'dmgReroll').filter(e=>w47(e,o)&&hasT(e)&&!featUsedTurn(t,'rr_'+e.feat.id));
   const oab=fxList(i,'oaBest').length&&K.oa;
-  return _rp47(P,crit,label,(out,dd)=>{try{let changed=false;const vals=dd.map(x=>x[0]);let k=0;const per=P.map(p=>{const n=Math.round(p.n*(crit?2:1)),idx=[];for(let q=0;q<n;q++)idx.push(k++);return idx});
-      rr.forEach(e=>{let best=-1,bv=99;P.forEach((p,pi)=>{if(e.dmg.length&&!e.dmg.includes(p.type))return;per[pi].forEach(j=>{const s=dd[j][1];if(vals[j]<=s/2&&vals[j]<bv){bv=vals[j];best=j}})});
-        if(best>=0){const nv=rnd(dd[best][1]);send({k:'sys',text:tr('fxReroll',t.name,e.name||e.feat.name,vals[best],nv)});vals[best]=nv;changed=true;featMarkTurn(t,'rr_'+e.feat.id)}});
-      mins.forEach(e=>P.forEach((p,pi)=>{if(e.dmg.length&&!e.dmg.includes(p.type))return;per[pi].forEach(j=>{if(vals[j]<e.min){vals[j]=e.min;changed=true}})}));
-      if(oab){const alt=vals.map((v,j)=>rnd(dd[j][1]));const s1=vals.reduce((a,b)=>a+b,0),s2=alt.reduce((a,b)=>a+b,0);if(s2>s1){alt.forEach((v,j)=>vals[j]=v);changed=true}send({k:'sys',text:tr('fxOaBest',t.name,s1,s2)})}
-      if(!changed)return cb(out,dd);
-      const out2=P.map((p,pi)=>{let sum=p.f||0;per[pi].forEach(j=>sum+=vals[j]);return[Math.max(0,sum),p.type]});
-      cb(out2,dd.map((x,j)=>[vals[j],x[1]]))}catch(x){console.error(x);cb(out,dd)}})}catch(x){console.error(x);return _rp47(parts,crit,label,cb)}};
+  return _rp47(P,crit,label,(out,dd)=>{try{const vals=dd.map(x=>x[0]);let k=0;const per=P.map(p=>{const n=Math.round(p.n*(crit?2:1)),idx=[];for(let q=0;q<n;q++)idx.push(k++);return idx});
+      const pick=e=>{let best=-1,bv=99;P.forEach((p,pi)=>{if(e.dmg.length&&!e.dmg.includes(p.type))return;per[pi].forEach(j=>{const s=dd[j][1];if(vals[j]<=s/2&&vals[j]<bv){bv=vals[j];best=j}})});return best};
+      const fin=useRR=>{try{let changed=false;
+        if(useRR)rr.forEach(e=>{const best=pick(e);if(best>=0){const nv=rnd(dd[best][1]);send({k:'sys',text:tr('fxReroll',t.name,e.name||e.feat.name,vals[best],nv)});vals[best]=nv;changed=true;featMarkTurn(t,'rr_'+e.feat.id)}});
+        mins.forEach(e=>P.forEach((p,pi)=>{if(e.dmg.length&&!e.dmg.includes(p.type))return;per[pi].forEach(j=>{if(vals[j]<e.min){vals[j]=e.min;changed=true}})}));
+        if(oab){const alt=vals.map((v,j)=>rnd(dd[j][1]));const s1=vals.reduce((a,b)=>a+b,0),s2=alt.reduce((a,b)=>a+b,0);if(s2>s1){alt.forEach((v,j)=>vals[j]=v);changed=true}send({k:'sys',text:tr('fxOaBest',t.name,s1,s2)})}
+        if(!changed)return cb(out,dd);
+        const out2=P.map((p,pi)=>{let sum=p.f||0;per[pi].forEach(j=>sum+=vals[j]);return[Math.max(0,sum),p.type]});
+        cb(out2,dd.map((x,j)=>[vals[j],x[1]]))}catch(x){console.error(x);cb(out,dd)}};
+      const cand=rr.filter(e=>pick(e)>=0);if(!cand.length||rm('feat')==='off')return fin(false);if(rm('feat')==='auto')return fin(true);
+      const e=cand[0],j=pick(e);chAsk(null,t,{title:'🎲 '+(e.name||e.feat.name),body:tr('fxRrQ',t.name,vals[j],dd[j][1]),btns:[['rr','🎲 '+tr('fxRrY')]]},u=>fin(u==='rr'))
+    }catch(x){console.error(x);cb(out,dd)}})}catch(x){console.error(x);return _rp47(parts,crit,label,cb)}};
 
 /* --- kości obrażeń: czary (po rzucie, przed zatwierdzeniem) --- */
 const _rc47=renderCast;renderCast=function(){try{if(cast&&cast.stage==='dmg'&&!cast._m47&&castSpell&&selected){cast._m47=1;const t=selected,i=infoOf(t);
@@ -9848,11 +9852,11 @@ function hdMaxFor(info){try{return!!(info&&fxList(info,'hdMax').length)}catch(x)
 const _ap47=apply;apply=function(a){try{if(a&&a.k==='sp'&&a.p&&a.p.info&&a.p.info.tempHp>0&&!a.thp47){const t=tokById(a.id),cur=t&&infoOf(t);
   if(cur&&a.p.info.tempHp>(cur.tempHp||0)){const b=fxList(cur,'tempHpBonus').reduce((s,e)=>s+e.value,0);if(b){a.thp47=1;a.p=Object.assign({},a.p,{info:Object.assign({},a.p.info,{tempHp:a.p.info.tempHp+b})})}}}}catch(x){}return _ap47.apply(this,arguments)};
 
-addI18n({fxCrit:'✨ {0}: {1} — extra damage die on the critical hit.',fxReroll:'✨ {0}: {1} — reroll {2} → {3}.',fxOaBest:'✨ {0}: opportunity attack damage rolled twice ({1} / {2}), higher one used.',
+addI18n({fxCrit:'✨ {0}: {1} — extra damage die on the critical hit.',fxReroll:'✨ {0}: {1} — reroll {2} → {3}.',fxRrQ:'{0}: a damage die rolled {1} (d{2}). Reroll it? (you must use the new roll)',fxRrY:'Reroll',fxOaBest:'✨ {0}: opportunity attack damage rolled twice ({1} / {2}), higher one used.',
   fxMin:'✨ {0}: {1} — {2} low dice raised to {3}.',fxUseQ:'Use {0}? ({1} dice will be raised)',fxConc:'✨ {0} keeps Concentration (damage does not break it).',fePickDmg:'Damage type:',fePickMast:'Weapon (mastery):',
   feDmgDie:'damage dice below {0} count as {0}',feCritDie:'extra die on a Critical Hit',feDmgReroll:'once per turn: reroll a low damage die',feOaBest:'opportunity attacks: damage rolled twice',feConcSafe:'damage does not break Concentration',
   feAdvNear:'Advantage on {0} saves with an ally within {1} ft',feGrapAdv:'allies have Advantage against a creature you grapple',feNoMeleeDis:'no Disadvantage at close range',feSpellRange:'+{0} ft range for spell attacks',feMastery:'Weapon Mastery of a chosen weapon',feThp:'+{0} to Temporary Hit Points you gain',feHdMax:'Hit Point Dice heal for their maximum'},
- {fxCrit:'✨ {0}: {1} — dodatkowa kość obrażeń przy trafieniu krytycznym.',fxReroll:'✨ {0}: {1} — przerzut {2} → {3}.',fxOaBest:'✨ {0}: obrażenia ataku okazyjnego rzucone dwa razy ({1} / {2}), liczy się wyższy.',
+ {fxCrit:'✨ {0}: {1} — dodatkowa kość obrażeń przy trafieniu krytycznym.',fxReroll:'✨ {0}: {1} — przerzut {2} → {3}.',fxRrQ:'{0}: na kości obrażeń wypadło {1} (k{2}). Przerzucić? (liczy się nowy wynik)',fxRrY:'Przerzuć',fxOaBest:'✨ {0}: obrażenia ataku okazyjnego rzucone dwa razy ({1} / {2}), liczy się wyższy.',
   fxMin:'✨ {0}: {1} — {2} niskich kości podniesionych do {3}.',fxUseQ:'Użyć {0}? (podniesie {1} kości)',fxConc:'✨ {0} utrzymuje koncentrację (obrażenia jej nie przerywają).',fePickDmg:'Typ obrażeń:',fePickMast:'Broń (mistrzostwo):',
   feDmgDie:'kości obrażeń poniżej {0} liczą się jako {0}',feCritDie:'dodatkowa kość przy krytyku',feDmgReroll:'raz na turę: przerzut niskiej kości obrażeń',feOaBest:'ataki okazyjne: obrażenia rzucane dwa razy',feConcSafe:'obrażenia nie przerywają koncentracji',
   feAdvNear:'przewaga w rzutach {0}, gdy sojusznik jest w {1} ft',feGrapAdv:'sojusznicy mają przewagę przeciw stworzeniu, które chwytasz',feNoMeleeDis:'bez utrudnienia z bliska',feSpellRange:'+{0} ft zasięgu czarów z atakiem',feMastery:'mistrzostwo wybranej broni',feThp:'+{0} do zdobywanych tymczasowych PW',feHdMax:'Kości Wytrzymałości leczą maksymalnie'});
@@ -9864,6 +9868,91 @@ const _fd47=typeof feDescribe==='function'?feDescribe:null;if(_fd47)feDescribe=f
   if(e.type==='oaBest')return tr('feOaBest');if(e.type==='concSafe')return tr('feConcSafe');if(e.type==='advNear')return tr('feAdvNear',e.abs.map(a=>a.toUpperCase()).join('/'),e.range);
   if(e.type==='grappleAdv')return tr('feGrapAdv');if(e.type==='noMeleeDis')return tr('feNoMeleeDis');if(e.type==='spellRange')return tr('feSpellRange',e.add);if(e.type==='mastery')return tr('feMastery');
   if(e.type==='tempHpBonus')return tr('feThp',e.value);if(e.type==='hdMax')return tr('feHdMax');return _fd47.apply(this,arguments)};
+
+/* ================= m48: reakcje za sojusznika (Protection, Interception), Retaliate, Hypervigilance, Dual Wielder, Will to Survive, ulepszenia featów =================
+   Zasada: każda reakcja to pytanie do gracza (masz tylko jedną reakcję — nie chcemy zabierać Shielda). */
+const _ce48=cleanEffects;
+cleanEffects=function(arr){const base=_ce48(arr);const extra=(Array.isArray(arr)?arr:[]).slice(0,40).map(e=>{if(!e||typeof e!=='object')return null;const t=String(e.type||'');const str=(v,n)=>String(v||'').slice(0,n||60);
+  if(t==='allyRx'){const d=['disadv','reduce'].includes(e.do)?e.do:'reduce';const p=d==='reduce'?parseDmgExpr(String(e.dice||'1d10')):null;
+    return{type:t,do:d,dice:p?String(e.dice||'1d10'):'',bonus:e.bonus==='prof'||/^ab:/.test(e.bonus||'')?e.bonus:(+e.bonus||0),range:Math.max(5,Math.min(30,+e.range||5)),
+      req:['shield','shieldOrWeapon','none'].includes(e.req)?e.req:'none',linger:!!e.linger,name:str(e.name),cost:typeof e.cost==='string'?e.cost.slice(0,40):null}}
+  if(t==='retaliate')return{type:t,name:str(e.name)};
+  if(t==='initReroll')return{type:t,below:Math.max(1,Math.min(19,+e.below||9)),name:str(e.name)};
+  if(t==='dualWield')return{type:t,name:str(e.name)};
+  if(t==='upgrade'&&typeof e.feat==='string')return{type:t,feat:e.feat.slice(0,60),die:/^\d*d\d+$/.test(e.die||'')?e.die:'',rest:['short','long'].includes(e.rest)?e.rest:'',name:str(e.name)};
+  if(t==='action'&&e.do==='ignoreInc')return{type:'action',do:'ignoreInc',name:str(e.name)||'Ignore Incapacitated',econ:'free',cost:null,range:0,dice:'',value:0,count:0,fx:null};
+  return null}).filter(Boolean);return base.concat(extra)};
+
+/* --- ulepszenia innych featów (np. Greater Aberrant Mark: 1d6, odnowienie po krótkim odpoczynku) --- */
+const _fl48=fxList;fxList=function(info,type){const r=_fl48(info,type);if(type==='upgrade'||!info)return r;try{const up=_fl48(info,'upgrade');if(!up.length)return r;
+  return r.map(e=>{const u=e&&e.feat&&up.find(x=>x.feat===e.feat.id);if(!u)return e;const c=Object.assign({},e);if(u.die&&(e.type==='trigger'||e.type==='chkDie'))c.die=u.die;if(u.rest&&e.type==='resource')c.rest=u.rest;return c})}catch(x){return r}};
+
+/* --- helpers --- */
+const holds48=(x,req)=>{const it=((infoOf(x)||{}).items||[]).filter(w=>w.equipped);if(req==='shield')return it.some(w=>w.kind==='shield');if(req==='shieldOrWeapon')return it.some(w=>w.kind==='shield'||w.kind==='weapon');return true};
+const alive48=x=>x&&x.sheet&&x.sheet.hp>0&&!cflags(x).inc;
+function allyRxCands(att,g){try{return S.tokens.filter(x=>x!==g&&x!==att&&alive48(x)&&sameSide(x,g)&&rxAvail(x)&&infoOf(x)).flatMap(x=>fxList(infoOf(x),'allyRx').filter(e=>tokDist(x,g)<=e.range&&holds48(x,e.req)&&(!e.cost||resIdLeft(x,'fe_'+e.cost)>0)).map(e=>({x,e})))}catch(e){return[]}}
+
+/* --- reakcje sojuszników po trafieniu (po decyzji samego celu) --- */
+const _rxg48=rxGate;rxGate=function(att,g,total,ac,out,cb){const K0=K;return _rxg48(att,g,total,ac,out,(o2,rx)=>{
+  if(o2==='miss'||!g||rm('feat')==='off')return cb(o2,rx);const cands=allyRxCands(att,g);if(!cands.length)return cb(o2,rx);
+  const byTok=new Map();cands.forEach(c=>{if(!byTok.has(c.x.id))byTok.set(c.x.id,[]);byTok.get(c.x.id).push(c)});const list=[...byTok.values()];
+  const next=(k,o3)=>{if(K!==K0)return;if(o3==='miss'||k>=list.length)return cb(o3,rx);const cs=list[k],x=cs[0].x,i=infoOf(x);
+    const lbl=c=>{const nm=c.e.name||c.e.feat.name;if(c.e.do==='disadv')return'🛡 '+tr('arDis',nm);const b=c.e.bonus?'+'+fxv(i,c.e.bonus):'';return'🛡 '+tr('arRed',nm,c.e.dice+b)};
+    if(K)K.res='⏳ '+tr('rxWaiting',x.name);try{stRender()}catch(e){}
+    chAsk(att,x,{title:'⚡ '+tr('arT',x.name,g.name),body:tr('arB',att.name,g.name,total,ac),btns:cs.map((c,n)=>[String(n),lbl(c)])},u=>{
+      const c=u!=null&&cs[+u];if(!c)return next(k+1,o3);const e=c.e,nm=e.name||e.feat.name;if(S.combat&&S.combat.started)econSet(x,{r:0});if(e.cost)resIdSpend(x,'fe_'+e.cost);
+      if(e.do==='disadv'){let o4=o3;const R=K&&K.lastR;if(R!=null&&K.lastO){const r2=rnd(20),nr=Math.min(R,r2),mod=K.lastMod||0;o4=nr===1?'miss':nr>=critMin(att,K.lastO)?'crit':(nr+mod>=ac?'hit':'miss');
+          send({k:'sys',text:tr('arDisLog',x.name,nm,g.name,R,r2,nr+mod,ac,o4==='miss'?'✗':'✓')})}
+        if(e.linger!==false)addFx(g.id,{c:'custom',n:nm+' ('+x.name+')',dDis:1,u:'srcStart',src:x.id});return next(k+1,o4)}
+      let dd=e.dice;if(/^prof/.test(dd))dd=(i.prof||2)+dd.slice(4);const p=parseDmgExpr(dd)||{n:1,s:10,f:0};let n=(p.f||0)+fxv(i,e.bonus);const rolls=[];for(let q=0;q<p.n;q++){const v=rnd(p.s);rolls.push(v);n+=v}
+      addFxMany(g.id,[{c:'custom',n:nm+' −'+n,dRed:n,u:'start'}]);send({k:'sys',text:tr('arRedLog',x.name,nm,g.name,n)});next(k+1,o3)})};
+  next(0,o2)})};
+
+/* --- Retaliate: po trafieniu wręcz — atak okazyjny jako reakcja --- */
+const _rb48=rebukeCheck;rebukeCheck=function(g,attId,real){_rb48.apply(this,arguments);try{if(!(real>0)||!iCtl(g)||rm('feat')==='off')return;const i=infoOf(g),att=tokById(attId);
+  if(!i||!att||!fxList(i,'retaliate').length||!rxAvail(g)||!alive48(g)||tokDist(g,att)>5||!hostile(g,att))return;const e=fxList(i,'retaliate')[0],nm=e.name||e.feat.name;
+  setTimeout(()=>chAsk(att,g,{title:'⚔ '+tr('retT',g.name),body:tr('retB',att.name),btns:[['ret','⚔ '+nm]]},u=>{if(u!=='ret'||!rxAvail(g))return;
+    const op=strikeOpts(g).find(o=>o.kind==='atk'&&o.melee&&!o.custom);if(!op)return;selectToken(g);startStrike(g,op);K.uses='reaction';K.oa=1;strikePick(att);stRender()}),120)}catch(x){console.error(x)}};
+
+/* --- Hypervigilance: przerzut inicjatywy 9 i mniej (zawsze opłacalny, więc bez pytania; „Wyłączone” w Zasadach go wyłącza) --- */
+const _ci48=cbInit;cbInit=function(t){try{const i=infoOf(t),e=i&&rm('feat')!=='off'&&fxList(i,'initReroll')[0];if(!e)return _ci48(t);
+  const s=t.sheet||{};let m=i.classes&&i.classes.length?initMod(i):i.abilities?abMod(i.abilities.dex||10):0;m-=d20Pen(t);
+  const one=()=>{const a=rnd(20),b=rnd(20),mode=rollModeOf(t,'check','dex');return mode==='a'?Math.max(a,b):mode==='d'?Math.min(a,b):a};let r=one();
+  const tie=(i.abilities?(i.abilities.dex||10)/100:0),nm=e.name||e.feat.name;
+  if(r<=e.below&&rm('feat')==='auto'){const r2=one();send({k:'sys',text:tr('hvLog',t.name,nm,r,r2)});r=r2}
+  else if(r<=e.below){const r0=r;setTimeout(()=>chAsk(null,t,{title:'✨ '+tr('hvT',t.name),body:tr('hvB',r0),btns:[['hv','🎲 '+nm]]},u=>{if(u!=='hv')return;const c=S.combat;if(!c)return;const r2=one();
+      send({k:'sys',text:tr('hvLog',t.name,nm,r0,r2)});const cur=c.started&&c.l[c.t]?c.l[c.t].id:null;let l=c.l.map(x=>x.id===t.id?Object.assign({},x,{i:r2+m+tie}):x);if(c.started)l=cbSorted(l);
+      cbSend(Object.assign({},c,{l,t:cur?Math.max(0,l.findIndex(x=>x.id===cur)):c.t}))}),300)}
+  return r+m+tie}catch(x){return _ci48(t)}};
+
+/* --- Dual Wielder: dodatkowy atak drugą bronią wręcz bez Two-Handed --- */
+const _ps48=pcStrikeOpts;pcStrikeOpts=function(t){const o=_ps48.apply(this,arguments);try{const i=infoOf(t);if(!i||!fxList(i,'dualWield').length||o.some(x=>x.off&&x.dw48))return o;
+  const eq=(i.items||[]).filter(w=>w.kind==='weapon'&&w.equipped);const light=eq.filter(w=>(w.props||[]).includes('light'));if(!light.length)return o;
+  eq.filter(w=>!(w.props||[]).includes('two-handed')&&!w.ranged&&!(w.props||[]).includes('ammunition')).forEach(w=>{
+    if(o.some(x=>x.off&&x.w===w))return;if(!light.some(l=>l!==w))return;const base=o.find(x=>x.w===w&&!x.off&&x.melee!==false);if(!base)return;
+    const c=JSON.parse(JSON.stringify(Object.assign({},base,{w:null})));c.w=w;c.name=`${base.name} (${tr('offhand')})`;const abm=(c.parts[0]&&c.parts[0].f||0)-(+w.bonus||0);if(abm>0&&c.parts[0])c.parts[0].f-=abm;
+    c.offUses='bonus';c.off=1;c.dw48=1;o.push(c)})}catch(x){}return o};
+
+/* --- Will to Survive: ignorujesz Incapacitated w swojej turze (+1 Exhaustion) --- */
+const _fad48=featActDo;featActDo=function(t,e){if(!e||e.do!=='ignoreInc')return _fad48.apply(this,arguments);const nm=e.name||e.feat.name;
+  if(fxOf(t).some(f=>f.c==='unconscious'))return say(tr('wtsNo',esc(t.name)),'sys');const lv=exhLv(t);
+  send({k:'sp',id:t.id,p:{fx:fxOf(t).filter(f=>f.c!=='exhaustion').concat([{id:uid(),c:'exhaustion',lv:lv+1,n:'Exhaustion '+(lv+1)},{id:uid(),c:'custom',n:nm,noInc:1,u:'end'}])}});send({k:'sys',text:tr('wtsLog',t.name,nm,lv+1)})};
+const _fa48=featActions;featActions=function(t){const r=_fa48.apply(this,arguments);try{const i=infoOf(t);if(!i)return r;
+  const extra=fxList(i,'action').filter(e=>e.do==='ignoreInc'&&!r.includes(e));const inc=_cf48(t).inc&&!fxOf(t).some(f=>f.c==='unconscious'||f.noInc);return inc?(r.some(x=>x.do==='ignoreInc')?r:r.concat(extra)):r.filter(e=>e.do!=='ignoreInc')}catch(x){return r}};
+const _cf48=cflags;cflags=function(t){const o=_cf48(t);try{if(o.inc&&t&&fxOf(t).some(f=>f.noInc)&&!fxOf(t).some(f=>f.c==='unconscious'))o.inc=0}catch(x){}return o};
+
+addI18n({arT:'{0}: protect {1}?',arB:'{0} hit {1} ({2} vs AC {3}). Use your Reaction? (it will not be available for anything else this round)',arDis:'{0}: Disadvantage on this attack',arRed:'{0}: −{1} damage',
+  arDisLog:'🛡 {0}: {1} — {2} is protected: roll {3} / {4} → {5} vs AC {6} {7}',arRedLog:'🛡 {0}: {1} — damage to {2} reduced by {3}.',retT:'{0}: retaliate?',retB:'{0} hit you in melee. Make an Opportunity Attack with your Reaction?',
+  hvLog:'✨ {0}: {1} — Initiative d20 {2} rerolled → {3}.',hvT:'{0}: reroll Initiative?',hvB:'You rolled {0} on the d20. Reroll it (you must use the new roll)?',wtsLog:'✨ {0}: {1} — ignores Incapacitated this turn (Exhaustion {2}).',wtsNo:'{0} is Unconscious — this does not work.'},
+ {arT:'{0}: chronić {1}?',arB:'{0} trafia {1} ({2} vs KP {3}). Użyć reakcji? (nie będzie już dostępna w tej rundzie)',arDis:'{0}: utrudnienie na ten atak',arRed:'{0}: −{1} obrażeń',
+  arDisLog:'🛡 {0}: {1} — {2} pod osłoną: rzut {3} / {4} → {5} vs KP {6} {7}',arRedLog:'🛡 {0}: {1} — obrażenia {2} mniejsze o {3}.',retT:'{0}: odpowiedzieć?',retB:'{0} trafił cię wręcz. Atak okazyjny za reakcję?',
+  hvLog:'✨ {0}: {1} — inicjatywa: k20 {2} przerzucone → {3}.',hvT:'{0}: przerzucić inicjatywę?',hvB:'Na k20 wypadło {0}. Przerzucić (liczy się nowy wynik)?',wtsLog:'✨ {0}: {1} — ignoruje Incapacitated w tej turze (Exhaustion {2}).',wtsNo:'{0} jest nieprzytomny — to nie działa.'});
+if(typeof feDescribe==='function'){const _fd48=feDescribe;feDescribe=function(e,info){const nm=e.name?e.name+': ':'';
+  if(e.type==='allyRx')return nm+(e.do==='disadv'?tr('feArDis',e.range):tr('feArRed',e.dice+(e.bonus?' + '+(e.bonus==='prof'?'PB':e.bonus):''),e.range))+(e.req==='shield'?' · 🛡':'');
+  if(e.type==='retaliate')return nm+tr('feRet');if(e.type==='initReroll')return nm+tr('feHv',e.below);if(e.type==='dualWield')return nm+tr('feDw');if(e.type==='upgrade')return nm+tr('feUp',e.feat);
+  return _fd48.apply(this,arguments)};
+  addI18n({feArDis:'Reaction: Disadvantage on an attack that hits an ally within {0} ft',feArRed:'Reaction: −{0} damage to an ally within {1} ft',feRet:'Reaction: Opportunity Attack after a melee hit',feHv:'Initiative: reroll {0} or lower',feDw:'Bonus Action attack with a non-Light melee weapon',feUp:'upgrades {0}'},
+   {feArDis:'Reakcja: utrudnienie na atak, który trafia sojusznika w {0} ft',feArRed:'Reakcja: −{0} obrażeń dla sojusznika w {1} ft',feRet:'Reakcja: atak okazyjny po trafieniu wręcz',feHv:'Inicjatywa: przerzut {0} i mniej',feDw:'atak akcją bonusową bronią wręcz bez Light',feUp:'ulepsza {0}'})}
 
 </script>
 </body>
