@@ -2816,7 +2816,7 @@ function initCastInputs(){
 }
 const newCast=stage=>({stage,targets:[],entries:null,dice:[],flat:0,rerolled:false,sel:new Set(),saves:{},busy:false,saved:false,attacked:false});
 /* ---- wybór celów dla zaklęć na jeden cel / kilka promieni ---- */
-const ftMax=()=>{const r=castSpell.range||0;return r===0?8:r+5};
+const ftMax=()=>{const r=(castSpell.range||0)+(castSpell.range&&typeof spellRangeAdd==='function'?spellRangeAdd(castSpell):0);return r===0?8:r+5};
 function drawRange(){const svg=aoeSvg(),c=tokenCenter(selected),r=ftMax()*S.grid/5;
   svg.innerHTML=`<circle cx="${c.x}" cy="${c.y}" r="${r}" fill="rgba(80,220,130,.08)" stroke="#6fe08a" stroke-width="2" stroke-dasharray="6 5"/>`}
 function syncPickHits(){
@@ -4005,7 +4005,7 @@ function resHud(box){
 }
 function hdSpend(ctx,die){
   const {t,info}=ctx;info.hdUsed=info.hdUsed||{};const h=hdList(info).find(x=>x.die===die);if(!h||h.total-h.used<=0)return;
-  info.hdUsed[die]=(info.hdUsed[die]||0)+1;const r=rnd(die),con=abMod((info.abilities||{}).con||10),n=Math.max(0,r+con);ctx.commit();ctx.heal(n,`d${die}[${r}]${sg(con)}`);
+  info.hdUsed[die]=(info.hdUsed[die]||0)+1;const r=(typeof hdMaxFor==='function'&&hdMaxFor(info))?die:rnd(die),con=abMod((info.abilities||{}).con||10),n=Math.max(0,r+con);ctx.commit();ctx.heal(n,`d${die}[${r}]${sg(con)}`);
 }
 /* nadpisanie przycisków odpoczynku w HUD */
 function hookRest(){
@@ -9400,7 +9400,7 @@ const featMarkTurn=(t,k)=>{if(S.combat&&S.combat.started)setTimeout(()=>econSet(
 const _pr45=pgRoll;
 pgRoll=function(label,expr,mode,opt){const r=_pr45.apply(this,arguments);try{const t=smTok(),i=smInfo;if(!t||!i||(opt&&opt.kind&&opt.kind!=='check'))return r;const L=String(label);
   const sk=SKILLS.find(s=>L===s[1]||L.startsWith(s[1]+' ('));const ab=(opt&&opt.ab)||ABIL.find(k=>L===`${ABIL_PL[k]} ${tr('check')}`);if(!sk&&!ab)return r;
-  fxList(i,'chkDie').forEach(e=>{if(!(sk&&e.skills.includes(sk[0]))&&!(e.abs.includes(ab)&&!sk))return;setTimeout(()=>_pr45(`${label} + ${e.name||e.feat.name}`,e.die,'',{}),900)})}catch(e){}return r};
+  const rep=new Set(fxList(i,'chkDie').map(e=>e.replaces).filter(Boolean));fxList(i,'chkDie').forEach(e=>{if(rep.has(e.feat.id))return;if(!(sk&&e.skills.includes(sk[0]))&&!(e.abs.includes(ab)&&!sk))return;setTimeout(()=>_pr45(`${label} + ${e.name||e.feat.name}`,e.die,'',{}),900)})}catch(e){}return r};
 
 /* --- akcje z paska akcji --- */
 function featActions(t){const i=infoOf(t);if(!i)return[];return fxList(i,'action').filter(e=>!e.cost||resIdLeft(t,'fe_'+e.cost)>0)}
@@ -9413,7 +9413,7 @@ function featActDo(t,e){const ec=econOf(t);if(e.econ==='b'&&!ec.b)return say(tr(
   else if(e.do==='teleport'){econSet(t,spend());tpStart(t,e.range||30,nm)}
   else if(e.do==='healHD'){const go=x=>{let n=fxv(i,e.value),txt='';
       if(e.dice){const d=parseDmgExpr(e.dice);n+=d.f||0;for(let q=0;q<(e.count||d.n);q++)n+=rnd(d.s);txt=e.dice}
-      else{const h=hdList(i).find(z=>z.total-z.used>0);if(!h)return say(tr('faNoHd',esc(t.name)),'sys');const hu=Object.assign({},i.hdUsed||{});hu[h.die]=(hu[h.die]||0)+1;send({k:'sp',id:t.id,p:{info:Object.assign({},infoOf(t),{hdUsed:hu})}});const r=rnd(h.die);n+=r;txt='d'+h.die+'['+r+']'}
+      else{const h=hdList(i).find(z=>z.total-z.used>0);if(!h)return say(tr('faNoHd',esc(t.name)),'sys');const hu=Object.assign({},i.hdUsed||{});hu[h.die]=(hu[h.die]||0)+1;send({k:'sp',id:t.id,p:{info:Object.assign({},infoOf(t),{hdUsed:hu})}});const r=(typeof hdMaxFor==='function'&&hdMaxFor(i))?h.die:rnd(h.die);n+=r;txt='d'+h.die+'['+r+']'}
       econSet(t,spend());healTok(x,Math.max(1,n),nm+' ('+txt+')');send({k:'sys',text:tr('faLog',t.name,nm)})};
     if(e.range){pickToken(tr('faWho',nm),x=>x.sheet&&tokDist(t,x)<=e.range,go);return}go(t);return}
   else if(e.do==='tempHp'){pickToken(tr('faWho',nm),x=>x.sheet&&(!e.range||tokDist(t,x)<=e.range),x=>{econSet(t,spend());let n=fxv(i,e.value);if(e.dice){const d=parseDmgExpr(e.dice);for(let q=0;q<d.n;q++)n+=rnd(d.s);n+=d.f||0}
@@ -9743,6 +9743,127 @@ try{applyLang()}catch(e){}
 }
 if(typeof module!=='undefined')module.exports={conv5etools,r5,fl5,sp5,mo5,it5,ra5,bg5,sc5,cp5,B5};
 if(typeof document!=='undefined'&&typeof BACKGROUNDS!=='undefined'){const _lc46=loadCatalog;loadCatalog=async function(){const r=await _lc46.apply(this,arguments);try{if(BOOKS_OFF.size){const keep=BACKGROUNDS.filter(b=>!BOOKS_OFF.has(bookOf(b)));BACKGROUNDS.length=0;keep.forEach(b=>BACKGROUNDS.push(b))}}catch(e){}return r}}
+
+/* ================= m47: klocki – kości obrażeń (min/przerzut/krytyk), koncentracja, przewaga przy sojuszniku, chwyt, okazyjne, broń mistrzowska, zasięg czarów, PW tymczasowe, Kości Wytrzymałości ================= */
+const _ce47=cleanEffects;
+cleanEffects=function(arr){const base=_ce47(arr);const extra=(Array.isArray(arr)?arr:[]).slice(0,40).map(e=>{if(!e||typeof e!=='object')return null;const t=String(e.type||'');
+  const dmgs=v=>(Array.isArray(v)?v:v?[v]:[]).filter(d=>DMG_TYPES.some(x=>x[0]===d));const str=(v,n)=>String(v||'').slice(0,n||60);const cost=typeof e.cost==='string'?e.cost.slice(0,40):null;
+  const ch=e.choose&&typeof e.choose==='object'?{from:dmgs(e.choose.from),count:Math.max(1,Math.min(3,+e.choose.count||1))}:null;
+  const W=['any','weapon','melee','ranged','light','unarmed','lightUnarmed','spell','crossbow'];const when=W.includes(e.when)?e.when:'any';
+  if(t==='dmgDie')return{type:t,min:Math.max(2,Math.min(6,+e.min||2)),when,dmg:dmgs(e.dmg),choose:ch,school:str(e.school,20).toLowerCase(),name:str(e.name),cost};
+  if(t==='critDie')return{type:t,dmg:dmgs(e.dmg),when,name:str(e.name)};
+  if(t==='dmgReroll')return{type:t,dmg:dmgs(e.dmg),when,name:str(e.name)};
+  if(t==='oaBest')return{type:t,name:str(e.name)};
+  if(t==='concSafe')return{type:t,name:str(e.name)};
+  if(t==='advNear')return{type:t,abs:(Array.isArray(e.abs)?e.abs:[]).filter(a=>ABIL.includes(a)),range:Math.max(5,Math.min(60,+e.range||5)),both:e.both!==false,name:str(e.name)};
+  if(t==='grappleAdv')return{type:t,name:str(e.name)};
+  if(t==='noMeleeDis')return{type:t,when:when==='spell'?'spell':'crossbow',name:str(e.name)};
+  if(t==='spellRange')return{type:t,add:Math.max(0,Math.min(300,+e.add||60)),attackOnly:e.attackOnly!==false,name:str(e.name)};
+  if(t==='mastery')return{type:t,count:Math.max(1,Math.min(3,+e.count||1)),name:str(e.name)};
+  if(t==='tempHpBonus')return{type:t,value:Math.max(1,Math.min(20,+e.value||5)),name:str(e.name)};
+  if(t==='hdMax')return{type:t,name:str(e.name)};
+  return null}).filter(Boolean);
+  /* chkDie: pole replaces (np. Greater Mark zastępuje kość zwykłego znaku) */
+  (Array.isArray(arr)?arr:[]).forEach((e,i)=>{if(e&&e.type==='chkDie'&&typeof e.replaces==='string'){const b=base.find(x=>x.type==='chkDie'&&x.name===String(e.name||'').slice(0,60));if(b)b.replaces=e.replaces.slice(0,60)}});
+  (Array.isArray(arr)?arr:[]).filter(e=>e&&e.type==='ignoreResist'&&e.choose&&typeof e.choose==='object').forEach(e=>{const b=base.find(x=>x.type==='ignoreResist'&&!x.dmg.length&&!x.choose);
+    if(b)b.choose={from:(Array.isArray(e.choose.from)?e.choose.from:[]).filter(d=>DMG_TYPES.some(x=>x[0]===d)),count:Math.max(1,Math.min(3,+e.choose.count||1))}});
+  return base.concat(extra)};
+
+/* wybory (choose) zapisane na karcie → podmieniamy dmg w wynikach fxList */
+const _fl47=fxList;fxList=function(info,type){const r=_fl47(info,type);try{return r.map(e=>{if(!e||!e.choose||!e.feat)return e;if(e.type!=='dmgDie'&&e.type!=='ignoreResist')return e;
+  const ch=featChoice(info,e.feat.id),pk=((ch&&ch.pk)||{})[e.idx]||[];return Object.assign({},e,{dmg:pk.filter(Boolean)})})}catch(x){return r}};
+/* karta: wybór typu obrażeń dla dmgDie / ignoreResist */
+const _sv47=smView;smView=function(){_sv47();try{const i=smInfo,box=Q('#pgFeatFx');if(!i||!box)return;
+  featsWithFx(i).forEach(f=>{const card=[...box.querySelectorAll('.feCard')].find(c=>c.querySelector('b')&&c.querySelector('b').textContent.startsWith(f.name));if(!card)return;
+    const seen=new Set();f.effects.forEach((e,idx)=>{if(!e.choose||!['dmgDie','ignoreResist'].includes(e.type))return;const key=e.choose.from.join(',');
+      const ch=featChoice(i,f.id);ch.pk=ch.pk||{};
+      if(seen.has(key)){/* ta sama lista co wcześniej → ten sam wybór */const first=f.effects.findIndex(x=>x.choose&&x.choose.from.join(',')===key);ch.pk[idx]=(ch.pk[first]||[]).slice();return}seen.add(key);
+      const cur=ch.pk[idx]||[];const row=wzEl('div',{className:'smRow'},wzEl('small',{textContent:tr('fePickDmg')}));
+      for(let n=0;n<e.choose.count;n++){row.append(wzSel([['','—']].concat(e.choose.from.map(x=>[x,dmgName(x)])),cur[n]||'',v=>{const a=(ch.pk[idx]||[]).slice();a[n]=v;f.effects.forEach((x,j)=>{if(x.choose&&x.choose.from.join(',')===key)ch.pk[j]=a.slice()});smTouch();smView()}))}
+      card.append(row)})})}catch(e){console.error(e)}};
+
+/* --- kości obrażeń: ataki bronią --- */
+const w47=(e,o,isSpell)=>{if(isSpell)return e.when==='spell'||e.when==='any';if(e.when==='spell')return false;const w=o&&o.w,pr=(w&&w.props)||[];
+  if(e.when==='any'||e.when==='weapon')return true;if(e.when==='melee')return!!o.melee;if(e.when==='ranged')return!o.melee;
+  const un=!!(o&&(o.unarmed||/unarmed/i.test(o.name||'')));if(e.when==='unarmed')return un;if(e.when==='light')return pr.includes('light');if(e.when==='lightUnarmed')return un||pr.includes('light');
+  if(e.when==='crossbow')return/crossbow/i.test((w&&(w.name||w.ref))||'');return false};
+const _rp47=rollParts;rollParts=function(parts,crit,label,cb){try{const t=K&&K.att,o=K&&K.opt,i=t&&infoOf(t);if(!i||!o||o.kind!=='atk')return _rp47(parts,crit,label,cb);
+  const types=parts.map(p=>p.type);const hasT=e=>!e.dmg.length||e.dmg.some(d=>types.includes(d));
+  const P=parts.map(p=>Object.assign({},p));
+  /* krytyk: dodatkowa kość */
+  if(crit)fxList(i,'critDie').filter(e=>w47(e,o)&&hasT(e)).forEach(e=>{const p=P.find(q=>q.s&&(!e.dmg.length||e.dmg.includes(q.type)));if(p){P.push({n:0.5,s:p.s,f:0,type:p.type});send({k:'sys',text:tr('fxCrit',t.name,e.name||e.feat.name)})}});
+  const mins=fxList(i,'dmgDie').filter(e=>w47(e,o)&&!e.cost);const rr=fxList(i,'dmgReroll').filter(e=>w47(e,o)&&hasT(e)&&!featUsedTurn(t,'rr_'+e.feat.id));
+  const oab=fxList(i,'oaBest').length&&K.oa;
+  return _rp47(P,crit,label,(out,dd)=>{try{let changed=false;const vals=dd.map(x=>x[0]);let k=0;const per=P.map(p=>{const n=Math.round(p.n*(crit?2:1)),idx=[];for(let q=0;q<n;q++)idx.push(k++);return idx});
+      rr.forEach(e=>{let best=-1,bv=99;P.forEach((p,pi)=>{if(e.dmg.length&&!e.dmg.includes(p.type))return;per[pi].forEach(j=>{const s=dd[j][1];if(vals[j]<=s/2&&vals[j]<bv){bv=vals[j];best=j}})});
+        if(best>=0){const nv=rnd(dd[best][1]);send({k:'sys',text:tr('fxReroll',t.name,e.name||e.feat.name,vals[best],nv)});vals[best]=nv;changed=true;featMarkTurn(t,'rr_'+e.feat.id)}});
+      mins.forEach(e=>P.forEach((p,pi)=>{if(e.dmg.length&&!e.dmg.includes(p.type))return;per[pi].forEach(j=>{if(vals[j]<e.min){vals[j]=e.min;changed=true}})}));
+      if(oab){const alt=vals.map((v,j)=>rnd(dd[j][1]));const s1=vals.reduce((a,b)=>a+b,0),s2=alt.reduce((a,b)=>a+b,0);if(s2>s1){alt.forEach((v,j)=>vals[j]=v);changed=true}send({k:'sys',text:tr('fxOaBest',t.name,s1,s2)})}
+      if(!changed)return cb(out,dd);
+      const out2=P.map((p,pi)=>{let sum=p.f||0;per[pi].forEach(j=>sum+=vals[j]);return[Math.max(0,sum),p.type]});
+      cb(out2,dd.map((x,j)=>[vals[j],x[1]]))}catch(x){console.error(x);cb(out,dd)}})}catch(x){console.error(x);return _rp47(parts,crit,label,cb)}};
+
+/* --- kości obrażeń: czary (po rzucie, przed zatwierdzeniem) --- */
+const _rc47=renderCast;renderCast=function(){try{if(cast&&cast.stage==='dmg'&&!cast._m47&&castSpell&&selected){cast._m47=1;const t=selected,i=infoOf(t);
+  if(i){const ty=[castSpell.type].concat((castSpell.damage||[]).map(d=>d.type)).filter(Boolean);const sch=String(castSpell.school||'').toLowerCase();
+    const rules=fxList(i,'dmgDie').filter(e=>w47(e,null,true)&&(!e.dmg.length||e.dmg.some(d=>ty.includes(d)))&&(!e.school||e.school===sch)&&(!e.cost||resIdLeft(t,'fe_'+e.cost)>0));
+    rules.forEach(e=>{const low=(cast.dice||[]).filter(d=>d.v<e.min);if(!low.length)return;
+      if(e.cost){if(!(castSlot>0))return;if(!confirm(tr('fxUseQ',e.name||e.feat.name,low.length)))return;resIdSpend(t,'fe_'+e.cost)}
+      low.forEach(d=>d.v=e.min);send({k:'sys',text:tr('fxMin',t.name,e.name||e.feat.name,low.length,e.min)})})}}}catch(x){console.error(x)}return _rc47.apply(this,arguments)};
+
+/* --- koncentracja odporna na obrażenia --- */
+const _cc47=concCheck;concCheck=function(t,dmg){try{const i=infoOf(t);if(i&&fxList(i,'concSafe').length){send({k:'sys',text:tr('fxConc',t.name)});return}}catch(x){}return _cc47.apply(this,arguments)};
+
+/* --- przewaga w rzutach, gdy sojusznik jest obok --- */
+const _cf47=cflags;let CF47=0;cflags=function(t){const o=_cf47(t);if(CF47>2||!t||!t.sheet)return o;CF47++;try{
+  const ok=x=>x&&x!==t&&x.sheet&&sameSide(x,t)&&!(x.sheet.dead||(x.sheet.death&&x.sheet.death.dead))&&!_cf47(x).inc;
+  const mine=infoOf(t)?fxList(infoOf(t),'advNear'):[];
+  if(!o.inc)mine.forEach(e=>{if(S.tokens.some(x=>ok(x)&&tokDist(t,x)<=e.range))e.abs.forEach(a=>o.sadv[a]=1)});
+  /* sojusznik z featem obok daje tę przewagę także tobie */
+  S.tokens.forEach(x=>{if(!ok(x)||_cf47(x).inc)return;const xi=infoOf(x);if(!xi)return;fxList(xi,'advNear').forEach(e=>{if(e.both&&tokDist(t,x)<=e.range)e.abs.forEach(a=>o.sadv[a]=1)})})}catch(x){}finally{CF47--}return o};
+
+/* --- przewaga sojuszników przeciw stworzeniu, które chwytasz; broń w zwarciu bez utrudnienia --- */
+const _am47=atkModeOf;atkModeOf=function(att,tgt,o){o=o||{};try{const i=infoOf(att);
+  if(o.melee===false&&i&&K&&K.opt&&fxList(i,'noMeleeDis').some(e=>e.when==='crossbow'&&w47({when:'crossbow'},K.opt)))o=Object.assign({},o,{melee:undefined})}catch(x){}
+  let m=_am47(att,tgt,o);
+  try{if(tgt){const gr=fxOf(tgt).find(f=>f.c==='grappled'&&f.src&&f.src!==att.id);const g=gr&&tokById(gr.src);if(g&&sameSide(g,att)&&infoOf(g)&&fxList(infoOf(g),'grappleAdv').length)m=m==='d'?'n':'a'}}catch(x){}
+  return m};
+
+/* --- mistrzostwo broni z featu (wybór rodzaju broni na karcie) --- */
+const _ps47=pcStrikeOpts;pcStrikeOpts=function(t){const r=_ps47.apply(this,arguments);try{const i=infoOf(t);if(!i)return r;const picks=new Set();
+  fxList(i,'mastery').forEach(e=>{const ch=featChoice(i,e.feat.id);((ch.pk||{})[e.idx]||[]).forEach(p=>p&&picks.add(String(p).toLowerCase()))});
+  if(picks.size)r.forEach(o=>{if(o.w&&!o.mast&&o.w.mastery&&(picks.has(String(o.w.ref||'').toLowerCase())||picks.has(String(o.w.name||'').toLowerCase())))o.mast=o.w.mastery})}catch(x){}return r};
+const _sv47b=smView;smView=function(){_sv47b();try{const i=smInfo,box=Q('#pgFeatFx');if(!i||!box)return;
+  featsWithFx(i).forEach(f=>{const card=[...box.querySelectorAll('.feCard')].find(c=>c.querySelector('b')&&c.querySelector('b').textContent.startsWith(f.name));if(!card)return;
+    f.effects.forEach((e,idx)=>{if(e.type!=='mastery')return;const pool=[...new Map(itemCatalog().filter(x=>x.kind==='weapon'&&x.mastery&&!x.bonus&&!x.rarity).map(x=>[x.name,x])).values()].sort((a,b)=>a.name.localeCompare(b.name));
+      const ch=featChoice(i,f.id);ch.pk=ch.pk||{};const cur=ch.pk[idx]||[];const row=wzEl('div',{className:'smRow'},wzEl('small',{textContent:tr('fePickMast')}));
+      for(let n=0;n<e.count;n++)row.append(wzSel([['','—']].concat(pool.map(x=>[x.name,`${x.name} (${cap1(x.mastery)})`])),cur[n]||'',v=>{const a=(ch.pk[idx]||[]).slice();a[n]=v;ch.pk[idx]=a;smTouch();smView()}));
+      card.append(row)})})}catch(e){console.error(e)}};
+
+/* --- zasięg czarów z rzutem ataku --- */
+function spellRangeAdd(sp){try{const t=selected,i=t&&infoOf(t);if(!i||!sp||!(sp.range>=10))return 0;return fxList(i,'spellRange').filter(e=>!e.attackOnly||sp.attack).reduce((a,e)=>a+e.add,0)}catch(x){return 0}}
+
+/* --- dodatkowe tymczasowe PW; maksymalne Kości Wytrzymałości --- */
+function hdMaxFor(info){try{return!!(info&&fxList(info,'hdMax').length)}catch(x){return false}}
+const _ap47=apply;apply=function(a){try{if(a&&a.k==='sp'&&a.p&&a.p.info&&a.p.info.tempHp>0&&!a.thp47){const t=tokById(a.id),cur=t&&infoOf(t);
+  if(cur&&a.p.info.tempHp>(cur.tempHp||0)){const b=fxList(cur,'tempHpBonus').reduce((s,e)=>s+e.value,0);if(b){a.thp47=1;a.p=Object.assign({},a.p,{info:Object.assign({},a.p.info,{tempHp:a.p.info.tempHp+b})})}}}}catch(x){}return _ap47.apply(this,arguments)};
+
+addI18n({fxCrit:'✨ {0}: {1} — extra damage die on the critical hit.',fxReroll:'✨ {0}: {1} — reroll {2} → {3}.',fxOaBest:'✨ {0}: opportunity attack damage rolled twice ({1} / {2}), higher one used.',
+  fxMin:'✨ {0}: {1} — {2} low dice raised to {3}.',fxUseQ:'Use {0}? ({1} dice will be raised)',fxConc:'✨ {0} keeps Concentration (damage does not break it).',fePickDmg:'Damage type:',fePickMast:'Weapon (mastery):',
+  feDmgDie:'damage dice below {0} count as {0}',feCritDie:'extra die on a Critical Hit',feDmgReroll:'once per turn: reroll a low damage die',feOaBest:'opportunity attacks: damage rolled twice',feConcSafe:'damage does not break Concentration',
+  feAdvNear:'Advantage on {0} saves with an ally within {1} ft',feGrapAdv:'allies have Advantage against a creature you grapple',feNoMeleeDis:'no Disadvantage at close range',feSpellRange:'+{0} ft range for spell attacks',feMastery:'Weapon Mastery of a chosen weapon',feThp:'+{0} to Temporary Hit Points you gain',feHdMax:'Hit Point Dice heal for their maximum'},
+ {fxCrit:'✨ {0}: {1} — dodatkowa kość obrażeń przy trafieniu krytycznym.',fxReroll:'✨ {0}: {1} — przerzut {2} → {3}.',fxOaBest:'✨ {0}: obrażenia ataku okazyjnego rzucone dwa razy ({1} / {2}), liczy się wyższy.',
+  fxMin:'✨ {0}: {1} — {2} niskich kości podniesionych do {3}.',fxUseQ:'Użyć {0}? (podniesie {1} kości)',fxConc:'✨ {0} utrzymuje koncentrację (obrażenia jej nie przerywają).',fePickDmg:'Typ obrażeń:',fePickMast:'Broń (mistrzostwo):',
+  feDmgDie:'kości obrażeń poniżej {0} liczą się jako {0}',feCritDie:'dodatkowa kość przy krytyku',feDmgReroll:'raz na turę: przerzut niskiej kości obrażeń',feOaBest:'ataki okazyjne: obrażenia rzucane dwa razy',feConcSafe:'obrażenia nie przerywają koncentracji',
+  feAdvNear:'przewaga w rzutach {0}, gdy sojusznik jest w {1} ft',feGrapAdv:'sojusznicy mają przewagę przeciw stworzeniu, które chwytasz',feNoMeleeDis:'bez utrudnienia z bliska',feSpellRange:'+{0} ft zasięgu czarów z atakiem',feMastery:'mistrzostwo wybranej broni',feThp:'+{0} do zdobywanych tymczasowych PW',feHdMax:'Kości Wytrzymałości leczą maksymalnie'});
+
+/* opisy na karcie (#pgFeatFx) */
+const _fd47=typeof feDescribe==='function'?feDescribe:null;if(_fd47)feDescribe=function(e,info){const W={light:'Light',unarmed:'Unarmed',lightUnarmed:'Light / Unarmed',spell:tr('spells')||'spells'};
+  const d=e.dmg&&e.dmg.length?' ('+e.dmg.map(dmgName).join(', ')+')':'';
+  if(e.type==='dmgDie')return tr('feDmgDie',e.min)+d+(e.when!=='any'?' · '+(W[e.when]||e.when):'');if(e.type==='critDie')return tr('feCritDie')+d;if(e.type==='dmgReroll')return tr('feDmgReroll')+d;
+  if(e.type==='oaBest')return tr('feOaBest');if(e.type==='concSafe')return tr('feConcSafe');if(e.type==='advNear')return tr('feAdvNear',e.abs.map(a=>a.toUpperCase()).join('/'),e.range);
+  if(e.type==='grappleAdv')return tr('feGrapAdv');if(e.type==='noMeleeDis')return tr('feNoMeleeDis');if(e.type==='spellRange')return tr('feSpellRange',e.add);if(e.type==='mastery')return tr('feMastery');
+  if(e.type==='tempHpBonus')return tr('feThp',e.value);if(e.type==='hdMax')return tr('feHdMax');return _fd47.apply(this,arguments)};
 
 </script>
 </body>
