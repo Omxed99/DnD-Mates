@@ -298,6 +298,17 @@ Gra rozpoznaje typowe zdania w formacie SRD 2024, więc własne potwory i czary 
 - smite'y (akcja bonusowa po trafieniu bronią): dodatkowe kości, rzut obronny i stan;
 - dodatkowe obrażenia broni z czarów na siebie lub dotyk.
 
+**Losowe tabele, formy i przywołania**
+- akcja z tabelą („roll 1d10” + lista „• 1: Charm Ray …”) — gra losuje pozycję (bez powtórek w tej samej turze, jeśli opis tak mówi); działa też w Multiattack („uses Eye Rays three times”) i w akcjach legendarnych;
+- formy potworów: akcje oznaczone „(Wolf or Hybrid Form Only)” są dostępne tylko w danej formie; przycisk 🔄 w pasku żetonu zmienia formę albo zamienia statystyki na innego potwora z katalogu (PW bez zmian, z powrotem do prawdziwej formy);
+- przywołańce czarów: potwór z polami `summonSpell` (id czaru), `acF` i `hpF` (formuły, np. `"11 + the spell's level"`, `"40 + 10 for each spell level above 4"`) — po rzuceniu czaru gra pyta o wariant („(Air only)”), liczy KP, PW, premię do ataku, ST i obrażenia („+ the spell's level”, „your spell save DC”) z poziomu slotu i statystyk rzucającego. Przywołaniec działa zaraz po rzucającym i znika, gdy rzucający straci koncentrację.
+
+| pole potwora | typ | uwagi |
+|---|---|---|
+| `summonSpell` | id czaru | czar, który przywołuje to stworzenie |
+| `acF`, `hpF` | string | formuły KP i PW zależne od poziomu czaru |
+| `pbNote` | string | stworzenie używa premii z biegłości rzucającego |
+
 Czary i potwory z ręcznie opisaną mechaniką w grze mają pierwszeństwo przed odczytem z opisu.
 
 ### Filtr książek
