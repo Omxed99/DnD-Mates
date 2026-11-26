@@ -235,6 +235,17 @@ Resztę opisu widać na karcie, a brakujące efekty można dopisać ręcznie w J
 
 Jeśli w tym samym pliku jest lista `featFluff` (z `fluff-feats.json` w 5etools), opisy fabularne trafiają do pola `fluff`.
 
+### Import całego folderu 5etools
+
+W oknie **Paczki** jest przycisk **📂 Import folderu 5etools**. Wskaż folder `data` z 5etools (albo cały folder 5etools). Gra:
+- czyta tylko pliki potrzebne do książek wydanych od 17.09.2024 (lista z `books.json` i `adventures.json`);
+- przelicza czary, potwory (ataki, rzuty obronne, czary potworów), przedmioty (w tym magiczne warianty broni i zbroi, np. `+1 Longsword`), gatunki, pochodzenia, featy i podklasy 12 klas z PHB 2024;
+- dołącza opisy fabularne (`fluff`);
+- tworzy jedną paczkę na książkę (`5etools: …`); ponowny import podmienia te paczki;
+- pomija wpisy z SRD, jeśli masz już paczkę SRD, oraz featy, które mają już mechanikę w Twojej własnej paczce.
+
+Nic nie jest wysyłane poza przeglądarkę. Klasy spoza PHB (np. z World of Warcraft, Artificer) nie są jeszcze obsługiwane.
+
 ### Filtr książek
 
 W oknie **Paczki** pod listą paczek jest sekcja **📚 Książki**: każda książka (pole `book` / `fsrc`) ma przełącznik. Wyłączona książka znika z katalogu, kreatora i wyboru featów; ustawienie zapisuje się w przeglądarce.
