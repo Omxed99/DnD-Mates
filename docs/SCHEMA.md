@@ -222,6 +222,25 @@ Klocki akcji, reakcji i testów:
 | `unarmed` | `dice`, `noWeapon` | kość ataku bez broni |
 | `spellRecall` | — | darmowe rzucenie czaru (odzysk slotu) |
 
+Klocki kości obrażeń, obrony i drużyny:
+
+| klocek | pola | co robi |
+|---|---|---|
+| `dmgDie` | `min` (2–6), `when`: `any` `weapon` `melee` `ranged` `light` `unarmed` `lightUnarmed` `crossbow` `spell`; `dmg` albo `choose: {from, count}`, `school`, `cost` | kości obrażeń poniżej `min` liczą się jako `min`; przy czarze z `cost` gra pyta, czy użyć |
+| `critDie` | `dmg`, `when` | dodatkowa kość obrażeń przy trafieniu krytycznym |
+| `dmgReroll` | `dmg`, `when` | raz na turę przerzuca najniższą kość obrażeń (gdy wypadła połowa lub mniej) |
+| `oaBest` | — | obrażenia ataku okazyjnego rzucane dwa razy, liczy się wyższy wynik |
+| `concSafe` | — | obrażenia nie przerywają koncentracji |
+| `advNear` | `abs`, `range`, `both` | przewaga w rzutach obronnych, gdy sojusznik (bez stanu Incapacitated) jest w zasięgu; `both` — sojusznik też ją dostaje |
+| `grappleAdv` | — | sojusznicy mają przewagę w atakach na stworzenie, które chwytasz |
+| `noMeleeDis` | `when: "crossbow"` | brak utrudnienia za strzał z bliska |
+| `spellRange` | `add`, `attackOnly` | większy zasięg czarów (z rzutem ataku) |
+| `mastery` | `count` | mistrzostwo wybranej broni (wybór na karcie) |
+| `tempHpBonus` | `value` | dodatek do każdych zdobywanych tymczasowych PW |
+| `hdMax` | — | Kości Wytrzymałości leczą maksymalnie |
+| `ignoreResist` z `choose` | `choose: {from, count}` | typ obrażeń wybierany na karcie |
+| `chkDie` z `replaces` | `replaces`: id featu | zastępuje kość innego featu (np. Greater Mark → 1d6 zamiast 1d4) |
+
 Zdolności, których nie da się złożyć z klocków, trzeba dopisać w kodzie (zgłoś je z treścią featu).
 
 ### Import featów z 5etools
