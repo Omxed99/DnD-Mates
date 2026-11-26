@@ -152,10 +152,8 @@ W zasadach 2024 **pochodzenie (Origin) = gatunek + background**. Background daje
 | `asi` | `{amount, max, choose:[…]}` | zwiększenie cechy, np. `+1` do jednej z `choose`, maks. `max` |
 | `needs` | `{any:[…], min}` | wymóg cechy, np. `{ "any": ["str","dex"], "min": 13 }` |
 | `desc` | string | opis |
-
-```json
-{
-  "id": "healer", "name": "Healer", "category": "Origin", "minLevel": 1,
+| `fluff` | string | opcjonalny opis fabularny (kursywą nad opisem w katalogu i na karcie); działa też w czarach, potworach, przedmiotach, rasach, pochodzeniach i podklasach |
+| `book` | string | skrót książki (`XPHB`, `FRHoF`, …) do filtra książek; bez niego brany jest pierwszy wyraz `fsrc` |, "name": "Healer", "category": "Origin", "minLevel": 1,
   "desc": "Battle Medic: zużyj Healer's Kit, cel wydaje Kość Wytrzymałości i leczy się. Rzuty leczenia: przerzucasz 1."
 }
 ```
@@ -206,6 +204,24 @@ Kolejne klocki:
 | `trigger` z `on: "drop0"` | `healHalf`, `cost`, `name` | zamiast spaść do 0 PW zostajesz z 1 PW (albo z połową maks. PW) |
 | `note` | `text` | sama notatka na karcie |
 
+Klocki akcji, reakcji i testów:
+
+| klocek | pola | co robi |
+|---|---|---|
+| `chkDie` | `skills`, `abs`, `die`, `name`, `cost` | po teście umiejętności/cechy dorzuca kość (np. znaki smocze) |
+| `action` | `do`: `dodge` `dash` `dashHide` `dashDis` `disengage` `hide` `teleport` `healHD` `tempHp` `heroic` `selfFx` `note`; `econ`: `a`/`b`/`r`/`free`; `cost`, `range`, `dice`, `value` (`prof`, `lvl`, `ab:con`…), `count`, `fx: {c, n, r}` | przycisk na pasku akcji; `healHD` bez `dice` wydaje Kość Wytrzymałości, z `range` leczy wskazany cel |
+| `rxAc` | `value`, `vs`: `melee`/`any`, `req`: `finesse`/`shield`, `cost`, `name` | reakcja po trafieniu: +KP (może zamienić trafienie w pudło) |
+| `rxReduce` | `dice` (np. `1d10`, `prof d6`), `bonus`, `dmg`, `cost`, `name` | reakcja: zmniejsza obrażenia |
+| `rxFx` | `on`: `hit`/`damaged`, `fx: {c, n, res}`, `cost`, `name` | reakcja nakładająca efekt na siebie |
+| `atkAdv` | `when`: `bloodied` / `targetCond` + `cond` | przewaga w atakach |
+| `ignoreResist` | `dmg`, `spellsOnly` | twoje obrażenia ignorują odporność |
+| `resistWhen` | `dmg` (lista albo `allButForce`), `immune` | odporność (lub niewrażliwość), gdy jesteś Bloodied |
+| `deathSave` | `mode`: `a`/`d` | przewaga/utrudnienie w rzutach przeciw śmierci |
+| `missToHit` | `name` | raz na turę: pudło zamień w trafienie |
+| `onCast` | `school`, `tempHp` (np. `2*slot`), `speed` (np. `5*slot`) | efekt po rzuceniu czaru danej szkoły ze slotu |
+| `unarmed` | `dice`, `noWeapon` | kość ataku bez broni |
+| `spellRecall` | — | darmowe rzucenie czaru (odzysk slotu) |
+
 Zdolności, których nie da się złożyć z klocków, trzeba dopisać w kodzie (zgłoś je z treścią featu).
 
 ### Import featów z 5etools
@@ -216,6 +232,12 @@ Plik w formacie 5etools (`{"feat": [ … ]}`, sama lista albo pojedynczy feat) m
 - typowe zdania: „When you fail a … saving throw, you can (take a Reaction to) roll 1dN and add …” (z limitem „until you finish a Short/Long Rest”), „You have Resistance to … damage”, „Your Speed increases by N feet”, „+1 bonus to Armor Class”.
 
 Resztę opisu widać na karcie, a brakujące efekty można dopisać ręcznie w JSON-ie.
+
+Jeśli w tym samym pliku jest lista `featFluff` (z `fluff-feats.json` w 5etools), opisy fabularne trafiają do pola `fluff`.
+
+### Filtr książek
+
+W oknie **Paczki** pod listą paczek jest sekcja **📚 Książki**: każda książka (pole `book` / `fsrc`) ma przełącznik. Wyłączona książka znika z katalogu, kreatora i wyboru featów; ustawienie zapisuje się w przeglądarce.
 
 ---
 
