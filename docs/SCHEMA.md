@@ -241,6 +241,19 @@ Klocki kości obrażeń, obrony i drużyny:
 | `ignoreResist` z `choose` | `choose: {from, count}` | typ obrażeń wybierany na karcie |
 | `chkDie` z `replaces` | `replaces`: id featu | zastępuje kość innego featu (np. Greater Mark → 1d6 zamiast 1d4) |
 
+Reakcje za sojusznika i inne:
+
+| klocek | pola | co robi |
+|---|---|---|
+| `allyRx` | `do`: `disadv` / `reduce`; `dice`, `bonus`, `range`, `req`: `shield` / `shieldOrWeapon` / `none`, `linger`, `cost` | gdy wróg trafi sojusznika w zasięgu, gra **pyta** właściciela postaci o reakcję: utrudnienie (drugi k20, niższy wynik; z `linger` kolejne ataki na sojusznika z utrudnieniem do początku twojej tury) albo zmniejszenie obrażeń |
+| `retaliate` | — | po trafieniu wręcz gra pyta o atak okazyjny za reakcję |
+| `initReroll` | `below` | przy inicjatywie ≤ `below` gra pyta o przerzut (w trybie „Automatycznie” przerzuca sama) |
+| `dualWield` | — | atak akcją bonusową drugą bronią wręcz bez Two-Handed (gdy masz broń Light) |
+| `action` z `do: "ignoreInc"` | — | przycisk: ignorujesz Incapacitated w tej turze (+1 Exhaustion) |
+| `upgrade` | `feat`, `die`, `rest` | ulepsza inny feat (np. kość `1d6` zamiast `1d4`, odnowienie po krótkim odpoczynku) |
+
+Reakcje nigdy nie są zużywane bez pytania — masz jedną reakcję na rundę i sam wybierasz, czy wydać ją np. na Shield, czy na feat. Przerzuty „you can” (np. `dmgReroll`) też pytają, chyba że w **⚙ Zasady sesji → Featy z paczek** wybrano „Automatycznie”.
+
 Zdolności, których nie da się złożyć z klocków, trzeba dopisać w kodzie (zgłoś je z treścią featu).
 
 ### Import featów z 5etools
