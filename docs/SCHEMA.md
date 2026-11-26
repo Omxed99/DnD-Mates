@@ -278,6 +278,28 @@ W oknie **Paczki** jest przycisk **📂 Import folderu 5etools**. Wskaż folder 
 
 Nic nie jest wysyłane poza przeglądarkę. Klasy spoza PHB (np. z World of Warcraft, Artificer) nie są jeszcze obsługiwane.
 
+### Efekty czytane z opisu (potwory i czary)
+
+Gra rozpoznaje typowe zdania w formacie SRD 2024, więc własne potwory i czary działają bez dodatkowych pól:
+
+**Potwory**
+- trafienie z dodatkowym rzutem obronnym („…it is subjected to the following effect. Constitution Saving Throw: DC 13… Failure: …”) — gra rzuca za cel i nakłada stany, obrażenia oraz powtarzany rzut;
+- stany z rzutów obronnych z powtarzanym rzutem („repeats the save at the end of each of its turns”), „can't take Reactions”, „Speed 0”;
+- obrażenia co turę („takes 7 (2d6) Poison damage at the start of each of its turns”);
+- zmniejszenie maksymalnych PW („Hit Point maximum decreases…”), przywracane po długim odpoczynku;
+- akcje, które odsyłają do innych („makes two Bite attacks”, „uses Eye Rays”, „uses Spellcasting to cast …”) — w akcjach legendarnych, bonusowych i zwykłych;
+- teleport („teleports up to 60 feet”) — wybór miejsca na mapie;
+- reakcje: Parry („adds 2 to its AC”) i Uncanny Dodge — DM dostaje pytanie;
+- cechy: Death Burst, Flyby, Evasion, Blood Frenzy, Bloodied Fury/Frenzy (przewaga w atakach), aury obrażeń na początku/końcu tury, obrażenia dla atakującego wręcz.
+
+**Czary**
+- stany po nieudanym rzucie lub trafieniu, z powtarzanym rzutem i obrażeniami co turę; −1d4 do rzutów obronnych / ataków;
+- leczenie i tymczasowe PW („regains Hit Points equal to 2d8 + your spellcasting ability modifier”, „gains 5 Temporary Hit Points”);
+- smite'y (akcja bonusowa po trafieniu bronią): dodatkowe kości, rzut obronny i stan;
+- dodatkowe obrażenia broni z czarów na siebie lub dotyk.
+
+Czary i potwory z ręcznie opisaną mechaniką w grze mają pierwszeństwo przed odczytem z opisu.
+
 ### Filtr książek
 
 W oknie **Paczki** pod listą paczek jest sekcja **📚 Książki**: każda książka (pole `book` / `fsrc`) ma przełącznik. Wyłączona książka znika z katalogu, kreatora i wyboru featów; ustawienie zapisuje się w przeglądarce.

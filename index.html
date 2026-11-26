@@ -8375,7 +8375,7 @@ const _amo35=atkModeOf;
 atkModeOf=function(att,tgt,o){let m=_amo35(att,tgt,o);if(att&&cast&&castSpell&&att===selected&&fxOf(att).some(f=>f.satkAdv)&&m!=='a')m=m==='d'?'n':'a';return m};
 
 /* ---------- po stronie hosta: Evasion, Potent Cantrip, Disciple of Life, Beacon of Hope, Dark One's Blessing ---------- */
-const hasEvasion=g=>{const i=g&&g.sheet&&g.sheet.info;return !!(i&&(clsLv(i,'rogue')>=7||clsLv(i,'monk')>=7)&&!cflags(g).inc)};
+const hasEvasion=g=>{const i=g&&g.sheet&&g.sheet.info;if(g&&g.sheet&&g.sheet.mon&&monTraits(g).some(x=>/^Evasion\b/i.test(String(x))))return !cflags(g).inc;return !!(i&&(clsLv(i,'rogue')>=7||clsLv(i,'monk')>=7)&&!cflags(g).inc)};
 const _sss35=strikeSend;
 strikeSend=function(t,res,dice,extra){if(K&&K.opt&&K.opt.kind==='save')extra=Object.assign({},extra||{},{half:!!K.opt.half});return _sss35(t,res,dice,extra)};
 const _ap35c=apply;
@@ -9584,7 +9584,7 @@ function sp5(x,look){const r=x.range||{},dist=r.distance||{};const ft=dist.type=
   const save=x.savingThrow&&B5.ABL[x.savingThrow[0]]||null,atk=x.spellAttack?(x.spellAttack[0]==='M'?'melee':'ranged'):null;
   if(!shape&&(dm.length&&(save||atk)))shape='single';
   let sc=null;const m2=/\{@scaledamage [^|}]+\|(\d+)-\d+\|([^}]+)\}/.exec(JSON.stringify(x.entriesHigherLevel||''));if(m2)sc={dice:m2[2].replace(/\s/g,''),above:+m2[1]};
-  const t0=(x.time||[])[0]||{};const ct=t0.unit==='action'?'Action':t0.unit==='bonus'?'Bonus Action':t0.unit==='reaction'?'Reaction':`${t0.number||1} ${t0.unit||''}${(t0.number||1)>1?'s':''}`;
+  const t0=(x.time||[])[0]||{};const ct=(t0.unit==='action'?'Action':t0.unit==='bonus'?'Bonus Action':t0.unit==='reaction'?'Reaction':`${t0.number||1} ${t0.unit||''}${(t0.number||1)>1?'s':''}`)+(t0.condition?', '+r5(t0.condition):'');
   const d0=(x.duration||[])[0]||{};const dur=d0.type==='instant'?'Instantaneous':d0.type==='permanent'?'Until dispelled':d0.type==='special'?'Special':d0.duration?`${d0.concentration?'Concentration, up to ':''}${d0.duration.amount} ${d0.duration.type}${d0.duration.amount>1?'s':''}`:'';
   const c=x.components||{};const cls=Object.keys(((look[String(x.source).toLowerCase()]||{})[x.name.toLowerCase()]||{}).class?.XPHB||{}).map(k=>k.toLowerCase()).filter(k=>B5.CLS.includes(k));
   return{id:sl5(x.name),name:x.name,level:x.level,school:B5.SCH[x.school]||'',range,rangeText:dist.type==='feet'?dist.amount+' feet':dist.type?dist.type[0].toUpperCase()+dist.type.slice(1):'',
@@ -9894,6 +9894,7 @@ function allyRxCands(att,g){try{return S.tokens.filter(x=>x!==g&&x!==att&&alive4
 
 /* --- reakcje sojuszników po trafieniu (po decyzji samego celu) --- */
 const _rxg48=rxGate;rxGate=function(att,g,total,ac,out,cb){const K0=K;return _rxg48(att,g,total,ac,out,(o2,rx)=>{
+  try{if(typeof rxMap==='function')o2=rxMap(att,g,total,ac,o2,rx)}catch(x){}
   if(o2==='miss'||!g||rm('feat')==='off')return cb(o2,rx);const cands=allyRxCands(att,g);if(!cands.length)return cb(o2,rx);
   const byTok=new Map();cands.forEach(c=>{if(!byTok.has(c.x.id))byTok.set(c.x.id,[]);byTok.get(c.x.id).push(c)});const list=[...byTok.values()];
   const next=(k,o3)=>{if(K!==K0)return;if(o3==='miss'||k>=list.length)return cb(o3,rx);const cs=list[k],x=cs[0].x,i=infoOf(x);
@@ -9953,6 +9954,193 @@ if(typeof feDescribe==='function'){const _fd48=feDescribe;feDescribe=function(e,
   return _fd48.apply(this,arguments)};
   addI18n({feArDis:'Reaction: Disadvantage on an attack that hits an ally within {0} ft',feArRed:'Reaction: −{0} damage to an ally within {1} ft',feRet:'Reaction: Opportunity Attack after a melee hit',feHv:'Initiative: reroll {0} or lower',feDw:'Bonus Action attack with a non-Light melee weapon',feUp:'upgrades {0}'},
    {feArDis:'Reakcja: utrudnienie na atak, który trafia sojusznika w {0} ft',feArRed:'Reakcja: −{0} obrażeń dla sojusznika w {1} ft',feRet:'Reakcja: atak okazyjny po trafieniu wręcz',feHv:'Inicjatywa: przerzut {0} i mniej',feDw:'atak akcją bonusową bronią wręcz bez Light',feUp:'ulepsza {0}'})}
+
+/* ================= m49: potwory — odsyłacze akcji, trafienie + rzut obronny, obrażenia co turę, maks. PW, teleport, reakcje (Parry/Uncanny Dodge), cechy ================= */
+const CONDS49='Blinded|Charmed|Deafened|Frightened|Grappled|Incapacitated|Paralyzed|Petrified|Poisoned|Prone|Restrained|Stunned|Unconscious';
+const ABN49={strength:'str',dexterity:'dex',constitution:'con',intelligence:'int',wisdom:'wis',charisma:'cha'};
+const nrm49=s=>String(s||'').toLowerCase().replace(/[’]/g,"'").replace(/\s*\([^)]*\)/g,'').replace(/\s+/g,' ').trim();
+const DICE49='(\\d+d\\d+(?:\\s*[+−-]\\s*\\d+)?)';
+/* obrażenia co turę: „takes 7 (2d6) Poison damage at the start of each of its turns” (obie kolejności) */
+function og49(text,name){const s=String(text||'').replace(/−/g,'-');
+  const a=new RegExp('(?:start|end) of each of (?:its|the target\'s|their) turns[^.]*?takes? \\d+ \\('+DICE49+'\\) (\\w+) damage','i').exec(s)||new RegExp('takes? \\d+ \\('+DICE49+'\\) (\\w+) damage at the (?:start|end) of each of (?:its|the target\'s|their) turns','i').exec(s);
+  if(!a)return null;const ty=a[2].toLowerCase();if(!DMG_TYPES.some(d=>d[0]===ty))return null;return{c:'custom',n:name+' ⟳',sod:{d:a[1].replace(/\s/g,''),t:ty},r:/for 1 minute/i.test(s)?10:0}}
+/* efekty po nieudanym rzucie */
+function ff49(text,name,ab,dc){const s=String(text||'');const out=[];const rep=/repeats? the save at the end of each of its turns|at the end of each of its turns, (?:it|the target) (?:can )?(?:repeats?|makes?)/i.test(s);
+  const u=/until the end of (?:its|the target's) next turn/i.test(s)?'end':/until the start of the [\w' -]+?'s next turn/i.test(s)?'srcStart':'';const r=/for 1 minute/i.test(s)?10:/for 1 hour/i.test(s)?600:0;
+  const cs=[...new Set([...s.matchAll(new RegExp('\\b(?:has|have|gains?|is) the ('+CONDS49+') condition','gi'))].map(m=>m[1].toLowerCase()))];
+  cs.forEach(c=>{const f={c,n:(CONDS[c]||[])[1]||c,u,r};if(rep&&ab)f.es={ab,dc};out.push(f)});
+  if(/can't take Reactions/i.test(s))out.push({c:'noreact',n:'No Reactions',u:u||'srcStart'});
+  if(/Speed (?:is|becomes) 0|its Speed is reduced to 0/i.test(s))out.push({c:'custom',n:name+': Speed 0',spd0:1,u:u||'srcStart',r});
+  const og=og49(s,name);if(og){if(rep&&ab)og.sod.ab=ab,og.sod.dc=dc;out.push(og)}
+  return out}
+function hs49(hit,name){const s=String(hit||'');let m=/(Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma) Saving Throw:\s*DC (\d+)/i.exec(s),old=false;
+  if(!m){m=/must (?:succeed on|make) a DC (\d+) (Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma) saving throw/i.exec(s);if(m){m=[m[0],m[2],m[1]];old=true}}
+  if(!m)return null;const ab=ABN49[m[1].toLowerCase()],dc=+m[2];const raw=s.slice(s.indexOf(m[0]));
+  let ft='';if(!old){const f=/(?:First )?Failure:\s*([\s\S]*?)(?=\s*(?:Second Failure|Success|Failure or Success):|$)/.exec(raw);ft=f?f[1]:''}else ft=raw.replace(m[0],'');
+  if(!ft)return null;const ftNow=ft.split(/(?<=\.)\s+/).filter(x=>!/(?:start|end) of each of (?:its|the target's|their) turns/i.test(x)).join(' ');const parts=parseDmgText(ftNow).filter(p=>p.type);const xfx=ff49(ft,name,ab,dc);if(!parts.length&&!xfx.length&&!/Hit Point maximum decreases/i.test(ft))return null;
+  return{ab,dc,parts,half:/Success:\s*Half damage/i.test(raw),xfx,hpr:/Hit Point maximum decreases/i.test(ft),second:/Second Failure/i.test(raw),raw:raw.slice(0,400)}}
+/* odsyłacze: „makes two Bite attacks”, „uses Eye Rays”, „uses Spellcasting to cast X or Y” */
+function ref49(body){const s=String(body||'').replace(/[’]/g,"'");const R={atk:[],uses:[],cast:[],n:1};
+  const c=/uses Spellcasting to cast ([^.]+?)(?:\.|$)/i.exec(s);if(c)R.cast=c[1].split(/,\s*(?:or\s+)?|\s+or\s+/).map(x=>x.replace(/\s*\(level \d+ version\)/i,'').replace(/\s+on itself$/i,'').trim()).filter(x=>/^[A-Z]/.test(x));
+  const okN=x=>/^[A-Z][\w' -]{1,40}$/.test(x)&&!/attack roll|^(Melee|Ranged|Weapon)$/i.test(x)&&x.split(' ').length<=5;
+  const a=/makes? (one|two|three|four|a|an|\d+)\s+(.+?) attacks?\b/i.exec(s);if(a){R.n=NUMW[a[1].toLowerCase()]||+a[1]||1;R.atk=a[2].split(/\s+or\s+|,\s*/).map(x=>x.trim()).filter(okN)}
+  [...s.matchAll(/\buses (?!Spellcasting)([A-Z][\w' -]+?)(?=[.,;]| and | or |$)/g)].forEach(m=>R.uses.push(m[1].trim()));
+  return R.atk.length||R.uses.length||R.cast.length?R:null}
+const tp49=body=>{const m=/\bteleports?(?:,? along with [^,.]+,)?(?: itself)? up to (\d+) (?:feet|ft)/i.exec(String(body||''));return m?+m[1]:0};
+
+const _pma49=parseMonAct;parseMonAct=function(str){const o=_pma49(str);try{const body=o.body||'';
+  if(o.kind==='atk'){const hit=(/Hit:\s*([\s\S]*)$/.exec(body)||[])[1]||'';const hs=hs49(hit,o.name);
+    if(hs){o.hitSave=hs;if(o.riders)o.riders=o.riders.filter(r=>!hs.raw.includes(String(r.txt||'').slice(0,30)))}
+    else{const og=og49(hit,o.name);if(og)o.ongoing=og}
+    if(!hs&&/Hit Point maximum decreases/i.test(hit))o.hpr=1}
+  else if(o.kind==='save'){const f=/(?:First )?Failure:\s*([\s\S]*?)(?=\s*(?:Second Failure|Success|Failure or Success):|$)/.exec(body);
+    if(f){const x=ff49(f[1],o.name,o.ab,o.dc);if(x.length){o.xfx=x;o.conds=[]}if(/Hit Point maximum decreases/i.test(f[1]))o.hpr=1}}
+  else if(!o.kind&&!/^Multiattack/i.test(o.name)){const tp=tp49(body);const rf=ref49(body);if(rf){o.kind='ref';o.ref=rf}else if(tp){o.kind='tp';o.range=tp}}}catch(e){}return o};
+
+/* wszystkie akcje potwora */
+const monAll49=t=>{const m=t&&t.sheet&&t.sheet.mon;if(!m)return[];return['actions','bonusActions','reactions','legendary'].flatMap(k=>monLines(m[k]).map(l=>Object.assign(parseMonAct(l),{sec:k})))};
+function refTargets(t,p){const all=monAll49(t),R=p.ref||{};const find=n=>all.find(x=>x!==p&&nrm49(x.name)===nrm49(n)&&((x.kind==='atk'||x.kind==='save')&&x.parts&&x.parts.length||x.kind==='tp'))||all.find(x=>x.kind&&x.kind!=='ref'&&nrm49(x.name).startsWith(nrm49(n))&&x.parts&&x.parts.length);
+  const out=[];R.atk.concat(R.uses).forEach(n=>{const x=find(n);if(x&&!out.includes(x))out.push(x)});
+  R.cast.forEach(n=>{const sp=getSpell(sl49(n));if(sp)out.push({kind:'cast',name:sp.name,spell:sp})});return out}
+const sl49=n=>String(n||'').toLowerCase().replace(/[’']/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+
+/* menu ataku: opcje z akcji bonusowych / zwykłych, które odsyłają do innych, oraz teleport */
+const _mso49=monStrikeOpts;monStrikeOpts=function(t){const o=_mso49(t);try{const m=t.sheet.mon;if(!m)return o;
+  monLines(m.actions).concat(monLines(m.bonusActions)).forEach(a=>{const p=parseMonAct(a);if(p.kind==='ref'&&refTargets(t,p).length)o.push(p);else if(p.kind==='tp')o.push(p)})}catch(e){}return o};
+const _ss49=startStrike;startStrike=function(t,op){try{if(op&&op.kind==='tp'){tpStart(t,op.range,op.name);return}
+  if(op&&op.kind==='cast'&&op.spell){selectToken(t);activateSpell(op.spell);return}
+  if(op&&op.kind==='ref'){const tg=refTargets(t,op);if(!tg.length)return say(tr('refNone',esc(t.name),esc(op.name)),'sys');
+    const go=x=>{if(x.kind==='cast'){selectToken(t);activateSpell(x.spell);return}const y=JSON.parse(JSON.stringify(x));y.name=op.name+' → '+x.name;_ss49(t,y);
+      const n=(op.ref&&op.ref.n)||1;if(n>1&&K){K.seq=Array.from({length:n-1},()=>JSON.parse(JSON.stringify(y)));K.seqN=n}try{stRender()}catch(e){}};
+    if(tg.length===1)return go(tg[0]);return listPick(t.name+': '+op.name,tg.map(x=>({label:x.name,sub:x.kind==='cast'?tr('spell'):optDmgTxt(x),fn:()=>go(x)})))}}catch(e){console.error(e)}
+  return _ss49.apply(this,arguments)};
+const _lu49=legUse;legUse=function(t,p){if(p&&(p.kind==='ref'||p.kind==='tp')){const mon=t.sheet.mon,cost=p.cost||1,left=legMax(mon)-(mon.leg||0);if(left<cost&&!confirm(tr('legNone',t.name)))return;
+  monPatch(t,m=>{m.leg=(m.leg||0)+cost});send({k:'sys',text:tr('legLog',t.name,p.name,cost,Math.max(0,left-cost))});return startStrike(t,p)}return _lu49.apply(this,arguments)};
+
+/* --- po trafieniu: dodatkowy rzut obronny, obrażenia co turę --- */
+const dmgSend49=(t,g,name,parts,hpr)=>{const tot=parts.reduce((a,p)=>a+p[0],0);if(!tot)return;send({k:'atk',aid:t.id,an:t.name,wn:name,res:[{id:g.id,t:'z',parts}],dice:[],total:tot,who:me,hpr:hpr?[g.id]:undefined})};
+const roll49=ps=>ps.map(p=>{let n=p.f||0;for(let q=0;q<p.n;q++)n+=rnd(p.s);return[Math.max(0,n),p.type]});
+const _ah49=afterHit;afterHit=function(t,g,o,abm){_ah49.apply(this,arguments);try{if(!g||!g.sheet)return;
+  if(o.hitSave){const h=o.hitSave;setTimeout(()=>{const k=tokById(g.id);if(!k||tokDown(k))return;const r=rollSaveFor(k,h.ab,h.dc,{});
+      send({k:'sys',text:tr('hsLog',k.name,o.name,h.ab.toUpperCase(),h.dc,r.txt,r.pass?'✓':'✗')});
+      if(h.parts.length&&(!r.pass||h.half)){let ps=roll49(h.parts);if(r.pass)ps=ps.map(p=>[Math.floor(p[0]/2),p[1]]);dmgSend49(t,k,o.name,ps,h.hpr&&!r.pass)}
+      if(!r.pass)h.xfx.forEach((f,i)=>setTimeout(()=>addFx(k.id,Object.assign({},f,{src:t.id,srcName:o.name})),40*(i+1)));
+      if(!r.pass&&h.second)send({k:'sys',text:tr('hsSecond',k.name,o.name)})},450)}
+  if(o.ongoing)setTimeout(()=>addFx(g.id,Object.assign({},o.ongoing,{src:t.id,srcName:o.name})),90)}catch(e){console.error(e)}};
+/* rzuty obronne potworów: wszystkie stany + powtarzany rzut + obrażenia co turę */
+const _sse49=strikeSend;strikeSend=function(t,res,dice,extra){if(K&&K.opt&&K.opt.kind==='save'&&K.opt.xfx&&K.opt.xfx.length)extra=Object.assign({},extra||{},{xfx:K.opt.xfx,xsrc:K.opt.name});return _sse49.apply(this,[t,res,dice,extra])};
+
+/* --- host: zmniejszenie maks. PW, Death Burst, efekty z rzutów obronnych --- */
+const _ap49=apply;apply=function(a){let pre=null,dead=null;
+  try{if(a&&a.k==='atk'&&isHost){let ids=(a.hpr||[]).slice();const att=tokById(a.aid);
+      if(!ids.length&&att&&att.sheet&&att.sheet.mon&&a.wn){const nm=nrm49(String(a.wn).split(' → ').pop());const op=monAll49(att).find(x=>nrm49(x.name)===nm);if(op&&op.hpr)ids=(a.res||[]).filter(x=>(x.parts||[]).length&&x.out!=='pass').map(x=>x.id)}
+      if(ids.length)pre=ids.map(id=>{const g=tokById(id);return g&&g.sheet?[id,g.sheet.hp]:null}).filter(Boolean);
+      dead=(a.res||[]).map(x=>tokById(x.id)).filter(g=>g&&g.sheet&&g.sheet.mon&&g.sheet.hp>0&&!g.sheet.db49&&traitTxt(g,/^Death Burst\b/i)).map(g=>g.id)}}catch(e){}
+  const r=_ap49.apply(this,arguments);
+  try{if(isHost&&a&&a.k==='atk'&&a.xfx)(a.res||[]).forEach(x=>{if(x.out==='fail')a.xfx.forEach((f,i)=>setTimeout(()=>addFx(x.id,Object.assign({},f,{src:a.aid,srcName:a.xsrc||f.n})),30*(i+1)))});
+    if(pre)setTimeout(()=>pre.forEach(([id,hp0])=>{const g=tokById(id);if(!g||!g.sheet)return;const loss=Math.max(0,hp0-g.sheet.hp);if(!loss)return;const mx=Math.max(1,(g.sheet.maxHp||1)-loss);
+      send({k:'sp',id,p:{maxHp:mx,hp:Math.min(g.sheet.hp,mx),hprLoss:(g.sheet.hprLoss||0)+loss}});send({k:'sys',text:tr('hprLog',g.name,loss,mx)})}),60);
+    if(dead&&dead.length)setTimeout(()=>dead.forEach(id=>{const g=tokById(id);if(g&&g.sheet&&g.sheet.hp<=0&&!g.sheet.db49)deathBurst(g)}),120)}catch(e){console.error(e)}
+  return r};
+function deathBurst(g){const tx=traitTxt(g,/^Death Burst\b/i);if(!tx)return;send({k:'sp',id:g.id,p:{db49:1}});const sv=/(Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma) Saving Throw:\s*DC (\d+)/i.exec(tx)||/DC (\d+) (Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma) saving throw/i.exec(tx);
+  const sz=/(\d+)[- ]foot/i.exec(tx),rad=sz?+sz[1]:10;const f=/Failure:\s*([\s\S]*?)(?=\s*Success:|$)/.exec(tx);const parts=parseDmgText(f?f[1]:tx).filter(p=>p.type);const half=/Success:\s*Half damage|half as much damage/i.test(tx);
+  let ab='dex',dc=12;if(sv){if(/^\d+$/.test(sv[1])){dc=+sv[1];ab=ABN49[sv[2].toLowerCase()]}else{ab=ABN49[sv[1].toLowerCase()];dc=+sv[2]}}
+  const xfx=ff49(f?f[1]:'',g.name,ab,dc);const res=[];const notes=[];
+  S.tokens.forEach(x=>{if(x===g||!x.sheet||tokDown(x)||tokDist(g,x)>rad)return;const r=rollSaveFor(x,ab,dc,{});notes.push(`${x.name} ${r.txt} ${r.pass?'✓':'✗'}`);
+    let ps=roll49(parts);if(r.pass)ps=half?ps.map(p=>[Math.floor(p[0]/2),p[1]]):[];if(ps.length)res.push({id:x.id,t:'z',parts:ps});if(!r.pass)xfx.forEach(fx=>addFx(x.id,Object.assign({},fx,{src:g.id})))});
+  send({k:'sys',text:tr('dbLog',g.name,ab.toUpperCase(),dc,notes.join(', ')||'—')});if(res.length)send({k:'atk',aid:g.id,an:g.name,wn:'Death Burst',res,dice:[],total:res.reduce((a,x)=>a+x.parts.reduce((b,p)=>b+p[0],0),0),who:me})}
+const _lr49=longRestTok;longRestTok=function(t){try{const s=t&&t.sheet;if(s&&s.hprLoss){s.maxHp=(s.maxHp||1)+s.hprLoss;s.hprLoss=0;send({k:'sp',id:t.id,p:{maxHp:s.maxHp,hprLoss:0}})}}catch(e){}return _lr49.apply(this,arguments)};
+
+/* --- reakcje potworów: Parry (+KP), Uncanny Dodge (½ obrażeń) — DM dostaje pytanie --- */
+const parry49=g=>{const l=monLines((g.sheet.mon||{}).reactions).find(x=>/^Parry\b/i.test(x));const m=l&&/adds? (\d+) to its AC/i.exec(l);return m?+m[1]:0};
+const _ro49=reactOpts;reactOpts=function(g,total,ac,out){const o=_ro49.apply(this,arguments);try{if(!g||!g.sheet||!g.sheet.mon||cflags(g).inc||!rxAvail(g))return o;
+  const n=parry49(g);if(n&&out==='hit'&&total<ac+n&&!(K&&K.opt&&K.opt.melee===false))o.push('mp:'+n);
+  if(!o.includes('uncanny')&&monLines(g.sheet.mon.reactions).some(x=>/^Uncanny Dodge\b/i.test(x)))o.push('uncanny')}catch(e){}return o};
+function rxMap(att,g,total,ac,o2,rx){const u=rx&&rx.used;if(u&&String(u).startsWith('mp:')){const n=+String(u).slice(3);if(o2==='hit'&&total<ac+n)return'miss'}return o2}
+const _rxp49=rxPrompt;rxPrompt=function(a){_rxp49(a);try{const box=[...document.querySelectorAll('.rxBox')].pop();if(!box)return;const btns=[...box.querySelectorAll('button')];
+  (a.opts||[]).forEach((k,n)=>{if(String(k).startsWith('mp:')&&btns[n]){const v=+String(k).slice(3);btns[n].textContent=`🛡 Parry (+${v} AC → ${a.ac+v}${a.total<a.ac+v?', '+tr('rxTurnsMiss'):''})`}})}catch(e){}};
+const _rxs49=rxSpend;rxSpend=function(g,use){if(String(use).startsWith('mp:')){if(S.combat&&S.combat.started)econSet(g,{r:0});send({k:'sys',text:tr('mpLog',g.name,String(use).slice(3))});return}return _rxs49.apply(this,arguments)};
+
+/* --- cechy: Flyby, Blood Frenzy / Bloodied Fury, aury obrażeń, odwet przy trafieniu wręcz --- */
+const _oa49=oaCheck;oaCheck=function(t,prev){try{if(t&&t.sheet&&t.sheet.mon&&traitTxt(t,/^Flyby\b/i))return}catch(e){}return _oa49.apply(this,arguments)};
+const _am49=atkModeOf;atkModeOf=function(att,tgt,o){let m=_am49.apply(this,arguments);try{if(att&&att.sheet&&att.sheet.mon&&tgt&&tgt.sheet){
+  const bf=traitTxt(att,/^Blood Frenzy\b/i)&&tgt.sheet.hp<tgt.sheet.maxHp;const bl=att.sheet.hp<=att.sheet.maxHp/2&&/Advantage on attack rolls/i.test(traitTxt(att,/^Bloodied (?:Fury|Frenzy)\b/i));
+  if(bf||bl)m=m==='d'?'n':'a'}}catch(e){}return m};
+const AURA49=new RegExp('At the (start|end) of each of [\\w\' -]+? turns, each (?:other )?creature (?:in|within) (?:a |an )?(\\d+)[- ]f(?:oo|ee)t[^.]*?takes \\d+ \\('+DICE49+'\\) (\\w+) damage','i');
+function aura49(id,when){try{if(!isHost)return;const g=tokById(id);if(!g||!g.sheet||!g.sheet.mon||tokDown(g))return;monTraits(g).forEach(tx=>{const m=AURA49.exec(String(tx).replace(/−/g,'-'));if(!m||m[1].toLowerCase()!==when)return;
+  const p=parseDmgExpr(m[3].replace(/\s/g,''));const ty=m[4].toLowerCase();if(!p)return;const res=[];S.tokens.forEach(x=>{if(x===g||!x.sheet||tokDown(x)||tokDist(g,x)>+m[2])return;res.push({id:x.id,t:'z',parts:roll49([Object.assign({},p,{type:ty})])})});
+  if(res.length)send({k:'atk',aid:g.id,an:g.name,wn:String(tx).split('.')[0],res,dice:[],total:res.reduce((a,x)=>a+x.parts[0][0],0),who:me})})}catch(e){console.error(e)}}
+const _ts49=turnStart;turnStart=function(id){_ts49.apply(this,arguments);setTimeout(()=>aura49(id,'start'),200)};
+const _te49=turnEnd;turnEnd=function(id){aura49(id,'end');return _te49.apply(this,arguments)};
+const RET49=new RegExp('(?:touches (?:it|the [\\w\' -]+?)|hits (?:it|the [\\w\' -]+?) with a melee attack)[^.]*?takes \\d+ \\('+DICE49+'\\) (\\w+) damage','i');
+const _rb49=rebukeCheck;rebukeCheck=function(g,attId,real){_rb49.apply(this,arguments);try{if(!isHost||!(real>0)||!g||!g.sheet||!g.sheet.mon)return;const att=tokById(attId);if(!att||!att.sheet||tokDist(g,att)>5)return;
+  monTraits(g).forEach(tx=>{const m=RET49.exec(String(tx).replace(/−/g,'-'));if(!m)return;const p=parseDmgExpr(m[1].replace(/\s/g,''));if(!p)return;const ty=m[2].toLowerCase();
+    setTimeout(()=>send({k:'atk',aid:g.id,an:g.name,wn:String(tx).split('.')[0],res:[{id:att.id,t:'z',parts:roll49([Object.assign({},p,{type:ty})])}],dice:[],total:0,who:me}),300)})}catch(e){}};
+
+addI18n({hsLog:'🎯 {0}: {1} — {2} save DC {3}: {4} {5}',hsSecond:'{0}: {1} — on a second failure the stronger effect applies (see the description).',hprLog:'💀 {0}: Hit Point maximum −{1} (now {2}) until a Long Rest.',
+  dbLog:'💥 {0}: Death Burst — {1} save DC {2}: {3}',mpLog:'🛡 {0} parries (+{1} AC).',refNone:'{0}: {1} — could not find the referenced action, use it manually.'},
+ {hsLog:'🎯 {0}: {1} — rzut {2} ST {3}: {4} {5}',hsSecond:'{0}: {1} — przy drugiej porażce działa silniejszy efekt (patrz opis).',hprLog:'💀 {0}: maks. PW −{1} (teraz {2}) do długiego odpoczynku.',
+  dbLog:'💥 {0}: Death Burst — rzut {1} ST {2}: {3}',mpLog:'🛡 {0} paruje (+{1} KP).',refNone:'{0}: {1} — nie znalazłem akcji, do której odsyła; użyj jej ręcznie.'});
+/* linie rozbite w środku zdania (np. „… Hit: 4 (1d6 + 1)” | „Piercing damage.”) — sklejamy */
+const _ml49=monLines;monLines=function(list){const L=[];(list||[]).forEach(x=>{const s=String(x);if(L.length&&/\)\s*$/.test(L[L.length-1])&&/^(?:(?:Acid|Bludgeoning|Cold|Fire|Force|Lightning|Necrotic|Piercing|Poison|Psychic|Radiant|Slashing|Thunder) damage\b|[a-z]|plus \d)/.test(s))L[L.length-1]+=' '+s;else L.push(x)});return _ml49(L)};
+
+/* ================= m50: czary z paczek — automatyczne efekty z opisu (stany, powtarzany rzut, obrażenia co turę, leczenie, PW tymczasowe, smite'y, dodatkowe obrażenia broni) ================= */
+const CN50='Blinded|Charmed|Deafened|Frightened|Grappled|Incapacitated|Paralyzed|Petrified|Poisoned|Prone|Restrained|Stunned|Unconscious|Invisible';
+const NUM50={one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,twelve:12};
+const SKIP50=new Set(['dispel-evil-and-good','magic-circle','antipathy-sympathy','imprisonment','modify-memory','dream','divine-word','holy-aura','conjure-elemental','conjure-fey','contact-other-plane','magic-jar','symbol','prismatic-spray','prismatic-wall','cacophonic-shield']);
+const dmgT50=w=>{const t=String(w||'').toLowerCase();return DMG_TYPES.some(d=>d[0]===t)?t:null};
+/* efekty z tekstu (czar) */
+function fx50(s,txt){const T0=String(txt||'');const t=String(txt||'').split(/(?<=[.!])\s+/).filter(x=>!/\bend(?:s|ing)?\b (?:the|one|any|that|an?)\b|immune|can't be|Advantage on saving throws|\bremov|suppress|cur(?:e|es|ing)\b/i.test(x)).join(' ');const out=[];const ab=s.save||null;
+  const rep=/repeats? the save at the end of each of its turns|at the end of each of its turns,[^.]{0,40}(?:repeats?|makes?) (?:the|a) [\w ]*sav/i.test(T0);
+  let u=/until the end of (?:its|the target's) next turn/i.test(T0)?'end':/until the start of your next turn/i.test(T0)?'srcStart':/until the end of your next turn/i.test(T0)?'srcEnd':'';
+  const inst=/Instantaneous/i.test(s.duration||'')&&!s.concentration;
+  const cs=[...new Set([...t.matchAll(new RegExp('\\b(?:has|have|gains?|is|becomes?|falls?) (?:the )?('+CN50+')(?: condition)?\\b','gi'))].map(m=>m[1].toLowerCase()))].filter(c=>c!=='invisible'||!ab);
+  if(cs.length>2)return[];
+  cs.forEach(c=>{const f={c,on:ab?'fail':s.attack?'hit':'all'};const uu=u||(inst&&c!=='prone'?'end':'');if(uu)f.u=uu;if(rep&&ab)f.es=ab;out.push(f)});
+  const og=new RegExp('takes? (\\d+d\\d+(?: ?\\+ ?\\d+)?) (\\w+) damage at the (?:start|end) of each of (?:its|their) turns|at the (?:start|end) of each of (?:its|their) turns[^.]*?takes? (\\d+d\\d+(?: ?\\+ ?\\d+)?) (\\w+) damage','i').exec(t);
+  if(og){const d=(og[1]||og[3]).replace(/\s/g,''),ty=dmgT50(og[2]||og[4]);if(ty){const f={c:'custom',n:s.name+' ⟳',on:ab?'fail':s.attack?'hit':'all',sod:{d,t:ty}};if(rep&&ab)f.sod.ab=ab;out.push(f)}}
+  const sb=/subtracts? (?:1d|a d)(\d+) from (?:the |its |their )?(?:next )?(saving throws?|attack rolls?)/i.exec(t);
+  if(sb)out.push({c:'custom',n:s.name+' −1d'+sb[1],on:ab?'fail':s.attack?'hit':'all',[/sav/i.test(sb[2])?'svB':'atkB']:-(+sb[1]),u:u||'srcEnd',es:rep&&ab?ab:undefined});
+  if(/can't take Reactions/i.test(t))out.push({c:'noreact',n:s.name+': no Reactions',on:ab?'fail':'all',u:u||'srcStart'});
+  if(/(?:its|their) Speed (?:is|becomes) 0|Speed is reduced to 0/i.test(t))out.push({c:'custom',n:s.name+': Speed 0',on:ab?'fail':'all',spd0:1,u:u||''});
+  if(/has Disadvantage on attack rolls/i.test(t)&&!cs.length)out.push({c:'custom',n:s.name,on:ab?'fail':'all',atkDis:1,u:u||''});
+  return out}
+function aug50(s){if(!s||s.__a50)return;s.__a50=1;try{const d=String(s.desc||''),h=String(s.higher||'');
+  const known=SPELL_RIDERS[s.id]||SPELL_DICE[s.id]||(typeof SMITES!=='undefined'&&SMITES[s.id]);if(known)return;
+  /* smite: akcja bonusowa po trafieniu bronią */
+  if(s.id==='divine-smite')return;
+  const smite=/Bonus Action/i.test(s.castingTime||'')&&(/\bSmite\b/.test(s.name)||/after (?:you )?hit(?:ting)? (?:a |the )?(?:target|creature) with an? (?:Melee )?(?:weapon|attack)|Unarmed Strike/i.test(d+' '+(s.castingTime||'')));
+  if(smite&&s.dice&&s.type&&typeof SMITES!=='undefined'){const p=parseDmgExpr(s.dice);if(p){const push=/pushed? (?:up to )?(\d+) feet/i.exec(d);
+    SMITES[s.id]={lv:s.level||1,n:p.n,s:p.s,t:s.type,melee:/Melee weapon|melee attack/i.test(d)?1:0,gen:{save:s.save,fx:!s.save?[]:fx50(s,d).map(f=>Object.assign(f,{on:undefined})),push:push?+push[1]:0,prone:/(?:knocked |has the )Prone/i.test(d)}};return}}
+  /* leczenie / tymczasowe PW (czary bez obrażeń) */
+  if(!s.dice&&!/\d+d\d+ \w+ damage/i.test(d)&&!/summon|conjure/i.test(s.name+' '+d.slice(0,200))){let m=/regains? (?:a number of )?Hit Points equal to (\d+d\d+|\d+)( \+ your spellcasting ability modifier)?/i.exec(d)||/regains? (\d+d\d+(?: ?\+ ?\d+)?|\d+) Hit Points/i.exec(d);let ty='healing';
+    if(!m){m=/gains? (\d+d\d+(?: ?\+ ?\d+)?|\d+) Temporary Hit Points/i.exec(d)||/Temporary Hit Points equal to (\d+d\d+|\d+)( \+ your spellcasting ability modifier)?/i.exec(d);ty='temphp'}
+    if(m){s.dice=m[1].replace(/\s/g,'');s.type=ty;s.addMod=/spellcasting ability modifier/i.test(m[0])?1:0;s.heal=1;s.ally=1;s.selfOk=1;s.save=null;
+      if(!SHAPES.includes(s.shape))s.shape='single';const r=/up to (\w+) (?:willing )?creatures/i.exec(d);if(r&&s.shape==='single'){const n=NUM50[r[1].toLowerCase()]||+r[1]||1;s.rays={base:n,perSlot:/one additional creature for each/i.test(h)?1:0}}
+      if(!s.scaling){const sc=scalingFromText(h)||(/(?:Hit Points|healing) increases by (\d+d\d+) for each (?:spell )?slot level above (\d)/i.exec(h)||[]).slice(1);if(sc&&sc.dice)s.scaling=sc;else if(sc&&sc[0])s.scaling={dice:sc[0],above:+sc[1]}}
+      if(!s.range)s.selfOnly=s.selfOnly||0;return}}
+  /* dodatkowe obrażenia broni (buff na siebie / dotyk) */
+  const wd=/(?:weapon|weapon attacks?|attacks? with (?:a |that )?weapon)[^.]{0,90}?(?:deals?|deal) an extra (\d+d\d+) (\w+) damage|deals? an extra (\d+d\d+) (\w+) damage[^.]{0,40}(?:weapon|on a hit)/i.exec(d);
+  if(wd&&!s.save&&!s.attack&&(s.range||0)<=5){const dd=wd[1]||wd[3],ty=dmgT50(wd[2]||wd[4]);if(ty){SPELL_RIDERS[s.id]={sh:'single',save:null,ally:1,self:1,fx:[{c:'custom',n:s.name,on:'all',wdm:dd,wdt:ty}]};augSpell(s);return}}
+  /* stany i efekty po rzucie / trafieniu */
+  if(!s.save&&!s.attack)return;if(SKIP50.has(s.id)||(!s.range&&!SHAPES.includes(s.shape)))return;const fx=fx50(s,d);if(fx.length){s.__g50=1;const rr=/up to (\w+) creatures/i.exec(d);const r={fx};if(rr&&!SHAPES.includes(s.shape)){const n=NUM50[rr[1].toLowerCase()]||+rr[1]||1;r.sh='single';r.rays={base:n,perSlot:/one additional creature for each/i.test(h)?1:0}}
+    SPELL_RIDERS[s.id]=r;augSpell(s)}}catch(e){console.error(e)}}
+function augAll50(){(CAT.spells||[]).forEach(aug50)}
+augAll50();
+const _lc50=loadCatalog;loadCatalog=async function(){const r=await _lc50.apply(this,arguments);augAll50();setTimeout(()=>{try{refreshSpellLists()}catch(e){}},0);return r};
+
+/* smite'y z opisu: rzut obronny i efekty po trafieniu */
+const _ah50=afterHit;afterHit=function(t,g,o,abm){const sm=typeof smParse==='function'?smParse(K&&K.smsp):null;_ah50.apply(this,arguments);try{if(!sm||!sm.d||!sm.d.gen||!g)return;const G=sm.d.gen,i=infoOf(t)||{},dc=i.spellDc||13,sp=getSpell(sm.id)||{},nm=sp.name||sm.id;
+  setTimeout(()=>{const k=tokById(g.id);if(!k||tokDown(k))return;let fail=true;
+    if(G.save){const r=rollSaveFor(k,G.save,dc,mrOpt(k));fail=!r.pass;send({k:'sys',text:tr('sm50Log',k.name,nm,G.save.toUpperCase(),dc,r.txt,r.pass?'✓':'✗')})}
+    if(!fail)return;const conc=!!sp.concentration,rd=durRounds(sp.duration);
+    (G.fx||[]).forEach((f,n)=>{const x=Object.assign({},f,{src:t.id,srcName:nm,r:f.u?0:rd});if(x.es)x.es={ab:x.es,dc};if(x.sod&&x.sod.ab)x.sod=Object.assign({},x.sod,{dc});if(conc)x.conc=1;if(!x.n)x.n=(CONDS[x.c]||[])[1]||nm;setTimeout(()=>addFx(k.id,x),40*(n+1))});
+    if(G.push)pushTok(t,k,G.push);if(G.prone&&!(G.fx||[]).some(f=>f.c==='prone'))addFx(k.id,{c:'prone',src:t.id})},420)}catch(e){console.error(e)}};
+
+addI18n({sm50Log:'✨ {0}: {1} — {2} save DC {3}: {4} {5}'},{sm50Log:'✨ {0}: {1} — rzut {2} ST {3}: {4} {5}'});
+
+/* dopisz ST do obrażeń co turę z czarów (riderFx uzupełnia tylko es) */
+const _rf50=riderFx;riderFx=function(r,o){const f=_rf50.apply(this,arguments);try{if(f.sod&&f.sod.ab&&!f.sod.dc)f.sod=Object.assign({},f.sod,{dc:o.dc})}catch(e){}return f};
 
 </script>
 </body>
