@@ -490,6 +490,11 @@ body.tpMode #map{cursor:crosshair}
 /* v31: efekty featów */
 .feCard{border:1px solid #33384d;border-radius:9px;padding:6px 9px;margin:6px 0;display:flex;flex-direction:column;gap:4px}
 .feCard .smRow{flex-wrap:wrap;gap:6px;align-items:center}
+/* v32 */
+.pkBooks{margin-top:12px;display:flex;flex-direction:column;gap:4px}
+.pkBooks small{color:var(--mute)}
+.abBtn.feAct{border-color:#8a7cff66}
+.fluff{font-style:italic;opacity:.85;border-left:2px solid #8a7cff55;padding-left:8px;margin:4px 0 8px;white-space:pre-line}
 
 </style>
 </head>
@@ -1797,7 +1802,7 @@ function smRender(){
   }
   sc.append(E('h2',{textContent:tr('feats'),style:'margin:6px 0 0;font-size:12px;color:var(--mute)'}));
   (info.feats||[]).forEach((id,i)=>{const f=ftById(id);const x=E('button',{textContent:'×'});x.onclick=()=>{info.feats.splice(i,1);smRender()};
-    sc.append(E('details',{className:'featItem'},E('summary',{textContent:f?`${f.name} (${f.category})`:id},' ',x),E('div',{textContent:f?f.desc:''})))});
+    sc.append(E('details',{className:'featItem'},E('summary',{textContent:f?`${f.name} (${f.category})`:id},' ',x),...(f&&f.fluff?[E('div',{className:'fluff',textContent:f.fluff})]:[]),E('div',{textContent:f?f.desc:''})))});
   const fl=(CAT.feats||[]).filter(f=>featOk(f,info,info.level));
   if(fl.length)sc.append(wzSel([['',tr('addFeat')],...fl.map(f=>[f.id,`${f.name} (${f.category})`])],'',v=>{if(v){info.feats=[...(info.feats||[]),v];smRender()}}));
   /* sloty */
@@ -2539,7 +2544,7 @@ function catRender(){
     d.innerHTML=`<b>${esc(x.name)}</b><small>${esc(meta)}</small>`;
     const bar=document.createElement('div');bar.className='cbtns';
     const body=document.createElement('div');body.className='cbody';body.hidden=true;
-    const build=()=>catTab==='spells'?spellDetails(x):catTab==='monsters'?monsterDetails(x):(x.desc?`<p>${esc(x.desc)}</p>`:'');
+    const build=()=>catTab==='spells'?spellDetails(x):catTab==='monsters'?monsterDetails(x):(x.fluff?`<p class="fluff">${esc(x.fluff)}</p>`:'')+(x.desc?`<p>${esc(x.desc)}</p>`:'');
     if(catTab==='monsters'){const b=document.createElement('button');b.textContent=tr('addTok');b.onclick=()=>addMonster(x);bar.append(b)}
     const tb2=document.createElement('button');tb2.textContent=tr('details');
     tb2.onclick=()=>{if(!body.innerHTML)body.innerHTML=build();body.hidden=!body.hidden};bar.append(tb2);
@@ -2556,7 +2561,7 @@ function spellDetails(x){
   if(x.save)L.push(`${tr('saveLabel')}: ${ABIL_LBL[x.save]}${x.half?' · '+tr('half'):''}`);
   if(x.damage&&x.damage.length)L.push(`${tr('damage')}: ${x.damage.map(d=>d.dice+' '+dmgName(d.type)).join(', ')}`);
   let h=L.map(l=>`<div>${esc(l)}</div>`).join('');
-  if(x.desc)h+=`<p>${esc(x.desc)}</p>`;
+  if(x.fluff)h+=`<p class="fluff">${esc(x.fluff)}</p>`;if(x.desc)h+=`<p>${esc(x.desc)}</p>`;
   if(x.higher)h+=`<p><i>${esc(x.higher)}</i></p>`;
   return h;
 }
@@ -9366,6 +9371,153 @@ conv5eFeat=function(f){const out=_cv44(f);const E=out.effects;const txt=strip5e(
   return out};
 addI18n({d0Q:'Use {0} and stay up instead of dropping to 0 HP?',d0Log:'✨ {0}: {1} — stays at {2} HP!',ohLog:'✨ {0}: {1} on {2}.'},
  {d0Q:'Użyć {0} i nie spaść do 0 PW?',d0Log:'✨ {0}: {1} — zostaje z {2} PW!',ohLog:'✨ {0}: {1} na {2}.'});
+
+/* ================= m45: klocki – testy +kość, akcje z paska, reakcje, przewaga, ignorowanie odporności, rzuty przeciw śmierci, „trafienie zamiast pudła”, czary szkoły, atak bez broni, odzysk slotu; filtr książek ================= */
+const _ce45=cleanEffects;
+cleanEffects=function(arr){const base=_ce45(arr);const extra=(Array.isArray(arr)?arr:[]).slice(0,40).map(e=>{if(!e||typeof e!=='object')return null;const t=String(e.type||'');
+  const val=v=>v==='prof'||/^ab:(str|dex|con|int|wis|cha)$/.test(String(v))||/^lvl(\*\d)?$/.test(String(v))?String(v):Number.isFinite(+v)?+v:0;
+  const dmgs=v=>(Array.isArray(v)?v:v?[v]:[]).filter(d=>DMG_TYPES.some(x=>x[0]===d));const str=(v,n)=>String(v||'').slice(0,n||60);const cost=typeof e.cost==='string'?e.cost.slice(0,40):null;
+  if(t==='chkDie')return{type:t,skills:(e.skills||[]).map(skId).filter(k=>SK_IDS.includes(k)),abs:(e.abs||[]).filter(a=>ABIL.includes(a)),die:/^\d*d\d+$/.test(e.die||'')?e.die:'1d4',name:str(e.name),cost};
+  if(t==='action'&&['dodge','dash','disengage','hide','dashHide','dashDis','teleport','healHD','tempHp','heroic','selfFx','note'].includes(e.do))
+    return{type:t,do:e.do,name:str(e.name),econ:['a','b','r','free'].includes(e.econ)?e.econ:'b',cost,range:Math.max(0,Math.min(500,+e.range||0)),dice:/^\d*d\d+$/.test(e.dice||'')?e.dice:'',value:val(e.value||0),count:Math.max(1,Math.min(10,+e.count||1)),fx:e.fx&&typeof e.fx==='object'?{c:str(e.fx.c,20)||'custom',n:str(e.fx.n),r:+e.fx.r||10}:null};
+  if(t==='rxAc')return{type:t,value:val(e.value||'prof'),vs:e.vs==='melee'?'melee':'any',req:e.req==='finesse'||e.req==='shield'?e.req:null,name:str(e.name),cost};
+  if(t==='rxReduce')return{type:t,dice:/^(\d*d\d+|prof d\d+)$/.test(e.dice||'')?e.dice:'1d10',bonus:val(e.bonus||0),dmg:dmgs(e.dmg),name:str(e.name),cost};
+  if(t==='rxFx')return{type:t,on:['hit','damaged'].includes(e.on)?e.on:'damaged',fx:{c:str((e.fx||{}).c,20)||'custom',n:str((e.fx||{}).n),res:dmgs((e.fx||{}).res)},name:str(e.name),cost};
+  if(t==='atkAdv')return{type:t,when:['bloodied','targetCond'].includes(e.when)?e.when:'bloodied',cond:str(e.cond,20).toLowerCase()};
+  if(t==='ignoreResist')return{type:t,dmg:dmgs(e.dmg),spellsOnly:!!e.spellsOnly};
+  if(t==='resistWhen')return{type:t,dmg:e.dmg==='allButForce'?'allButForce':dmgs(e.dmg),when:'bloodied',immune:!!e.immune};
+  if(t==='deathSave')return{type:t,mode:e.mode==='d'?'d':'a'};
+  if(t==='missToHit')return{type:t,name:str(e.name)};
+  if(t==='onCast')return{type:t,school:str(e.school,20).toLowerCase(),tempHp:/^\d+\*slot$|^prof$|^\d+$/.test(String(e.tempHp||''))?String(e.tempHp):'',speed:/^\d+\*slot$/.test(String(e.speed||''))?String(e.speed):'',name:str(e.name),cost};
+  if(t==='unarmed')return{type:t,dice:/^\d*d\d+$/.test(e.dice||'')?e.dice:'1d4',noWeapon:/^\d*d\d+$/.test(e.noWeapon||'')?e.noWeapon:''};
+  if(t==='spellRecall')return{type:t};
+  return null}).filter(Boolean);return base.concat(extra)};
+const fxv=(info,v)=>{if(/^lvl(\*(\d))?$/.test(String(v))){const m=/\*(\d)/.exec(v);return(info.level||1)*(m?+m[1]:1)}return fxVal(info,v)};
+const featUsedTurn=(t,k)=>!!(t.sheet.econ&&t.sheet.econ['fu_'+k]);
+const featMarkTurn=(t,k)=>{if(S.combat&&S.combat.started)setTimeout(()=>econSet(t,{['fu_'+k]:1}),30)};
+
+/* --- +kość do testów umiejętności i cech (pokazuje osobny rzut po teście) --- */
+const _pr45=pgRoll;
+pgRoll=function(label,expr,mode,opt){const r=_pr45.apply(this,arguments);try{const t=smTok(),i=smInfo;if(!t||!i||(opt&&opt.kind&&opt.kind!=='check'))return r;const L=String(label);
+  const sk=SKILLS.find(s=>L===s[1]||L.startsWith(s[1]+' ('));const ab=(opt&&opt.ab)||ABIL.find(k=>L===`${ABIL_PL[k]} ${tr('check')}`);if(!sk&&!ab)return r;
+  fxList(i,'chkDie').forEach(e=>{if(!(sk&&e.skills.includes(sk[0]))&&!(e.abs.includes(ab)&&!sk))return;setTimeout(()=>_pr45(`${label} + ${e.name||e.feat.name}`,e.die,'',{}),900)})}catch(e){}return r};
+
+/* --- akcje z paska akcji --- */
+function featActions(t){const i=infoOf(t);if(!i)return[];return fxList(i,'action').filter(e=>!e.cost||resIdLeft(t,'fe_'+e.cost)>0)}
+function featActDo(t,e){const ec=econOf(t);if(e.econ==='b'&&!ec.b)return say(tr('noBonusLeft',esc(t.name)),'sys');if(e.econ==='a'&&!ec.a)return say(tr('noActionLeft',esc(t.name)),'sys');
+  const spend=()=>{const p=e.econ==='b'?{b:0}:e.econ==='a'?{a:0}:e.econ==='r'?{r:0}:{};if(e.cost)resIdSpend(t,'fe_'+e.cost);return p};const nm=e.name||e.feat.name;const i=infoOf(t);
+  if(e.do==='dodge'){econSet(t,spend());addFx(t.id,{c:'dodge',r:1,u:'start',n:'Dodge'})}
+  else if(e.do==='dash'||e.do==='dashHide'||e.do==='dashDis'){const p=spend();econSet(t,Object.assign(p,{mv:ec.mv+speedOf(t),mx:ec.mx+speedOf(t)},e.do==='dashDis'?{dis:1}:{}))}
+  else if(e.do==='disengage'){econSet(t,Object.assign(spend(),{dis:1}))}
+  else if(e.do==='hide'){econSet(t,spend());quickD20(t,'Stealth',skillMod(i,'stealth'),'check','dex')}
+  else if(e.do==='teleport'){econSet(t,spend());tpStart(t,e.range||30,nm)}
+  else if(e.do==='healHD'){const go=x=>{let n=fxv(i,e.value),txt='';
+      if(e.dice){const d=parseDmgExpr(e.dice);n+=d.f||0;for(let q=0;q<(e.count||d.n);q++)n+=rnd(d.s);txt=e.dice}
+      else{const h=hdList(i).find(z=>z.total-z.used>0);if(!h)return say(tr('faNoHd',esc(t.name)),'sys');const hu=Object.assign({},i.hdUsed||{});hu[h.die]=(hu[h.die]||0)+1;send({k:'sp',id:t.id,p:{info:Object.assign({},infoOf(t),{hdUsed:hu})}});const r=rnd(h.die);n+=r;txt='d'+h.die+'['+r+']'}
+      econSet(t,spend());healTok(x,Math.max(1,n),nm+' ('+txt+')');send({k:'sys',text:tr('faLog',t.name,nm)})};
+    if(e.range){pickToken(tr('faWho',nm),x=>x.sheet&&tokDist(t,x)<=e.range,go);return}go(t);return}
+  else if(e.do==='tempHp'){pickToken(tr('faWho',nm),x=>x.sheet&&(!e.range||tokDist(t,x)<=e.range),x=>{econSet(t,spend());let n=fxv(i,e.value);if(e.dice){const d=parseDmgExpr(e.dice);for(let q=0;q<d.n;q++)n+=rnd(d.s);n+=d.f||0}
+      const xi=x.sheet.info;if(xi){if((xi.tempHp||0)<n)send({k:'sp',id:x.id,p:{info:Object.assign({},xi,{tempHp:n})}})}send({k:'sys',text:tr('faThp',t.name,nm,x.name,n)})});return}
+  else if(e.do==='heroic'){pickToken(tr('faWho',nm),x=>isPc(x)&&!hiHas(x),x=>{econSet(t,spend());send({k:'sp',id:x.id,p:{hi:1}});send({k:'sys',text:tr('hiGiven',x.name)})});return}
+  else if(e.do==='selfFx'&&e.fx){econSet(t,spend());addFx(t.id,{c:e.fx.c,n:e.fx.n||nm,r:e.fx.r||1,u:'start'})}
+  else{econSet(t,spend())}
+  send({k:'sys',text:tr('faLog',t.name,nm)})}
+const _abr45=actBarRender;
+actBarRender=function(){_abr45();try{const ab=$('#actBar'),t=actTarget();if(!t||ab.hidden||!canCtl(t))return;featActions(t).forEach(e=>{const b=document.createElement('button');b.className='abBtn feAct';
+  const ic={dodge:'🛡',dash:'🏃',dashHide:'🏃',dashDis:'🏃',disengage:'↩',hide:'🫥',teleport:'✨',healHD:'💚',tempHp:'🛡',heroic:'✦',selfFx:'✨',note:'✨'}[e.do]||'✨';
+  b.innerHTML=`${ic} ${esc(e.name||e.feat.name)}${e.econ==='b'?' <small>(BA)</small>':''}${e.cost?` <small>${resIdLeft(t,'fe_'+e.cost)}×</small>`:''}`;b.title=e.feat.name;b.onclick=()=>featActDo(t,e);ab.append(b)})}catch(e){console.error(e)}};
+
+/* --- reakcje: +KP, zmniejszenie obrażeń, efekt po trafieniu --- */
+function rxFeatOpts(g,att){const i=infoOf(g);if(!i||!rxAvail(g)||cflags(g).inc)return[];const o=[];
+  fxList(i,'rxAc').forEach(e=>{if(e.cost&&resIdLeft(g,'fe_'+e.cost)<=0)return;if(e.vs==='melee'&&K&&K.opt&&!K.opt.melee)return;
+    if(e.req==='finesse'&&!(i.items||[]).some(x=>x.equipped&&x.kind==='weapon'&&(x.props||[]).includes('finesse')))return;if(e.req==='shield'&&!wornShield(i))return;o.push(e)});
+  fxList(i,'rxReduce').forEach(e=>{if(e.cost&&resIdLeft(g,'fe_'+e.cost)<=0)return;if(e.dmg.length&&K&&K.opt&&!(K.opt.parts||[]).some(p=>e.dmg.includes(p.type)))return;o.push(e)});
+  fxList(i,'rxFx').forEach(e=>{if(e.cost&&resIdLeft(g,'fe_'+e.cost)<=0)return;o.push(e)});return o}
+const faKey=e=>'fa:'+e.feat.id+':'+e.idx;
+const _ro45=reactOpts;reactOpts=function(g,total,ac,out){const o=_ro45(g,total,ac,out);if(out!=='hit'&&out!=='crit')return o;rxFeatOpts(g).forEach(e=>{if(e.type==='rxAc'&&total>=ac+fxv(infoOf(g),e.value))return;o.push(faKey(e))});return o};
+const faOf=k=>{const[,fid,idx]=String(k).split(':');const f=featDefs().find(x=>x.id===fid);return f&&Object.assign({feat:f,idx:+idx},f.effects[+idx])};
+const _rxg45=rxGate;rxGate=function(att,g,total,ac,out,cb){return _rxg45(att,g,total,ac,out,(o2,rx)=>{if(rx&&String(rx.used||'').startsWith('fa:')){const e=faOf(rx.used);if(e&&e.type==='rxAc'&&total<ac+fxv(infoOf(g),e.value))o2='miss'}cb(o2,rx)})};
+const _rxp45=rxPrompt;rxPrompt=function(a){_rxp45(a);try{const box=[...document.querySelectorAll('.rxBox')].pop();if(!box)return;const btns=[...box.querySelectorAll('button')];const g=tokById(a.tid),i=infoOf(g);
+  (a.opts||[]).forEach((k,n)=>{if(!String(k).startsWith('fa:')||!btns[n])return;const e=faOf(k);if(!e)return;const nm=e.name||e.feat.name;
+    btns[n].textContent=e.type==='rxAc'?`✨ ${nm} (+${fxv(i,e.value)} AC → ${a.ac+fxv(i,e.value)})`:e.type==='rxReduce'?`✨ ${nm} (−${e.dice}${e.bonus?'+'+fxv(i,e.bonus):''})`:`✨ ${nm}`})}catch(e){}};
+const _rxs45=rxSpend;rxSpend=function(g,use){if(!String(use).startsWith('fa:'))return _rxs45(g,use);const e=faOf(use);if(!e)return;if(S.combat&&S.combat.started)econSet(g,{r:0});if(e.cost)resIdSpend(g,'fe_'+e.cost);const i=infoOf(g),nm=e.name||e.feat.name;
+  if(e.type==='rxReduce'){let dd=e.dice;if(/^prof/.test(dd))dd=(i.prof||2)+dd.slice(5);const p=parseDmgExpr(dd);let n=fxv(i,e.bonus);for(let q=0;q<p.n;q++)n+=rnd(p.s);setTimeout(()=>addFxMany(g.id,[{c:'custom',n:nm+' −'+n,dRed:n,u:'start'}]),20);send({k:'sys',text:tr('faRed',g.name,nm,n)})}
+  else if(e.type==='rxFx'){setTimeout(()=>addFx(g.id,{c:e.fx.c,n:e.fx.n||nm,res:e.fx.res.length?e.fx.res:undefined,r:1,u:'start'}),20);send({k:'sys',text:tr('faLog',g.name,nm)})}
+  else send({k:'sys',text:tr('faLog',g.name,nm)})};
+
+/* --- przewaga w ataku, ignorowanie odporności, odporność gdy Bloodied --- */
+const _amo45=atkModeOf;atkModeOf=function(att,tgt,o){let m=_amo45(att,tgt,o);const i=infoOf(att);if(!i||m==='a')return m;
+  if(fxList(i,'atkAdv').some(e=>(e.when==='bloodied'&&att.sheet.hp<=att.sheet.maxHp/2)||(e.when==='targetCond'&&tgt&&hasC(tgt,e.cond))))m=m==='d'?'n':'a';return m};
+let IGN45=null;
+const _ap45=apply;apply=function(a){if(a&&(a.k==='atk'||a.k==='cast')){const at=tokById(a.k==='atk'?a.aid:a.cid),i=infoOf(at);if(i){const s=new Set();fxList(i,'ignoreResist').forEach(e=>{if(e.spellsOnly&&a.k!=='cast')return;e.dmg.forEach(d=>s.add(d))});IGN45=s.size?s:null}}
+  try{return _ap45(a)}finally{IGN45=null}};
+const _ra45=resistAdjust;resistAdjust=function(sheet,type,amount){let sh=sheet;if(IGN45&&IGN45.has(type)&&sheet&&(sheet.resist||[]).includes(type))sh=Object.assign({},sheet,{resist:sheet.resist.filter(x=>x!==type)});
+  const i=sh&&sh.info;if(i&&sh.hp<=sh.maxHp/2){const w=fxList(i,'resistWhen').filter(e=>e.dmg==='allButForce'?type!=='force':e.dmg.includes(type));if(w.some(e=>e.immune))return 0;if(w.length&&!(sh.resist||[]).includes(type))sh=Object.assign({},sh,{resist:(sh.resist||[]).concat([type])})}
+  return _ra45(sh,type,amount)};
+
+/* --- rzuty przeciw śmierci --- */
+const _ds45=deathSave;deathSave=function(t){const i=infoOf(t),e=i&&fxList(i,'deathSave')[0];if(!e)return _ds45(t);const s=ensureSheet(t);if(!isPc(t)||s.hp>0||(s.death&&(s.death.dead||s.death.st)))return;
+  diceFx([{s:20},{s:20}],v=>e.mode==='a'?Math.max(...v):Math.min(...v),`${t.name}: ${tr('deathSave')} (${e.mode==='a'?tr('adv'):tr('dis')})`,vals=>applyDeathRoll(t,e.mode==='a'?Math.max(...vals):Math.min(...vals)))};
+
+/* --- pudło → trafienie (raz na turę) --- */
+const _hio45=hiOffer;hiOffer=function(t,g,vals,mode,mod,o,cb){const i=infoOf(t),e=i&&fxList(i,'missToHit')[0];
+  if(e&&!vals.hi&&g&&!featUsedTurn(t,'mth')&&rm('feat')!=='off'){const r=mode==='a'?Math.max(...vals):mode==='d'?Math.min(...vals):vals[0],ac=acOf(g);
+    if(r<20&&(r===1||r+mod<ac)&&(rm('feat')==='auto'||confirm(tr('mthQ',t.name,e.name||e.feat.name)))){featMarkTurn(t,'mth');send({k:'sys',text:tr('faLog',t.name,e.name||e.feat.name)});const v2=vals.slice(),k=v2.indexOf(r);v2[k<0?0:k]=Math.max(2,Math.min(19,ac-mod));v2.hi=1;setTimeout(()=>cb(v2),10);return true}}
+  return _hio45(t,g,vals,mode,mod,o,cb)};
+
+/* --- czary: tymczasowe PW / prędkość przy czarze ze szkoły, odzysk slotu --- */
+const _ap45b=apply;apply=function(a){const r=_ap45b(a);try{if(a&&a.k==='cast'&&a.caster===me&&!a.rep){const t=tokById(a.cid),i=infoOf(t),sp=getSpell(a.sid)||{},slot=+a.slot||0;if(!i)return r;
+  fxList(i,'onCast').forEach(e=>{if(!slot||!sp.level||(e.school&&String(sp.school||'').toLowerCase()!==e.school))return;if(e.cost&&resIdLeft(t,'fe_'+e.cost)<=0)return;
+    if(e.tempHp){const n=/\*slot$/.test(e.tempHp)?(+e.tempHp.split('*')[0])*slot:fxv(i,e.tempHp);if((i.tempHp||0)<n)setTimeout(()=>send({k:'sp',id:t.id,p:{info:Object.assign({},t.sheet.info,{tempHp:n})}}),60);send({k:'sys',text:tr('faThp',t.name,e.name||e.feat.name,t.name,n)})}
+    if(e.speed&&S.combat&&S.combat.started){const n=(+e.speed.split('*')[0])*slot;const ec=econOf(t);setTimeout(()=>econSet(t,{mv:ec.mv+n,mx:ec.mx+n}),60)}
+    if(e.cost)resIdSpend(t,'fe_'+e.cost)});
+  if(fxList(i,'spellRecall').length&&slot>=1&&slot<=4&&sp.level>0){const d=rnd(4);if(d===slot&&i.slots&&i.slots.used[slot-1]>0){setTimeout(()=>{const ii=t.sheet.info;ii.slots.used[slot-1]=Math.max(0,ii.slots.used[slot-1]-1);send({k:'sp',id:t.id,p:{info:ii}})},120);send({k:'sys',text:tr('recallOk',t.name,d)})}}}}catch(e){console.error(e)}return r};
+
+/* --- atak bez broni --- */
+const _pso45=pcStrikeOpts;pcStrikeOpts=function(t){const o=_pso45(t),i=infoOf(t);if(!i)return o;const u=fxList(i,'unarmed')[0];if(!u)return o;
+  const noW=!(i.items||[]).some(x=>x.equipped&&(x.kind==='weapon'||x.kind==='shield'));const dice=noW&&u.noWeapon?u.noWeapon:u.dice;const p=parseDmgExpr(dice);
+  o.forEach(x=>{if(!x.unarmed||!x.parts||!x.parts[0])return;const cur=x.parts[0];if((cur.n||0)*(cur.s||0)<p.n*p.s){cur.n=p.n;cur.s=p.s;cur.type='bludgeoning';x.feU=1}});return o};
+
+/* --- opis efektów na karcie --- */
+const _fd45=feDescribe;feDescribe=function(e,i){const nm=e.name?e.name+': ':'';
+  if(e.type==='chkDie')return nm+tr('feChk',[...e.skills.map(x=>(SKILLS.find(q=>q[0]===x)||[0,x])[1]),...e.abs.map(a=>a.toUpperCase())].join(', '),e.die);
+  if(e.type==='action')return nm+tr('feAct',{a:tr('actionA'),b:tr('bonusA'),r:tr('reactionW'),free:'—'}[e.econ])+(e.cost?' · '+tr('feCost'):'');
+  if(e.type==='rxAc')return nm+tr('feRxAc',fxv(i,e.value));if(e.type==='rxReduce')return nm+tr('feRxRed',e.dice);if(e.type==='rxFx')return nm+tr('feRxFx');
+  if(e.type==='atkAdv')return tr(e.when==='bloodied'?'feAdvBl':'feAdvCond',e.cond);if(e.type==='ignoreResist')return tr('feIgn',e.dmg.map(dmgName).join(', '));
+  if(e.type==='resistWhen')return tr('feResBl',e.dmg==='allButForce'?tr('feAllButForce'):e.dmg.map(dmgName).join(', '));if(e.type==='deathSave')return tr(e.mode==='a'?'feDsA':'feDsD');
+  if(e.type==='missToHit')return nm+tr('feMth');if(e.type==='onCast')return nm+tr('feOnCast',cap1(e.school||'*'));if(e.type==='unarmed')return tr('feUnarmed',e.dice);if(e.type==='spellRecall')return tr('feRecall');
+  return _fd45(e,i)};
+
+/* ================= filtr książek ================= */
+let BOOKS_OFF=new Set((()=>{try{return JSON.parse(localStorage.getItem('dmBooksOff')||'[]')}catch(e){return[]}})());
+const bookOf=x=>x&&(x.book||String(x.fsrc||'').split(' ')[0])||'';
+const _cp45=cleanPack;cleanPack=function(raw){if(raw&&raw.format!=='dndmates-pack'){const c=from5e(raw);if(c)raw=c}const out=_cp45(raw);const by=new Map((Array.isArray(raw.feats)?raw.feats:[]).filter(f=>f&&f.id).map(f=>[f.id,f]));
+  out.feats.forEach(f=>{const r=by.get(f.id);if(r&&typeof r.book==='string')f.book=r.book.slice(0,12);else if(f.fsrc)f.book=String(f.fsrc).split(' ')[0]});
+  ['feats','spells','monsters','items','species','backgrounds','subclasses'].forEach(k=>{if(!Array.isArray(out[k])||!Array.isArray(raw[k]))return;const m=new Map(raw[k].filter(x=>x&&(x.id||x.name)).map(x=>[x.id||x.name,x]));
+    out[k].forEach(x=>{const r=m.get(x.id||x.name);if(r&&typeof r.fluff==='string'&&r.fluff.trim())x.fluff=r.fluff.trim().slice(0,4000)})});
+  ['spells','monsters','items','species','backgrounds','subclasses'].forEach(k=>{const rr=new Map((Array.isArray(raw[k])?raw[k]:[]).filter(x=>x&&x.id).map(x=>[x.id,x]));(out[k]||[]).forEach(x=>{const r=rr.get(x.id);if(r&&typeof r.book==='string')x.book=r.book.slice(0,12)})});return out};
+const _lc45=loadCatalog;loadCatalog=async function(){const r=await _lc45.apply(this,arguments);if(BOOKS_OFF.size)['spells','monsters','feats','species','items','subclasses'].forEach(k=>{if(Array.isArray(CAT[k]))CAT[k]=CAT[k].filter(x=>!BOOKS_OFF.has(bookOf(x)))});return r};
+const BOOK_NAMES={XPHB:"Player's Handbook (2024)",XDMG:"Dungeon Master's Guide (2024)",XMM:'Monster Manual (2025)',FRHoF:'Forgotten Realms: Heroes of Faerûn',EFA:'Eberron: Forge of the Artificer',ABH:"Astarion's Book of Hungers",AU:'Arcana Unleashed',WoW:'World of Warcraft',RHW:'Ravenloft: The Horrors Within',LFL:'Lorwyn: First Light',SRD:'SRD 5.2'};
+const _pkr45=packsRender;packsRender=async function(){await _pkr45.apply(this,arguments);try{const l=$('#pkList');PK_ALL=true;let all=[];try{all=await packsOp('readonly',s=>s.getAll())}finally{PK_ALL=false}
+  const cnt={};all.filter(p=>!p.off).forEach(p=>['feats','spells','monsters','items','species','backgrounds','subclasses'].forEach(k=>(p[k]||[]).forEach(x=>{const b=x.book||String(x.fsrc||'').split(' ')[0];if(b)cnt[b]=(cnt[b]||0)+1})));
+  const books=Object.keys(cnt).sort();if(!books.length)return;const box=hE('div',{className:'pkBooks'},hE('b',{textContent:'📚 '+tr('booksH')}),hE('small',{textContent:tr('booksHint')}));
+  books.forEach(b=>{const on=!BOOKS_OFF.has(b);const sw=hE('label',{className:'pkSw'},hE('input',{type:'checkbox',checked:on}),hE('span'));
+    sw.querySelector('input').onchange=e=>{if(e.target.checked)BOOKS_OFF.delete(b);else BOOKS_OFF.add(b);try{localStorage.setItem('dmBooksOff',JSON.stringify([...BOOKS_OFF]))}catch(x){}packsRender()};
+    box.append(hE('div',{className:'pk pkSrc'+(on?'':' off')},sw,hE('span',{className:'pkTxt'},hE('b',{textContent:BOOK_NAMES[b]?`${b} — ${BOOK_NAMES[b]}`:b}),hE('small',{textContent:tr('booksCnt',cnt[b])})))) });
+  l.append(box)}catch(e){console.error(e)}};
+
+addI18n({faNoHd:'{0} has no Hit Point Dice left.',faNoHd:'{0} nie ma już Kości Wytrzymałości.',faWho:'{0}: choose a creature',faThp:'✨ {0}: {1} — {2} gains {3} Temp HP.',faLog:'✨ {0} uses {1}.',faRed:'✨ {0}: {1} — damage reduced by {2}.',mthQ:'{0} missed. Use {1} to hit instead?',recallOk:'✨ {0}: Boon of Spell Recall — d4 = {1}, the slot is not expended!',noBonusLeft:'{0} has no Bonus Action left.',
+  feChk:'+{1} to checks: {0}',feAct:'action button ({0})',feCost:'limited uses',feRxAc:'Reaction: +{0} AC against a hit',feRxRed:'Reaction: reduce damage by {0}',feRxFx:'Reaction effect',feAdvBl:'Advantage on attacks while Bloodied',feAdvCond:'Advantage on attacks against {0} creatures',feIgn:'Ignores Resistance: {0}',feResBl:'While Bloodied: Resistance to {0}',feAllButForce:'all damage except Force',
+  feDsA:'Advantage on Death Saving Throws',feDsD:'Disadvantage on Death Saving Throws',feMth:'once per turn, turn a miss into a hit',feOnCast:'when casting a {0} spell with a slot',feUnarmed:'Unarmed Strike: {0} + STR',feRecall:'casting with a level 1–4 slot: d4 equal to the level keeps the slot',
+  booksH:'Books',booksHint:'Turn off a book to hide everything from it (all packs). Saved in this browser.',booksCnt:'{0} entries'},
+ {faWho:'{0}: wybierz stworzenie',faThp:'✨ {0}: {1} — {2} dostaje {3} tymczasowych PW.',faLog:'✨ {0} używa {1}.',faRed:'✨ {0}: {1} — obrażenia mniejsze o {2}.',mthQ:'{0} pudłuje. Użyć {1} i trafić?',recallOk:'✨ {0}: Boon of Spell Recall — k4 = {1}, slot nie przepada!',noBonusLeft:'{0} nie ma już akcji bonusowej.',
+  feChk:'+{1} do testów: {0}',feAct:'przycisk na pasku akcji ({0})',feCost:'ograniczone użycia',feRxAc:'Reakcja: +{0} KP przeciw trafieniu',feRxRed:'Reakcja: obrażenia mniejsze o {0}',feRxFx:'Reakcja z efektem',feAdvBl:'Przewaga w atakach, gdy Bloodied',feAdvCond:'Przewaga w atakach na stworzenia: {0}',feIgn:'Ignoruje odporność: {0}',feResBl:'Gdy Bloodied: odporność na {0}',feAllButForce:'wszystko oprócz Force',
+  feDsA:'Przewaga w rzutach przeciw śmierci',feDsD:'Utrudnienie w rzutach przeciw śmierci',feMth:'raz na turę pudło zamienia się w trafienie',feOnCast:'przy czarze szkoły {0} ze slotu',feUnarmed:'Atak bez broni: {0} + SIŁ',feRecall:'czar ze slotu 1–4: k4 równe poziomowi zwraca slot',
+  booksH:'Książki',booksHint:'Wyłącz książkę, żeby ukryć wszystko z niej (ze wszystkich paczek). Zapamiętywane w tej przeglądarce.',booksCnt:'{0} wpisów'});
+
+/* --- fluff: opisy fabularne z 5etools (featFluff) --- */
+const _f5e45=from5e;from5e=function(raw){const p=_f5e45(raw);try{const fl=raw&&Array.isArray(raw.featFluff)?raw.featFluff:null;if(p&&fl){const m=new Map(fl.map(x=>[slug5e(x.name)+'|'+x.source,x]));
+  p.feats.forEach(f=>{const x=m.get(f.id+'|'+(f.source||String(f.fsrc||'').split(' ')[0]))||fl.find(z=>slug5e(z.name)===f.id);if(x&&x.entries)f.fluff=strip5e(flat5e(x.entries)).trim().slice(0,4000)})}}catch(e){}return p};
 
 </script>
 </body>
