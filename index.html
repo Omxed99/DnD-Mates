@@ -9710,6 +9710,7 @@ const N5=(()=>{try{return JSON.parse(localStorage.getItem('dmBookNames')||'{}')}
 const _cp46=cleanPack;cleanPack=function(raw){const out=_cp46(raw);try{if(raw&&raw.format==='dndmates-pack'){
   ['spells','monsters','feats','species','backgrounds','items','subclasses'].forEach(k=>{if(!Array.isArray(out[k]))return;const src=Array.isArray(raw[k])?new Map(raw[k].filter(x=>x&&x.id).map(x=>[x.id,x])):new Map();
     out[k].forEach(x=>{const r=src.get(x.id)||{};const b=typeof r.book==='string'?r.book:typeof raw.book==='string'?raw.book:'';if(b&&!x.book)x.book=b.slice(0,12);if(typeof r.fsrc==='string'&&!x.fsrc)x.fsrc=r.fsrc.slice(0,40)})});
+  if(raw.bookNames&&typeof raw.bookNames==='object'){Object.entries(raw.bookNames).slice(0,200).forEach(([k,v])=>{if(typeof v==='string'&&/^[\w-]{1,20}$/.test(k)){N5[k]=v.slice(0,80);if(!BOOK_NAMES[k])BOOK_NAMES[k]=N5[k]}});try{localStorage.setItem('dmBookNames',JSON.stringify(N5))}catch(e){}}
   if(typeof raw.book==='string')out.book=raw.book.slice(0,12);if(typeof raw.pid==='string')out.id=raw.pid.slice(0,40)}}catch(e){console.error(e)}return out};
 const W5=k=>/^(books|adventures|items|items-base|magicvariants|races|backgrounds|feats|fluff-(items|races|backgrounds|feats))\.json$/.test(k)||k==='generated/gendata-spell-source-lookup.json'||/^class\/class-[^/]*\.json$/.test(k)||/^(spells|bestiary)\/(index|fluff-index)\.json$/.test(k);
 async function imp5etools(list){const all=[...list].map(f=>{const p=(f.webkitRelativePath||f.name).replace(/\\/g,'/');const i=p.lastIndexOf('data/');return[i>=0?p.slice(i+5):p.split('/').slice(1).join('/'),f]});
@@ -9717,7 +9718,7 @@ async function imp5etools(list){const all=[...list].map(f=>{const p=(f.webkitRel
   await Promise.all(all.filter(([k])=>W5(k)).map(rd));
   if(!files['books.json']&&!files['feats.json']&&!files['spells/index.json'])return say(tr('i5NoData'),'sys');
   const S=new Set();[['books.json','book'],['adventures.json','adventure']].forEach(([f,k])=>((files[f]||{})[k]||[]).forEach(b=>{if((b.published||'')>='2024-09-17')S.add(b.source||b.id)}));if(!S.size)B5.Y24.forEach(b=>S.add(b));
-  const nm={};[['books.json','book'],['adventures.json','adventure']].forEach(([f,k])=>((files[f]||{})[k]||[]).forEach(b=>{if(S.has(b.source||b.id))nm[b.source||b.id]=b.name}));Object.assign(N5,nm);Object.keys(nm).forEach(k=>{if(!BOOK_NAMES[k])BOOK_NAMES[k]=nm[k]});try{localStorage.setItem('dmBookNames',JSON.stringify(N5))}catch(e){}
+  const nm={};[['books.json','book'],['adventures.json','adventure']].forEach(([f,k])=>((files[f]||{})[k]||[]).forEach(b=>{if(S.has(b.source||b.id)&&!nm[b.source||b.id])nm[b.source||b.id]=b.name}));Object.assign(N5,nm);Object.keys(nm).forEach(k=>{if(!BOOK_NAMES[k])BOOK_NAMES[k]=nm[k]});try{localStorage.setItem('dmBookNames',JSON.stringify(N5))}catch(e){}
   /* czary i potwory: tylko pliki książek 2024 (wg index.json) */
   const idx=(d)=>Object.entries(files[d+'/index.json']||{}).filter(([s])=>S.has(s)).map(([,f])=>d+'/'+f),fidx=(d)=>Object.entries(files[d+'/fluff-index.json']||{}).filter(([s])=>S.has(s)).map(([,f])=>d+'/'+f);
   const need=new Set(idx('spells').concat(fidx('spells'),idx('bestiary'),fidx('bestiary')));await Promise.all(all.filter(([k])=>need.has(k)).map(rd));
