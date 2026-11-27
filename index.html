@@ -5400,7 +5400,7 @@ function netStatus(k,...a){try{status(k,...a)}catch(e){}const b=$('#netDot');if(
 function hostWire(c){
   c.on('open',()=>{conns.push(c);c.send({t:'state',s:redactState()});send({k:'sys',key:'joined'})});
   c.on('data',d=>{if(netDiag(d,c))return;if(d.t==='hello'){c.__name=String(d.name||'').slice(0,40);conns.filter(x=>x!==c&&x.__name===c.__name).forEach(x=>{x.__dup=1;try{x.close()}catch(e){}});conns=conns.filter(x=>!x.__dup);try{whUi()}catch(e){}send({k:'sys',text:tr('welcomeBack',c.__name)});return}
-    if(d.t==='act'){if(d.a&&(d.a.k==='music'||d.a.k==='amb'))return;apply(d.a);if(!(d.a.k==='ruler'&&S.settings.rulerVisible!=='all')){const o=redactAct(d.a);if(o)bc({t:'act',a:o},c)}}});
+    if(d.t==='act'){if(d.a&&(d.a.k==='music'||d.a.k==='amb'))return;if(typeof hostGuard==='function'&&!hostGuard(d.a,c))return;apply(d.a);if(!(d.a.k==='ruler'&&S.settings.rulerVisible!=='all')){const o=redactAct(d.a);if(o)bc({t:'act',a:o},c)}}});
   c.on('close',()=>{conns=conns.filter(x=>x!==c);if(c.__name&&!c.__dup)send({k:'sys',text:tr('playerLeft',c.__name)})});
   c.on('error',()=>{});
 }
@@ -10198,6 +10198,7 @@ function spiritMon(m,variant,L,caster){const i=(caster&&caster.sheet&&caster.she
     let v=base;if(/\+ the spell's level|plus the spell's level|\+ \d+ per spell level|\d+ per spell level/i.test(s)){const k=/(\d+) per spell level/i.exec(s);v+=k?+k[1]*L:/the spell's level/i.test(s)?L:0}
     const each=/\+ (\d+) for each spell level above (\d+)/i.exec(s);if(each)v+=+each[1]*Math.max(0,L-+each[2]);
     const ex=/\+ (\d+) \(([^)]*?) only\)/i.exec(s);if(ex&&V&&ex[2].toLowerCase().split(/,\s*|\s+and\s+/).some(x=>x.trim()===V))v+=+ex[1];
+    const tl=/(?:plus |\+ )?(\w+) times your (\w+) level/i.exec(s);if(tl&&caster){const k=NUMW[tl[1].toLowerCase()]||+tl[1]||1;v+=k*clsLv(i,tl[2].toLowerCase())}
     const am=/(?:plus|\+) your (\w+) modifier/i.exec(s);if(am){const a=({strength:'str',dexterity:'dex',constitution:'con',intelligence:'int',wisdom:'wis',charisma:'cha'})[am[1].toLowerCase()];if(a)v+=amod(a)}
     return Math.max(1,v)};
   const fixLine=l=>{let s=String(l);s=s.replace(/\s*\([^)]*? Only\)\s*/i,m=>/Form/i.test(m)?m:'').replace(/\s+\./,'.');s=s.replace(/\s*\+\s*summonSpellLevel/gi," + the spell's level");
@@ -10243,6 +10244,81 @@ const _mp51=multiPlan;multiPlan=function(t){const r=_mp51.apply(this,arguments);
   [...String(ma).matchAll(/\buses (?!Spellcasting)([A-Z][\w'’ -]+?)(?:\s+(once|twice|two times|three times|four times|\d+ times))?(?=[.,;]| and | or |$)/g)].forEach(m=>{const o=by(m[1]);if(!o)return;const n=T[m[2]]||parseInt(m[2])||1;for(let i=0;i<n;i++)uses.push(o)});
   if(!uses.length)return r;const expl=[];const re=/\b(one|two|three|four|five|six|\d+)\s+([A-Z][\w'’ -]*?)\s+attacks?\b/g;let m;while((m=re.exec(ma))){const n=NUMW[m[1].toLowerCase()]||+m[1]||1,o=by(m[2]);if(o)for(let i=0;i<n;i++)expl.push(o)}
   return{plan:uses.concat(expl),text:ma,alts:(r&&r.alts)||all}}catch(e){return r}};
+
+/* ================= m52: przywołania tylko dla tych, którzy mogą; Rage bez ciężkiej zbroi; pilnowanie akcji w walce; drzwi tylko przez DM-a ================= */
+RULE_OPTS.econ={modes:['block','warn','off'],def:'block'};
+RULE_OPTS.doors={modes:['dm','near'],def:'dm'};
+
+/* ---------- 1. przywołania ---------- */
+function summonSources(t){const i=(t&&t.sheet&&t.sheet.info)||{};const out={spells:[],wild:false,beast:false};
+  Object.keys(SUMMON_SP).forEach(id=>{if(knows(t,id))out.spells.push(id)});
+  out.wild=clsLv(i,'druid')>=2;out.beast=clsLv(i,'ranger')>=3&&/beast/i.test(String(i.subclass||''));return out}
+const canSummon=t=>{if(isHost)return true;const s=summonSources(t);return s.spells.length||s.wild||s.beast};
+const _hx52=hudExtra;hudExtra=function(){_hx52.apply(this,arguments);try{const t=selected,row=$('#hudSum');if(!row||!t||!isPc(t))return;
+  const b=[...row.querySelectorAll('button')].find(x=>x.textContent.startsWith('🐾'));if(b&&!canSummon(t))b.remove()}catch(e){}};
+const _sp52=summonPanel;summonPanel=function(t,sid,slot){if(sid||isHost)return _sp52.apply(this,arguments);try{const s=summonSources(t),items=[];
+    s.spells.forEach(id=>{const sp=getSpell(id);if(sp)items.push({label:'✨ '+sp.name,sub:tr('sumCast'),fn:()=>{selectToken(t);activateSpell(sp)}})});
+    if(s.wild)wildForms(t).forEach(m=>items.push({label:'🐻 '+m.name,sub:'Wild Shape · CR '+m.cr,fn:()=>wildShape(t,m)}));
+    if(s.beast)(CAT.monsters||[]).filter(m=>m.summonClass==='ranger').forEach(m=>items.push({label:'🐾 '+m.name,sub:tr('sumBeast'),fn:()=>{
+      S.tokens.filter(x=>x.sheet&&x.sheet.summoner===t.id&&x.sheet.summonKind==='beast').forEach(x=>send({k:'del',id:x.id}));const c=spiritMon(m,'',0,t);summonPlace(t,c,`${m.name} (${t.name})`,{kind:'beast',color:'#c8e6a0'})}}));
+    if(!items.length)return say(tr('sumNone',esc(t.name)),'sys');return listPick('🐾 '+t.name,items)}catch(e){console.error(e)}};
+
+/* ---------- 2. Rage nie w ciężkiej zbroi ---------- */
+const heavyOn=t=>((t&&t.sheet&&t.sheet.info&&t.sheet.info.items)||[]).some(w=>w.equipped&&w.kind==='armor'&&w.cat==='heavy');
+const _ru52=resUse;resUse=function(ctx,d){try{if(d&&d.act==='rage'&&ctx&&ctx.t&&!hasC(ctx.t,'raging')&&heavyOn(ctx.t))return say(tr('rageHeavy',esc(ctx.t.name)),'sys')}catch(e){}return _ru52.apply(this,arguments)};
+const _ap52=apply;apply=function(a){const r=_ap52.apply(this,arguments);try{if(isHost&&a&&a.k==='sp'&&a.p&&a.p.info){const t=tokById(a.id);if(t&&hasC(t,'raging')&&heavyOn(t)){const f=fxOf(t).find(x=>x.c==='raging');if(f){removeFx(t.id,f.id);send({k:'sys',text:tr('rageHeavyEnd',t.name)})}}}}catch(e){}return r};
+
+/* ---------- 3. akcje w walce: gracze nie mogą zrobić więcej, niż pozwalają zasady ---------- */
+const fightOn=()=>!!(S.combat&&S.combat.started);
+function econGate(t,use,what){try{if(!t||!t.sheet||!fightOn())return true;const mode=rm('econ');if(mode==='off')return true;const e=econOf(t),cur=curTurnTok()===t;
+  let bad='';if(use==='free')return true;
+  if(use==='reaction'){if(!e.r)bad=tr('egNoR')}
+  else if(!cur)bad=tr('egNotTurn');
+  else if(use==='bonus'){if(!e.b)bad=tr('egNoB')}
+  else if(use==='attack'){if(!(e.atk>0||e.a))bad=tr('egNoA')}
+  else if(use==='action'){if(!e.a)bad=tr('egNoA')}
+  if(!bad)return true;const msg=`⛔ ${esc(t.name)}: ${bad}${what?' ('+esc(what)+')':''}`;
+  if(isHost||mode==='warn'){say(msg+(isHost?' — '+tr('egDm'):''),'sys');return true}say(msg,'sys');return false}catch(x){return true}}
+const _sr52=strikeRoll;strikeRoll=function(){try{if(K&&K.att&&K.opt&&isPc(K.att)){const k=K.opt.kind;if(k==='atk'||k==='grapple'||k==='shove'){const u=K.uses==='bonus'?'bonus':K.uses==='reaction'?'reaction':K.uses==='free'?'free':'attack';
+  if(!econGate(K.att,u,K.opt.name))return}}}catch(e){}return _sr52.apply(this,arguments)};
+const ctUse=sp=>{const c=String((sp&&sp.castingTime)||'').toLowerCase();return/reaction/.test(c)?'reaction':/bonus/.test(c)?'bonus':/^\s*(1 )?action|^action/.test(c)?'action':'free'};
+const _as52=activateSpell;activateSpell=function(def){try{if(def&&selected&&isPc(selected)&&fightOn()){if(!econGate(selected,ctUse(def),def.name))return}}catch(e){}return _as52.apply(this,arguments)};
+/* rzucenie czaru zużywa akcję / akcję bonusową / reakcję */
+const _sd52=send;send=function(a){try{if(a&&a.k==='cast'&&fightOn()&&!a.econ52){const t=tokById(a.cid),sp=getSpell(a.sid);if(t&&isPc(t)&&sp&&!(a.rep||a.sustain)){const u=ctUse(sp),e=econOf(t);a.econ52=1;
+  if(u==='action'&&e.a)setTimeout(()=>econSet(t,{a:0,atk:0}),30);else if(u==='bonus'&&e.b)setTimeout(()=>econSet(t,{b:0}),30);else if(u==='reaction'&&e.r)setTimeout(()=>econSet(t,{r:0}),30)}}}catch(e){}return _sd52.apply(this,arguments)};
+/* pasek akcji: Dash/Dodge/… tylko z wolną akcją; gracz nie przywraca sam zużytych akcji */
+const _abr52=actBarRender;actBarRender=function(){_abr52.apply(this,arguments);try{const ab=$('#actBar'),t=actTarget();if(!ab||ab.hidden||!t||!canCtl(t)||!isPc(t)||!fightOn())return;
+  ab.querySelectorAll('.abBtn').forEach(b=>{if(b.classList.contains('big')||b.dataset.g52)return;const txt=b.textContent;const use=/Dash|Dodge|Disengage|Help|Hide|Search|Study|Influence|Utilize|Ready|Magic/i.test(txt)?'action':null;if(!use)return;
+    b.dataset.g52=1;const fn=b.onclick;b.onclick=e=>{if(!econGate(t,use,txt.replace(/^\W+/,'')))return;return fn&&fn.call(b,e)}});
+  if(!isHost&&rm('econ')==='block')ab.querySelectorAll('.abPip.used').forEach(b=>{b.onclick=()=>say(tr('egRestore'),'sys')})}catch(e){}};
+
+/* ---------- 4. drzwi: gracze proszą DM-a ---------- */
+function doorAsk(w,who){if(!isHost)return;let box=$('#doorAsk');if(box)box.remove();box=document.createElement('div');box.id='doorAsk';box.className='rxBox';
+  box.innerHTML=`<b>🚪 ${esc(tr('doorReqT',who||'?'))}</b><div class="smd">${esc(tr(w.open?'doorReqClose':'doorReqOpen'))}</div>`;const row=document.createElement('div');row.className='rxBtns';
+  const y=document.createElement('button');y.textContent=w.open?tr('doorClose'):tr('doorOpen');y.onclick=()=>{box.remove();send({k:'wall',op:'upd',id:w.id,p:{open:!w.open}});send({k:'sys',text:tr('doorDone',who||'?',tr(w.open?'doorClosedW':'doorOpenedW'))})};
+  const n=document.createElement('button');n.textContent=tr('doorNo');n.onclick=()=>{box.remove();send({k:'sys',text:tr('doorDenied',who||'?')})};row.append(y,n);box.append(row);document.body.append(box)}
+function hostGuard(a,c){try{if(!a)return true;
+  if(a.k==='doorReq'){const w=walls().find(x=>x.id===a.id);if(w)doorAsk(w,a.who);return false}
+  if(a.k==='wall'&&rm('doors')==='dm'){/* gracz nie przełącza drzwi bez zgody DM-a */if(a.op==='upd'&&a.p&&'open' in a.p){const w=walls().find(x=>x.id===a.id);if(w)doorAsk(w,a.who||tr('player'));return false}if(a.op!=='upd')return false}
+  }catch(e){}return true}
+document.addEventListener('click',e=>{try{const b=e.target.closest&&e.target.closest('.doorB');if(!b||isHost||rm('doors')!=='dm')return;e.stopPropagation();e.preventDefault();
+  const mx=parseFloat(b.style.left),my=parseFloat(b.style.top);const w=walls().filter(x=>x.type==='door').find(x=>Math.abs((x.x1+x.x2)/2-mx)<1&&Math.abs((x.y1+x.y2)/2-my)<1);if(!w)return;
+  const mine=S.tokens.find(t=>t.owner===me&&t.sheet);send({k:'doorReq',id:w.id,who:mine?mine.name:((typeof myName!=='undefined'&&myName)||tr('player'))});say(tr('doorAsked'),'sys')}catch(x){}},true);
+
+addI18n({sumCast:'cast the spell (uses a slot)',sumBeast:'Beast Master companion',sumNone:'{0} has nothing to summon (no summoning spell, Wild Shape or companion).',
+  rageHeavy:'{0} cannot Rage while wearing Heavy armor.',rageHeavyEnd:'{0} put on Heavy armor — Rage ends.',
+  egNotTurn:'not your turn',egNoA:'no Action left this turn',egNoB:'no Bonus Action left',egNoR:'Reaction already used this round',egDm:'allowed because you are the DM',egRestore:'Only the DM can restore a spent action.',
+  rn_econ:'Action limits in combat',rd_econ:'Players cannot attack, cast or Dash more than their Action / Bonus Action / Reaction allow, nor act outside their turn.',rm_block:'Block',rm_warn:'Warn only',
+  rn_doors:'Doors',rd_doors:'Who opens doors: only the DM (players send a request) or a player standing next to the door.',rm_dm:'DM only',rm_near:'Player next to it',
+  doorReqT:'{0} wants to use a door',doorReqOpen:'Open this door?',doorReqClose:'Close this door?',doorOpen:'Open',doorClose:'Close',doorNo:'Not now',doorDone:'🚪 DM: the door is {1} ({0}).',doorOpenedW:'open',doorClosedW:'closed',
+  doorDenied:'🚪 The DM keeps the door as it is ({0}).',doorAsked:'🚪 Asked the DM to open the door.',player:'player'},
+ {sumCast:'rzuć czar (zużywa slot)',sumBeast:'towarzysz Beast Mastera',sumNone:'{0} nie ma kogo przywołać (brak czaru przywołania, Wild Shape ani towarzysza).',
+  rageHeavy:'{0} nie może wpaść w szał w ciężkiej zbroi.',rageHeavyEnd:'{0} założył ciężką zbroję — szał się kończy.',
+  egNotTurn:'to nie twoja tura',egNoA:'brak akcji w tej turze',egNoB:'brak akcji bonusowej',egNoR:'reakcja już zużyta w tej rundzie',egDm:'dozwolone, bo jesteś DM-em',egRestore:'Tylko DM może przywrócić zużytą akcję.',
+  rn_econ:'Limity akcji w walce',rd_econ:'Gracze nie mogą atakować, rzucać czarów ani robić Dash ponad to, na co pozwala akcja / akcja bonusowa / reakcja, ani działać poza swoją turą.',rm_block:'Blokuj',rm_warn:'Tylko ostrzegaj',
+  rn_doors:'Drzwi',rd_doors:'Kto otwiera drzwi: tylko DM (gracze wysyłają prośbę) albo gracz stojący obok.',rm_dm:'Tylko DM',rm_near:'Gracz obok',
+  doorReqT:'{0} chce użyć drzwi',doorReqOpen:'Otworzyć te drzwi?',doorReqClose:'Zamknąć te drzwi?',doorOpen:'Otwórz',doorClose:'Zamknij',doorNo:'Nie teraz',doorDone:'🚪 DM: drzwi są {1} ({0}).',doorOpenedW:'otwarte',doorClosedW:'zamknięte',
+  doorDenied:'🚪 DM zostawia drzwi bez zmian ({0}).',doorAsked:'🚪 Poproszono DM-a o otwarcie drzwi.',player:'gracz'});
 
 </script>
 </body>
