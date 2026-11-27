@@ -153,7 +153,7 @@ W zasadach 2024 **pochodzenie (Origin) = gatunek + background**. Background daje
 | `needs` | `{any:[…], min}` | wymóg cechy, np. `{ "any": ["str","dex"], "min": 13 }` |
 | `desc` | string | opis |
 | `fluff` | string | opcjonalny opis fabularny (kursywą nad opisem w katalogu i na karcie); działa też w czarach, potworach, przedmiotach, rasach, pochodzeniach i podklasach |
-| `book` | string | skrót książki (`XPHB`, `FRHoF`, …) do filtra książek; bez niego brany jest pierwszy wyraz `fsrc` |, "name": "Healer", "category": "Origin", "minLevel": 1,
+| `book` | string | skrót źródła (np. `SRD` albo nazwa Twojego dodatku) do filtra źródeł; bez niego brany jest pierwszy wyraz `fsrc` |, "name": "Healer", "category": "Origin", "minLevel": 1,
   "desc": "Battle Medic: zużyj Healer's Kit, cel wydaje Kość Wytrzymałości i leczy się. Rzuty leczenia: przerzucasz 1."
 }
 ```
@@ -255,28 +255,6 @@ Reakcje za sojusznika i inne:
 Reakcje nigdy nie są zużywane bez pytania — masz jedną reakcję na rundę i sam wybierasz, czy wydać ją np. na Shield, czy na feat. Przerzuty „you can” (np. `dmgReroll`) też pytają, chyba że w **⚙ Zasady sesji → Featy z paczek** wybrano „Automatycznie”.
 
 Zdolności, których nie da się złożyć z klocków, trzeba dopisać w kodzie (zgłoś je z treścią featu).
-
-### Import featów z 5etools
-
-Plik w formacie 5etools (`{"feat": [ … ]}`, sama lista albo pojedynczy feat) można wczytać tak samo jak paczkę. Stare wersje featów, które mają nowszy odpowiednik (`reprintedAs`), są pomijane. Gra przelicza go automatycznie:
-- `name`, `category`, `prerequisite`, `ability` (zwiększenie cechy) i `entries` (opis);
-- `additionalSpells` zamienia na klocek `spells` (wybór z listy klasy, darmowe rzucenie raz na odpoczynek);
-- typowe zdania: „When you fail a … saving throw, you can (take a Reaction to) roll 1dN and add …” (z limitem „until you finish a Short/Long Rest”), „You have Resistance to … damage”, „Your Speed increases by N feet”, „+1 bonus to Armor Class”.
-
-Resztę opisu widać na karcie, a brakujące efekty można dopisać ręcznie w JSON-ie.
-
-Jeśli w tym samym pliku jest lista `featFluff` (z `fluff-feats.json` w 5etools), opisy fabularne trafiają do pola `fluff`.
-
-### Import całego folderu 5etools
-
-W oknie **Paczki** jest przycisk **📂 Import folderu 5etools**. Wskaż folder `data` z 5etools (albo cały folder 5etools). Gra:
-- czyta tylko pliki potrzebne do książek wydanych od 17.09.2024 (lista z `books.json` i `adventures.json`);
-- przelicza czary, potwory (ataki, rzuty obronne, czary potworów), przedmioty (w tym magiczne warianty broni i zbroi, np. `+1 Longsword`), gatunki, pochodzenia, featy i podklasy 12 klas z PHB 2024;
-- dołącza opisy fabularne (`fluff`);
-- tworzy jedną paczkę na książkę (`5etools: …`); ponowny import podmienia te paczki;
-- pomija wpisy z SRD, jeśli masz już paczkę SRD, oraz featy, które mają już mechanikę w Twojej własnej paczce.
-
-Nic nie jest wysyłane poza przeglądarkę. Klasy spoza PHB (np. z World of Warcraft, Artificer) nie są jeszcze obsługiwane.
 
 ### Efekty czytane z opisu (potwory i czary)
 
