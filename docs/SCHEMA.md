@@ -256,6 +256,16 @@ Reakcje nigdy nie są zużywane bez pytania — masz jedną reakcję na rundę i
 
 Zdolności, których nie da się złożyć z klocków, trzeba dopisać w kodzie (zgłoś je z treścią featu).
 
+### Import plików z danymi (zewnętrzny format JSON)
+
+Standardowy przycisk **Importuj paczkę** przyjmuje też pliki z danymi w popularnym zewnętrznym formacie JSON (`books.json`, `feats.json`, `races.json`, `backgrounds.json`, `items.json`, `spells/…`, `bestiary/…`, `class/…`, pliki `fluff-…`). Można też kliknąć **📂 Folder z danymi** albo przeciągnąć cały folder na okno Paczki. Gra:
+- bierze tylko źródła wydane od 17.09.2024 (lista z `books.json` / `adventures.json`),
+- przelicza czary, potwory, przedmioty, gatunki, pochodzenia, featy i podklasy na format paczki i dołącza opisy fabularne,
+- tworzy jedną paczkę na źródło (`Import: …`); ponowny import ją podmienia,
+- pomija wpisy, które masz już z paczki SRD, oraz featy z własną mechaniką.
+
+Importuj tylko dane, do których masz prawa. Pliki są przetwarzane w przeglądarce i nigdzie nie są wysyłane.
+
 ### Efekty czytane z opisu (potwory i czary)
 
 Gra rozpoznaje typowe zdania w formacie SRD 2024, więc własne potwory i czary działają bez dodatkowych pól:

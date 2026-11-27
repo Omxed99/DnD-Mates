@@ -495,6 +495,7 @@ body.tpMode #map{cursor:crosshair}
 .pkBooks small{color:var(--mute)}
 .abBtn.feAct{border-color:#8a7cff66}
 .fluff{font-style:italic;opacity:.85;border-left:2px solid #8a7cff55;padding-left:8px;margin:4px 0 8px;white-space:pre-line}
+.pkDrop{outline:3px dashed #8a7cff;outline-offset:-8px}#pkHint{margin:-4px 0 8px;opacity:.8}
 
 </style>
 </head>
@@ -9096,7 +9097,44 @@ function cleanEffects(arr){return(Array.isArray(arr)?arr:[]).slice(0,20).map(e=>
     return{type:t,known:(Array.isArray(e.known)?e.known:[]).filter(x=>typeof x==='string').slice(0,10),freeKnown:(Array.isArray(e.free)?e.free:[]).filter(x=>typeof x==='string').slice(0,10),choose:ch,ability:ABIL.includes(e.ability)?e.ability:null,abilityChoice:(Array.isArray(e.abilityChoice)?e.abilityChoice:[]).filter(a=>ABIL.includes(a)),rest:e.rest==='short'?'short':'long'}}
   return null}).filter(Boolean)}
 
-
+/*5E{*/
+/* ---------- import zewnętrznego JSON (feat) ---------- */
+const FT_CAT={G:'General',O:'Origin',FS:'Fighting Style','FS:P':'Fighting Style','FS:R':'Fighting Style',EB:'Epic Boon',D:'Dragonmark'};
+const strip5e=s=>String(s).replace(/\{@\w+ ([^}|]*)(?:\|[^}]*)?\}/g,'$1');
+function flat5e(e,depth){if(e==null)return'';if(typeof e==='string')return strip5e(e);if(Array.isArray(e))return e.map(x=>flat5e(x,depth)).filter(Boolean).join('\n');
+  if(e.type==='list')return(e.items||[]).map(x=>'• '+flat5e(x,depth+1)).join('\n');if(e.type==='table')return'';
+  const head=e.name?strip5e(e.name)+'. ':'';return head+flat5e(e.entries||e.entry||e.items||'',depth+1)}
+const slug5e=n=>String(n).toLowerCase().replace(/[’']/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+function parse5eChoose(s){const o={};String(s).split('|').forEach(kv=>{const[k,v]=kv.split('=');if(k&&v)o[k.trim()]=v.trim()});return o}
+function conv5eFeat(f){
+  const out={id:slug5e(f.name),name:f.name,category:FT_CAT[f.category]||f.category||'General',desc:flat5e(f.entries,0).slice(0,4000),minLevel:1,repeatable:!!f.repeatable,effects:[]};
+  const pre=(f.prerequisite||[])[0]||{};if(pre.level)out.minLevel=typeof pre.level==='object'?(pre.level.level||1):pre.level;
+  const prParts=[];if(pre.level)prParts.push('Level '+out.minLevel+'+');if(pre.campaign)prParts.push(pre.campaign.join('/'));if(pre.race)prParts.push(pre.race.map(r=>cap1(r.name||'')).join('/'));if(pre.spellcasting2020||pre.spellcasting)prParts.push('Spellcasting');
+  out.prereq=prParts.join(', ');if(f.source)out.source=f.source+(f.page?' p.'+f.page:'');
+  const ab=(f.ability||[])[0];if(ab){if(ab.choose){const c=ab.choose;out.asi={amount:c.amount||1,max:20,choose:(c.from||[]).filter(a=>ABIL.includes(a))}}else{const k=Object.keys(ab).find(a=>ABIL.includes(a));if(k)out.asi={amount:ab[k],max:20,choose:[k]}}}
+  (f.additionalSpells||[]).slice(0,1).forEach(as=>{const e={type:'spells',known:[],free:[],choose:[],rest:'long'};
+    if(typeof as.ability==='string')e.ability=as.ability;else if(as.ability&&as.ability.choose)e.abilityChoice=as.ability.choose;
+    const walk=(node,free)=>{(Array.isArray(node)?node:[node]).forEach(x=>{if(typeof x==='string'){const id=slug5e(x.split('|')[0].replace(/#c$/,''));(free?e.free:e.known).push(id)}
+      else if(x&&x.choose){const c=parse5eChoose(x.choose);e.choose.push({level:+c.level||0,class:(c.class||'').toLowerCase(),school:(c.school||'').toLowerCase(),count:x.count||1,free})}})};
+    ['known','innate','prepared'].forEach(k=>{const blk=as[k];if(!blk)return;Object.values(blk).forEach(v=>{
+      if(Array.isArray(v))walk(v,false);else if(v&&typeof v==='object'){if(v.rest||v.daily){const per=v.rest||v.daily;e.rest=v.daily?'long':'long';Object.values(per).forEach(a=>walk(a,true))}if(v._)walk(v._,false)}})});
+    out.effects.push(e)});
+  /* typowe sformułowania „you can” */
+  const txt=JSON.stringify(f.entries||[]);let m;
+  const rest=/until you finish a \{@variantrule (Short|Long)/i.exec(txt)||/until you finish a (Short|Long)/i.exec(txt);
+  if((m=/When you fail an? (\w+) saving throw, you can (?:take a \{@variantrule Reaction[^}]*\} to |use your reaction to )?roll (?:a )?\{@dice (\d*d\d+)\} and add/i.exec(txt))){
+    const abk=m[1].slice(0,3).toLowerCase(),rid=out.id+'-trig';out.effects.push({type:'resource',id:rid,name:out.name,uses:1,rest:rest&&/short/i.test(rest[1])?'short':'long'});
+    const ent=(function find(a){for(const x of a||[]){if(x&&typeof x==='object'&&x.name&&JSON.stringify(x.entries||[]).includes('When you fail'))return x;if(x&&x.entries){const r=find(x.entries);if(r)return r}}return null})(f.entries);const nm=ent?strip5e(ent.name):out.name;
+    out.effects.push({type:'trigger',on:'failSave',abs:ABIL.includes(abk)?[abk]:'all',do:'addDie',die:m[2],cost:rid,reaction:/Reaction/i.test(m[0]),name:nm})}
+  if((m=/You have \{@variantrule Resistance[^}]*\} to (\w+) damage/i.exec(txt))||(m=/You have Resistance to (\w+) damage/i.exec(txt)))out.effects.push({type:'resist',dmg:[m[1].toLowerCase()]});
+  if((m=/Your Speed increases by (\d+) feet/i.exec(txt)))out.effects.push({type:'bonus',stat:'speed',value:+m[1]});
+  if((m=/\+1 bonus to (?:your )?Armor Class/i.exec(txt)))out.effects.push({type:'bonus',stat:'ac',value:1});
+  return out}
+function from5e(raw){const list=Array.isArray(raw)?raw:Array.isArray(raw.feat)?raw.feat:(raw&&raw.name&&raw.entries)?[raw]:null;if(!list)return null;
+  return{format:'dndmates-pack',version:1,name:raw._meta&&raw._meta.sources&&raw._meta.sources[0]?raw._meta.sources[0].full||'Import':'Import: featy ('+list.filter(f=>f&&f.name&&!(f.reprintedAs&&list.length>1)).length+')',
+    source:'Import',feats:list.filter(f=>f&&f.name&&!(f.reprintedAs&&list.length>1)).map(f=>conv5eFeat(f))}}
+function extImport(raw){return from5e(raw)}
+/*}5E*/
 const _cp42=cleanPack;
 cleanPack=function(raw){if(raw&&raw.format!=='dndmates-pack'){const c=typeof extImport==='function'?extImport(raw):null;if(c)raw=c}
   const out=_cp42(raw);const ef=new Map((Array.isArray(raw.feats)?raw.feats:[]).filter(f=>f&&f.effects).map(f=>[f.id,cleanEffects(f.effects)]));
@@ -9222,7 +9260,34 @@ const _fd43=feDescribe;feDescribe=function(e,i){
   if(e.type==='bonus'&&e.stat==='init')return`Initiative ${sg(fxVal(i,e.value))}`;if(e.type==='bonus'&&e.stat==='hpPerLevel')return tr('feHpL',e.value);if(e.type==='bonus'&&e.stat==='hpFlat')return tr('feHpF',e.value);
   return _fd43(e,i)};
 
-
+/*5E{*/
+/* --- import zewnętrznego JSON: pola strukturalne i więcej zdań --- */
+const CI_5E=c=>String(c).toLowerCase();
+const _cv43=conv5eFeat;
+conv5eFeat=function(f){const out=_cv43(f);const E=out.effects;const keys=o=>Object.keys(o||{}).filter(k=>o[k]===true);
+  const chFrom=(o,what)=>o&&o.choose?{what,from:(o.choose.from||[]).map(x=>what==='skill'||what==='expertise'?skId(x):String(x).toLowerCase()),count:o.choose.count||1}:null;
+  (f.skillProficiencies||[]).slice(0,1).forEach(o=>{const ks=keys(o).map(skId).filter(k=>SK_IDS.includes(k));if(ks.length>=SK_IDS.length-1)E.push({type:'prof',choose:{what:'skill',from:[],count:1}});else if(ks.length)E.push({type:'prof',skills:ks});if(o.any)E.push({type:'prof',choose:{what:'skill',from:[],count:o.any}});const c=chFrom(o,'skill');if(c)E.push({type:'prof',choose:c})});
+  (f.toolProficiencies||[]).slice(0,1).forEach(o=>{const ks=keys(o);if(ks.length)E.push({type:'prof',tools:ks});if(o.any||o.anyArtisansTool||o.anyMusicalInstrument)E.push({type:'note',text:tr('feNoteTool')})});
+  (f.armorProficiencies||[]).slice(0,1).forEach(o=>{const ks=keys(o).filter(k=>['light','medium','heavy','shield'].includes(k));if(ks.length)E.push({type:'prof',armor:ks})});
+  (f.weaponProficiencies||[]).slice(0,1).forEach(o=>{const ks=keys(o).map(k=>k.split('|')[0]);if(ks.length)E.push({type:'prof',weapons:ks});if(o.choose)E.push({type:'note',text:tr('feNoteWpn')})});
+  (f.savingThrowProficiencies||[]).slice(0,1).forEach(o=>{const ks=keys(o).filter(k=>ABIL.includes(k));if(ks.length)E.push({type:'prof',saves:ks});const c=chFrom(o,'save');if(c)E.push({type:'prof',choose:c})});
+  (f.skillToolLanguageProficiencies||[]).slice(0,1).forEach(o=>{(o.choose||[]).forEach(c=>{if(/anySkill|anyTool/.test(JSON.stringify(c.from||[])))E.push({type:'prof',choose:{what:'skillOrTool',from:[],count:c.count||1}})})});
+  (f.expertise||[]).slice(0,1).forEach(o=>{const ks=keys(o).map(skId).filter(k=>SK_IDS.includes(k));if(ks.length)E.push({type:'expertise',skills:ks});if(o.anyProficientSkill)E.push({type:'expertise',choose:{what:'expertise',from:'proficient',count:o.anyProficientSkill}})});
+  (f.senses||[]).concat(f.bonusSenses||[]).forEach(o=>Object.entries(o||{}).forEach(([k,v])=>{if(['darkvision','blindsight','truesight','tremorsense'].includes(k)&&+v)E.push({type:'sense',kind:k,range:+v})}));
+  (f.resist||[]).forEach(r=>{if(typeof r==='string')E.push({type:'resist',dmg:[r]});else if(r&&r.choose)E.push({type:'resist',choose:{what:'resist',from:r.choose.from||[],count:r.choose.count||1}})});
+  (f.immune||[]).forEach(r=>{if(typeof r==='string')E.push({type:'resist',dmg:[r]})});
+  (f.conditionImmune||[]).forEach(c=>{if(typeof c==='string')E.push({type:'condImmune',conds:[CI_5E(c)]})});
+  /* zdania */
+  const txt=JSON.stringify(f.entries||[]);let m;
+  if(/bonus to (?:your )?Initiative rolls? equal to your Proficiency Bonus|add your Proficiency Bonus to (?:the|your) Initiative/i.test(txt))E.push({type:'bonus',stat:'init',value:'prof'});
+  else if((m=/\+(\d) bonus to (?:your )?Initiative/i.exec(txt)))E.push({type:'bonus',stat:'init',value:+m[1]});
+  if((m=/Hit Point maximum increases by an amount equal to (twice|three times)? ?your (?:character )?level/i.exec(txt)))E.push({type:'bonus',stat:'hpPerLevel',value:m[1]==='twice'?2:m[1]?3:1});
+  else if((m=/Hit Point maximum increases by (\d+)/i.exec(txt)))E.push({type:'bonus',stat:'hpFlat',value:+m[1]});
+  if((m=/Advantage on (Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma) saving throws/i.exec(txt))&&!/saving throws (?:you make )?(?:to|against)/i.test(txt.slice(m.index,m.index+80)))E.push({type:'adv',on:'save',abs:[m[1].slice(0,3).toLowerCase()]});
+  if((m=/When you fail an? (\w+) saving throw, you can (?:take a \{@variantrule Reaction[^}]*\} to )?reroll it/i.exec(txt))){const rid=out.id+'-reroll';E.push({type:'resource',id:rid,name:out.name,uses:1,rest:/Short or Long|Short/i.test(txt)?'short':'long'});E.push({type:'trigger',on:'failSave',abs:[m[1].slice(0,3).toLowerCase()],do:'reroll',cost:rid,reaction:/Reaction/.test(m[0]),name:out.name})}
+  if((m=/When you fail a saving throw, you can (?:choose to )?succeed instead/i.exec(txt))){const rid=out.id+'-succ';E.push({type:'resource',id:rid,name:out.name,uses:1,rest:/Short or Long/i.test(txt)?'short':'long'});E.push({type:'trigger',on:'failSave',abs:'all',do:'succeed',cost:rid,name:out.name})}
+  return out};
+/*}5E*/
 addI18n({ciLog:'{0} is immune: {1}.',fePick_prof:'Proficiency:',fePick_expertise:'Expertise:',fePick_resist:'Resistance:',feProf:'Proficiency: {0}',feExp:'Expertise: {0}',feCi:'Immune: {0}',feHpL:'Hit Point maximum +{0} per level',feHpF:'Hit Point maximum +{0}',
   feNoteTool:'Tool proficiency of your choice (set it on the sheet).',feNoteWpn:'Weapon proficiency of your choice (set it on the sheet).'},
  {ciLog:'{0} jest odporny: {1}.',fePick_prof:'Biegłość:',fePick_expertise:'Ekspertyza:',fePick_resist:'Odporność:',feProf:'Biegłość: {0}',feExp:'Ekspertyza: {0}',feCi:'Odporność na stan: {0}',feHpL:'Maks. PW +{0} na poziom',feHpF:'Maks. PW +{0}',
@@ -9281,7 +9346,37 @@ const _ah44=afterHit;afterHit=function(t,g,o,abm){const sel=K&&K.oh?Object.assig
     if(e.heal&&e.dice){const p=parseDmgExpr(e.dice);let n=(p.f||0)+fxVal(infoOf(t),e.bonus);for(let q=0;q<p.n;q++)n+=rnd(p.s);setTimeout(()=>healTok(t,n,e.name||e.feat.name),120)}
     send({k:'sys',text:tr('ohLog',t.name,e.name||e.feat.name,g.name)})});if(K)K.oh={}};
 
-
+/*5E{*/
+/* --- import zewnętrznego JSON: kolejne zdania (na tekście bez znaczników) --- */
+const _cv44=conv5eFeat;
+conv5eFeat=function(f){const out=_cv44(f);const E=out.effects;const txt=strip5e(JSON.stringify(f.entries||[]));let m;
+  const has=(type,stat)=>E.some(e=>e.type===type&&(!stat||e.stat===stat));
+  /* poprawione (bez znaczników) wersje wcześniejszych wzorców */
+  if(!has('bonus','speed')&&(m=/Your Speed increases by (\d+) feet/i.exec(txt)))E.push({type:'bonus',stat:'speed',value:+m[1]});
+  if(!has('bonus','hpPerLevel')&&!has('bonus','hpFlat')){if((m=/Hit Points? maximum increases by an amount equal to (twice|three times)? ?your (?:character )?level/i.exec(txt)))E.push({type:'bonus',stat:'hpPerLevel',value:m[1]==='twice'?2:m[1]?3:1});else if((m=/Hit Points? maximum increases by (\d+)/i.exec(txt)))E.push({type:'bonus',stat:'hpFlat',value:+m[1]})}
+  if(!has('bonus','init')&&/add your Proficiency(?: Bonus)? to (?:the|your) Initiative|bonus to (?:your )?Initiative (?:rolls )?equal to your Proficiency/i.test(txt))E.push({type:'bonus',stat:'init',value:'prof'});
+  /* odporność całkowita z pola immune zamiast odporności */
+  (f.immune||[]).forEach(r=>{if(typeof r==='string'){const k=E.findIndex(e=>e.type==='resist'&&e.dmg&&e.dmg.length===1&&e.dmg[0]===r);if(k>=0)E.splice(k,1);E.push({type:'immune',dmg:[r]})}});
+  if((m=/You have Immunity to (\w+) damage/i.exec(txt))&&!E.some(e=>e.type==='immune'))E.push({type:'immune',dmg:[m[1].toLowerCase()]});
+  /* Heavy Armor Master i podobne */
+  if((m=/wearing (Heavy|Medium|Light) armor, any Bludgeoning, Piercing, and Slashing damage dealt to you by that attack is reduced by an amount equal to your Proficiency/i.exec(txt)))E.push({type:'dmgReduce',value:'prof',dmg:['bludgeoning','piercing','slashing'],armor:m[1].toLowerCase()});
+  if(/wearing Medium armor, you can add 3, rather than 2/i.test(txt))E.push({type:'bonus',stat:'ac',value:1,armor:'medium',dexMin:16});
+  if((m=/ranged attack roll using a weapon that has the (?:T|Thrown) property, you gain a \+(\d) bonus to the damage roll/i.exec(txt)))E.push({type:'bonus',stat:'dmg',when:'thrown',value:+m[1]});
+  /* spadek do 0 PW */
+  if(/When you would be reduced to 0 Hit Points, you can drop to 1 Hit Points? instead and regain a number of Hit Points equal to half your Hit Points maximum/i.test(txt)){const rid=out.id+'-d0';E.push({type:'resource',id:rid,name:out.name,uses:1,rest:'long'});E.push({type:'trigger',on:'drop0',healHalf:true,cost:rid,name:(/"([^".]+)\. When you would be reduced to 0/.exec(txt)||[])[1]||out.name})}
+  else if(/(?:drop|reduced) to 0 Hit Points but (?:aren't|are not) killed outright, you can (?:instead )?drop to 1 Hit Points?/i.test(txt)){const rid=out.id+'-d0';E.push({type:'resource',id:rid,name:out.name,uses:1,rest:'long'});E.push({type:'trigger',on:'drop0',cost:rid,name:out.name})}
+  /* ponowny rzut obronny bez podanej cechy */
+  if(!E.some(e=>e.type==='trigger'&&e.on==='failSave')&&/When you fail a saving throw, you can reroll it/i.test(txt))E.push({type:'trigger',on:'failSave',abs:'all',do:'reroll',name:out.name});
+  /* raz na turę: dodatkowe obrażenia */
+  if((m=/Once per turn,? when you (hit|damage) a creature[^.]*?, you can (?:also )?deal (?:an )?extra (\d*d\d+)(?: plus your Proficiency(?: Bonus)?)? (\w+) damage/i.exec(txt))){
+    const ent=(function find(a){for(const x of a||[]){if(x&&typeof x==='object'&&x.name&&/Once per turn/i.test(strip5e(JSON.stringify(x.entries||[]))))return x;if(x&&x.entries){const r=find(x.entries);if(r)return r}}return null})(f.entries);
+    E.push({type:'onHit',dice:m[2],bonus:/plus your Proficiency/i.test(m[0])?'prof':0,dmgType:m[3].toLowerCase(),when:/weapon/i.test(m[0])?'weapon':'any',name:ent?strip5e(ent.name):out.name})}
+  if((m=/Once per turn,? when you damage a creature[^.]*?, you can also deal (\w+) damage to it\. The \w+ damage equals (\d*d\d+) \+ your proficiency bonus/i.exec(txt)))E.push({type:'onHit',dice:m[2],bonus:'prof',dmgType:m[1].toLowerCase(),when:'any',heal:/regain a number of hit points equal/i.test(txt),name:out.name});
+  if(/Once per turn when you hit a creature with an attack that deals Slashing damage, you can reduce the Speed of that creature by 10 feet/i.test(txt))E.push({type:'onHit',reqDmg:'slashing',when:'any',targetFx:{n:'−10 ft Speed',spd:-10},name:'Hamstring'});
+  if(/move at least 10 feet in a straight line toward a target immediately before hitting it with a melee attack roll/i.test(txt))E.push({type:'onHit',dice:'1d8',dmgType:'weapon',when:'melee',name:'Charge Attack'});
+  if((m=/Once per turn, when you make an attack roll while Bloodied, you can deal extra damage to the target equal to your Proficiency/i.exec(txt)))E.push({type:'onHit',dice:'',bonus:'prof',dmgType:'weapon',needBloodied:true,when:'any',name:'Power from Pain'});
+  return out};
+/*}5E*/
 addI18n({d0Q:'Use {0} and stay up instead of dropping to 0 HP?',d0Log:'✨ {0}: {1} — stays at {2} HP!',ohLog:'✨ {0}: {1} on {2}.'},
  {d0Q:'Użyć {0} i nie spaść do 0 PW?',d0Log:'✨ {0}: {1} — zostaje z {2} PW!',ohLog:'✨ {0}: {1} na {2}.'});
 
@@ -9410,8 +9505,10 @@ const _cp45=cleanPack;cleanPack=function(raw){if(raw&&raw.format!=='dndmates-pac
     out[k].forEach(x=>{const r=m.get(x.id||x.name);if(r&&typeof r.fluff==='string'&&r.fluff.trim())x.fluff=r.fluff.trim().slice(0,4000)})});
   ['spells','monsters','items','species','backgrounds','subclasses'].forEach(k=>{const rr=new Map((Array.isArray(raw[k])?raw[k]:[]).filter(x=>x&&x.id).map(x=>[x.id,x]));(out[k]||[]).forEach(x=>{const r=rr.get(x.id);if(r&&typeof r.book==='string')x.book=r.book.slice(0,12)})});return out};
 const _lc45=loadCatalog;loadCatalog=async function(){const r=await _lc45.apply(this,arguments);if(BOOKS_OFF.size)['spells','monsters','feats','species','items','subclasses'].forEach(k=>{if(Array.isArray(CAT[k]))CAT[k]=CAT[k].filter(x=>!BOOKS_OFF.has(bookOf(x)))});return r};
+/*5E{*/
+const BOOK_NAMES={XPHB:"Player's Handbook (2024)",XDMG:"Dungeon Master's Guide (2024)",XMM:'Monster Manual (2025)',FRHoF:'Forgotten Realms: Heroes of Faerûn',EFA:'Eberron: Forge of the Artificer',ABH:"Astarion's Book of Hungers",AU:'Arcana Unleashed',WoW:'World of Warcraft',RHW:'Ravenloft: The Horrors Within',LFL:'Lorwyn: First Light',SRD:'SRD 5.2'};
+/*}5E*/
 
-/*PUB{*/const BOOK_NAMES={SRD:'System Reference Document 5.2'};/*}PUB*/
 const _pkr45=packsRender;packsRender=async function(){await _pkr45.apply(this,arguments);try{const l=$('#pkList');PK_ALL=true;let all=[];try{all=await packsOp('readonly',s=>s.getAll())}finally{PK_ALL=false}
   const cnt={};all.filter(p=>!p.off).forEach(p=>['feats','spells','monsters','items','species','backgrounds','subclasses'].forEach(k=>(p[k]||[]).forEach(x=>{const b=x.book||String(x.fsrc||'').split(' ')[0];if(b)cnt[b]=(cnt[b]||0)+1})));
   const books=Object.keys(cnt).sort();if(!books.length)return;const box=hE('div',{className:'pkBooks'},hE('b',{textContent:'📚 '+tr('booksH')}),hE('small',{textContent:tr('booksHint')}));
@@ -9429,7 +9526,258 @@ addI18n({faNoHd:'{0} has no Hit Point Dice left.',faWho:'{0}: choose a creature'
   feDsA:'Przewaga w rzutach przeciw śmierci',feDsD:'Utrudnienie w rzutach przeciw śmierci',feMth:'raz na turę pudło zamienia się w trafienie',feOnCast:'przy czarze szkoły {0} ze slotu',feUnarmed:'Atak bez broni: {0} + SIŁ',feRecall:'czar ze slotu 1–4: k4 równe poziomowi zwraca slot',
   booksH:'Książki',booksHint:'Wyłącz książkę, żeby ukryć wszystko z niej (ze wszystkich paczek). Zapamiętywane w tej przeglądarce.',booksCnt:'{0} wpisów'});
 
+/*5E{*/
+/* --- fluff: opisy fabularne (featFluff) --- */
+const _f5e45=from5e;from5e=function(raw){const p=_f5e45(raw);try{const fl=raw&&Array.isArray(raw.featFluff)?raw.featFluff:null;if(p&&fl){const m=new Map(fl.map(x=>[slug5e(x.name)+'|'+x.source,x]));
+  p.feats.forEach(f=>{const x=m.get(f.id+'|'+(f.source||String(f.fsrc||'').split(' ')[0]))||fl.find(z=>slug5e(z.name)===f.id);if(x&&x.entries)f.fluff=strip5e(flat5e(x.entries)).trim().slice(0,4000)})}}catch(e){}return p};
+/*}5E*/
 
+/* ================= m46: import folderu z danymi JSON (zewnętrzny format: books.json, spells/, bestiary/, class/ …) — tylko książki od 09.2024; dane czytane z dysku użytkownika ================= */
+const B5={
+  SCH:{A:'abjuration',C:'conjuration',D:'divination',E:'enchantment',V:'evocation',I:'illusion',N:'necromancy',T:'transmutation'},
+  DT:{B:'bludgeoning',P:'piercing',S:'slashing',A:'acid',C:'cold',F:'fire',O:'force',L:'lightning',N:'necrotic',I:'poison',Y:'psychic',R:'radiant',T:'thunder'},
+  SZ:{T:'Tiny',S:'Small',M:'Medium',L:'Large',H:'Huge',G:'Gargantuan'},
+  AL:{L:'Lawful',N:'Neutral',C:'Chaotic',G:'Good',E:'Evil',U:'Unaligned',A:'Any alignment',NX:'Neutral',NY:'Neutral'},
+  AB:{str:'Strength',dex:'Dexterity',con:'Constitution',int:'Intelligence',wis:'Wisdom',cha:'Charisma'},
+  ABL:{strength:'str',dexterity:'dex',constitution:'con',intelligence:'int',wisdom:'wis',charisma:'cha'},
+  PROP:{L:'light',F:'finesse',H:'heavy','2H':'two-handed',V:'versatile',T:'thrown',R:'reach',A:'ammunition',LD:'loading'},
+  CLS:['barbarian','bard','cleric','druid','fighter','monk','paladin','ranger','rogue','sorcerer','warlock','wizard'],
+  /* książki 2024 (gdy w folderze nie ma books.json) */
+  Y24:['XPHB','XDMG','XMM','XScreen','XSAC','ABH','FRAiF','FRHoF','NF','LFL','EFA','RHW','AU','WoW','PL','HFLotT','XScreenRHW','CaBoMP'],
+  SRD_KINDS:['spells','monsters','feats','species','backgrounds']
+};
+const sl5=n=>String(n||'').toLowerCase().replace(/[’']/g,'').replace(/\+/g,'plus-').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+const ref5=s=>String(s||'').split('|')[0].replace(/#.*$/,'').trim();
+const ORD5=['','First','Second','Third'];
+/* tagi {@…} → zwykły tekst w formacie, który rozumie gra (ataki potworów, rzuty obronne) */
+function r5(s){s=String(s==null?'':s);let g=0;
+  const T=(tag,a)=>{const p=(a||'').split('|');
+    switch(tag){
+      case'atkr':return{m:'Melee Attack Roll:',r:'Ranged Attack Roll:','m,r':'Melee or Ranged Attack Roll:','r,m':'Melee or Ranged Attack Roll:'}[p[0]]||'Attack Roll:';
+      case'atk':return/m/.test(p[0])&&/r/.test(p[0])?'Melee or Ranged Attack:':/r/.test(p[0])?'Ranged Attack:':'Melee Attack:';
+      case'hit':return(+p[0]>=0?'+':'')+p[0];case'd20':return(+p[0]>=0?'+':'')+p[0];
+      case'h':return'Hit: ';case'm':return'Miss: ';case'hom':return'Hit or Miss: ';
+      case'dc':return'DC '+p[0];case'chance':return p[0]+'%';
+      case'recharge':return`(Recharge ${p[0]&&p[0]!=='6'?p[0]+'–6':'6'})`;
+      case'actSave':return(B5.AB[p[0]]||p[0])+' Saving Throw:';
+      case'actSaveFail':return(p[0]?ORD5[+p[0]]+' ':'')+'Failure:';case'actSaveSuccess':return'Success:';case'actSaveSuccessOrFail':return'Failure or Success:';
+      case'actTrigger':return'Trigger:';case'actResponse':return'Response:';
+      case'scaledamage':case'scaledice':return p[2]||p[0];
+      case'filter':case'5etools':case'book':case'adventure':case'link':case'footnote':case'quickref':return p[0];
+      case'b':case'i':case'u':case's':case'bold':case'italic':case'note':case'damage':case'dice':return p[0];
+      default:return p[2]||p[0]}};
+  while(/\{@\w+[^{}]*\}/.test(s)&&g++<20)s=s.replace(/\{@(\w+)(?: ([^{}]*))?\}/g,(_,t,a)=>T(t,a));
+  return s.replace(/\{=\w+\}/g,'').replace(/[ \t]+/g,' ').trim()}
+function fl5(e,d){d=d||0;if(e==null)return'';if(typeof e==='string')return r5(e);if(Array.isArray(e))return e.map(x=>fl5(x,d)).filter(Boolean).join('\n');if(typeof e!=='object')return String(e);
+  if(/^ref/.test(e.type||''))return'';
+  if(e.type==='list')return(e.items||[]).map(x=>'• '+fl5(x,d+1)).join('\n');
+  if(e.type==='table'){const rows=(e.rows||[]).map(r=>(Array.isArray(r)?r:r.row||[]).map(c=>fl5(typeof c==='object'&&c&&c.roll?(c.roll.exact!=null?c.roll.exact:c.roll.min+'–'+c.roll.max):c,d)).join(' | '));
+    return[(e.caption?r5(e.caption)+':':''),(e.colLabels||[]).map(r5).join(' | ')].concat(rows).filter(Boolean).join('\n')}
+  if(e.type==='abilityDc')return`${e.name} save DC = 8 + Proficiency Bonus + ${(e.attributes||[]).map(a=>B5.AB[a]).join('/')} modifier`;
+  if(e.type==='abilityAttackMod')return`${e.name} attack modifier = Proficiency Bonus + ${(e.attributes||[]).map(a=>B5.AB[a]).join('/')} modifier`;
+  if(e.type==='item'&&e.name)return r5(e.name)+' '+fl5(e.entry||e.entries,d+1);
+  const head=e.name?r5(e.name)+'. ':'';const body=fl5(e.entries||e.entry||e.items||'',d+1);return(head+body).trim()}
+/* _copy: kopia innego wpisu + proste _mod na entries */
+function cp5(list){const key=x=>(x.name+'|'+x.source).toLowerCase();const by=new Map(list.map(x=>[key(x),x]));const done=new Map();
+  const busy=new Set();const res=x=>{if(!x._copy)return x;if(busy.has(x))return x;busy.add(x);const k=key(x);const c=x._copy;let base=by.get((c.name+'|'+c.source).toLowerCase());if(base===x||busy.has(base))base=null;
+    const b=base?JSON.parse(JSON.stringify(res(base))):{};const o=Object.assign(b,x);delete o._copy;delete o._mod;delete o.srd52;delete o.basicRules2024;if(x.srd52)o.srd52=x.srd52;
+    const mod=(c._mod||{});Object.entries(mod).forEach(([f,ops])=>{if(f==='*'||!Array.isArray(o[f])&&f!=='entries')return;(Array.isArray(ops)?ops:[ops]).forEach(op=>{if(!op||typeof op!=='object')return;let a=o[f]||[];const items=[].concat(op.items||[]);
+      if(op.mode==='appendArr')a=a.concat(items);else if(op.mode==='prependArr')a=items.concat(a);else if(op.mode==='insertArr')a.splice(op.index||0,0,...items);
+      else if(op.mode==='removeArr'){const nm=[].concat(op.names||[]);a=a.filter(e=>!(e&&nm.includes(e.name)))}
+      else if(op.mode==='replaceArr'){const i=a.findIndex(e=>e&&(e.name===op.replace||(op.replace&&op.replace.index!=null&&a.indexOf(e)===op.replace.index)));if(i>=0)a.splice(i,1,...items)}
+      o[f]=a})});busy.delete(x);return o};
+  return list.map(res)}
+
+/* --------- czary --------- */
+function sp5(x,look){const r=x.range||{},dist=r.distance||{};const ft=dist.type==='feet'?+dist.amount:dist.type==='miles'?+dist.amount*5280:dist.type==='touch'?5:0;
+  const txt=fl5(x.entries),areaT=x.areaTags||[];const dm=[];String(JSON.stringify(x.entries||'')).replace(/\{@damage ([^}|]+)\}\s*([A-Z][a-z]+)?/g,(_,d,t)=>{const ty=t&&t.toLowerCase();if(ty&&Object.values(B5.DT).includes(ty)&&dm.length<4)dm.push({dice:d.replace(/\s/g,''),type:ty});return''});
+  let shape=null,size=0,range=ft;
+  if(r.type==='cone'||r.type==='line'||r.type==='cube'||r.type==='radius'||r.type==='sphere'||r.type==='emanation'){shape={cone:'cone',line:'line',cube:'cube'}[r.type]||'circle';size=+dist.amount||0;range=0}
+  else{const m=/(\d+)-foot(?:-radius)? (?:\{@variantrule )?(Sphere|Cylinder|Cube|Cone|Line|Emanation)/i.exec(JSON.stringify(x.entries||''));if(m){shape={sphere:'circle',cylinder:'circle',emanation:'circle',cube:'cube',cone:'cone',line:'line'}[m[2].toLowerCase()];size=+m[1]}}
+  const save=x.savingThrow&&B5.ABL[x.savingThrow[0]]||null,atk=x.spellAttack?(x.spellAttack[0]==='M'?'melee':'ranged'):null;
+  if(!shape&&(dm.length&&(save||atk)))shape='single';
+  let sc=null;const m2=/\{@scaledamage [^|}]+\|(\d+)-\d+\|([^}]+)\}/.exec(JSON.stringify(x.entriesHigherLevel||''));if(m2)sc={dice:m2[2].replace(/\s/g,''),above:+m2[1]};
+  const t0=(x.time||[])[0]||{};const ct=(t0.unit==='action'?'Action':t0.unit==='bonus'?'Bonus Action':t0.unit==='reaction'?'Reaction':`${t0.number||1} ${t0.unit||''}${(t0.number||1)>1?'s':''}`)+(t0.condition?', '+r5(t0.condition):'');
+  const d0=(x.duration||[])[0]||{};const dur=d0.type==='instant'?'Instantaneous':d0.type==='permanent'?'Until dispelled':d0.type==='special'?'Special':d0.duration?`${d0.concentration?'Concentration, up to ':''}${d0.duration.amount} ${d0.duration.type}${d0.duration.amount>1?'s':''}`:'';
+  const c=x.components||{};const cls=Object.keys(((look[String(x.source).toLowerCase()]||{})[x.name.toLowerCase()]||{}).class?.XPHB||{}).map(k=>k.toLowerCase()).filter(k=>B5.CLS.includes(k));
+  return{id:sl5(x.name),name:x.name,level:x.level,school:B5.SCH[x.school]||'',range,rangeText:dist.type==='feet'?dist.amount+' feet':dist.type?dist.type[0].toUpperCase()+dist.type.slice(1):'',
+    shape,size,dice:dm[0]?dm[0].dice:null,type:dm[0]?dm[0].type:null,damage:dm,save,half:/half as much damage/i.test(txt),attack:atk,scaling:sc,classes:cls,
+    castingTime:ct,duration:dur,concentration:!!d0.concentration,ritual:!!(x.meta&&x.meta.ritual),components:['v','s','m'].filter(k=>c[k]).map(k=>k.toUpperCase()),
+    material:typeof c.m==='string'?c.m:c.m&&c.m.text||'',higher:fl5(x.entriesHigherLevel).replace(/^Using a Higher-Level Spell Slot\. /,''),desc:txt}}
+
+/* --------- potwory --------- */
+const PB5=cr=>{const n=cr==='1/8'?0.125:cr==='1/4'?0.25:cr==='1/2'?0.5:+cr||0;return n<5?2:n<9?3:n<13?4:n<17?5:n<21?6:n<25?7:n<29?8:9};
+function lst5(v){return(Array.isArray(v)?v:[]).flatMap(e=>typeof e==='string'?[e]:e&&Array.isArray(e.resist||e.immune||e.vulnerable||e.conditionImmune)?lst5(e.resist||e.immune||e.vulnerable||e.conditionImmune):[])}
+function spc5(sc){const L=[fl5(sc.headerEntries)];const ids=[];const grab=a=>a.forEach(s=>{const m=/\{@spell ([^}|]+)/.exec(typeof s==='string'?s:(s&&s.entry)||'');if(m)ids.push(sl5(m[1]))});
+  if(sc.will){grab(sc.will);if(!(sc.hidden||[]).includes('will'))L.push('At will: '+sc.will.map(fl5).join(', '))}
+  Object.entries(sc.daily||{}).forEach(([k,v])=>{grab(v);if(!(sc.hidden||[]).includes('daily'))L.push(`${parseInt(k)}/Day${/e/.test(k)?' each':''}: `+v.map(fl5).join(', '))});
+  Object.entries(sc.legendary||{}).forEach(([k,v])=>grab(v));
+  Object.entries(sc.spells||{}).forEach(([lv,o])=>{grab(o.spells||[]);L.push(`${lv==='0'?'Cantrips':'Level '+lv+(o.slots?' ('+o.slots+' slots)':'')}: `+(o.spells||[]).map(fl5).join(', '))});
+  if(sc.footerEntries)L.push(fl5(sc.footerEntries));return{text:sc.name+'. '+L.filter(Boolean).map((l,i)=>i&&!/[.;:]$/.test(L[0])?l:l).join(' ').replace(/(\w|\)) (At will:|\d\/Day|Cantrips:|Level \d)/g,'$1; $2'),ids}}
+function mo5(x){const cr=typeof x.cr==='object'?x.cr&&x.cr.cr:x.cr;const dex=Math.floor(((x.dex||10)-10)/2);
+  const ini=typeof x.initiative==='number'?x.initiative:x.initiative&&x.initiative.initiative!=null?x.initiative.initiative:dex+(x.initiative&&x.initiative.proficiency?PB5(cr)*x.initiative.proficiency:0);
+  const sp=x.speed||{};const spd=['walk','burrow','climb','fly','swim'].filter(k=>sp[k]!=null).map(k=>{const v=sp[k];const n=typeof v==='object'?v.number+(v.condition?' '+r5(v.condition):''):v;return(k==='walk'?'':k[0].toUpperCase()+k.slice(1)+' ')+n+' ft.'+(k==='fly'&&sp.canHover?' (hover)':'')}).join(', ');
+  const ac=(x.ac||[])[0];const typ=typeof x.type==='object'?x.type.type+(x.type.tags&&x.type.tags.length?' ('+x.type.tags.map(t=>typeof t==='string'?t:t.tag).join(', ')+')':''):x.type;
+  const ent=a=>(a||[]).map(e=>(e.name?r5(e.name)+'. ':'')+fl5(e.entries)).filter(Boolean);
+  const out={traits:ent(x.trait),actions:ent(x.action),bonusActions:ent(x.bonus),reactions:ent(x.reaction),legendary:ent(x.legendary)};const ids=[];
+  (x.spellcasting||[]).forEach(s=>{const r=spc5(s);ids.push(...r.ids);const k={action:'actions',bonus:'bonusActions',reaction:'reactions',legendary:'legendary'}[s.displayAs]||'traits';out[k].push(r.text)});
+  const sk=Object.entries(x.skill||{}).filter(([k])=>k!=='other').map(([k,v])=>k[0].toUpperCase()+k.slice(1)+' '+v).join(', ');
+  const sv=Object.entries(x.save||{}).map(([k,v])=>k[0].toUpperCase()+k.slice(1)+' '+v).join(', ');
+  return Object.assign({id:sl5(x.name),name:x.name,cr:String(cr??''),hp:(x.hp&&(x.hp.average||+x.hp.special))||1,ac:typeof ac==='object'?ac.ac:+ac||10,hitDice:x.hp&&x.hp.formula?x.hp.formula.replace(/\s/g,''):'',
+    size:(x.size||[]).map(s=>B5.SZ[s]||s).join(' or '),type:typ?typ[0].toUpperCase()+typ.slice(1):'',alignment:(x.alignment||[]).map(a=>typeof a==='string'?B5.AL[a]||a:'').filter(Boolean).join(' '),speed:spd,
+    stats:{str:x.str,dex:x.dex,con:x.con,int:x.int,wis:x.wis,cha:x.cha},initiative:ini,
+    senses:[].concat(x.senses||[]).map(r5).concat(['Passive Perception '+(x.passive||10)]).join(', '),languages:(x.languages||[]).map(r5).join(', '),
+    resist:lst5(x.resist),vulnerable:lst5(x.vulnerable),immune:lst5(x.immune),conditionImmunities:lst5(x.conditionImmune),spells:[...new Set(ids)],
+    desc:[sv&&'Saving Throws: '+sv,sk&&'Skills: '+sk].filter(Boolean).join('\n')},out,
+    x.summonedBySpell?{summonSpell:sl5(ref5(x.summonedBySpell)),summonLvl:x.summonedBySpellLevel||0}:{},x.summonedByClass?{summonClass:ref5(x.summonedByClass).toLowerCase()}:{},
+    ac&&typeof ac==='object'&&ac.special?{acF:r5(ac.special)}:{},x.hp&&x.hp.special?{hpF:r5(x.hp.special)}:{},x.pbNote?{pbNote:r5(x.pbNote)}:{})}
+
+/* --------- przedmioty --------- */
+function it5(x,base){const ty=ref5(x.type);const b=base||{};const g=k=>x[k]!=null?x[k]:b[k];const bt=ref5(g('type'));
+  const isW=!!(x.weapon||b.weapon||bt==='M'||bt==='R'),isA=['LA','MA','HA'].includes(bt),isS=bt==='S';
+  const rar=String(x.rarity||'none');const magic=!['none','unknown',''].includes(rar)&&rar!=='unknown (magic)'||!!x.reqAttune||!!x.wondrous;
+  const kind=isW?'weapon':isA?'armor':isS?'shield':['P','SC','A','AF','EXP','FD'].includes(ty)?'consumable':magic?'magic':'gear';
+  const bonus=+String(g('bonusWeapon')||(isA||isS?g('bonusAc'):'')||'0').replace('+','')||0;
+  const healM=/regains? (?:\{@dice )?(\d+d\d+(?: ?\+ ?\d+)?)\}? (?:\{@variantrule )?Hit Points/.exec(JSON.stringify(x.entries||''));
+  const at=x.reqAttune;const o={id:sl5(x.name),name:x.name,kind,cat:isW?g('weaponCategory')||'simple':isA?{LA:'light',MA:'medium',HA:'heavy'}[bt]:isS?'shield':'',
+    weight:+g('weight')||0,cost:(+g('value')||0)/100,rarity:rar==='none'?'':rar,attune:!!at,attuneBy:typeof at==='string'?r5(at).replace(/^by an? /,''):'',
+    tool:['AT','T','INS','GS'].includes(ty),note:'',desc:fl5(x.entries||b.entries),bonus:Math.min(3,bonus)};
+  if(isW)Object.assign(o,{dice:g('dmg1')||null,dtype:B5.DT[g('dmgType')]||null,props:(g('property')||[]).map(p=>B5.PROP[ref5(typeof p==='object'?p.uid:p)]).filter(Boolean),vers:g('dmg2')||null,range:g('range')||'',ranged:bt==='R',mastery:ref5((g('mastery')||[])[0]).toLowerCase()});
+  if(isA||isS)Object.assign(o,{base:+g('ac')||0,dexMax:bt==='MA'?2:bt==='HA'?0:null,str:+g('strength')||0,stealth:!!g('stealth')});
+  if(isA||isS){if(o.dexMax==null)delete o.dexMax}
+  if(!isA&&!isS&&x.bonusAc)o.acBonus=+String(x.bonusAc).replace('+','');if(x.bonusSavingThrow)o.saveBonus=+String(x.bonusSavingThrow).replace('+','');
+  if(x.bonusSpellAttack)o.spellAtk=+String(x.bonusSpellAttack).replace('+','');if(x.bonusSpellSaveDc)o.spellDc=+String(x.bonusSpellSaveDc).replace('+','');
+  if(healM&&ty==='P')o.heal=healM[1].replace(/\s/g,'');return o}
+function mv5(v,bases){const inh=v.inherits||{};const req=v.requires||[],exc=v.excludes||{};
+  const ok=b=>req.some(r=>Object.entries(r).every(([k,val])=>k==='type'?ref5(b.type)===ref5(val):b[k]===val))&&!Object.entries(exc).some(([k,val])=>Array.isArray(val)?val.some(z=>ref5(b[k]).toLowerCase()===ref5(z).toLowerCase()):b[k]===val||(k==='name'&&String(b.name).toLowerCase()===String(val).toLowerCase()));
+  return bases.filter(b=>!b.age&&ok(b)).map(b=>{const nm=(inh.namePrefix||'')+b.name+(inh.nameSuffix||'');const x=Object.assign({},b,inh,{name:nm,type:b.type,entries:inh.entries});
+    String(JSON.stringify(x.entries||[])).replace(/\{=(\w+)\}/g,'');x.entries=JSON.parse(JSON.stringify(inh.entries||[]).replace(/\{=bonusWeapon\}/g,inh.bonusWeapon||'').replace(/\{=bonusAc\}/g,inh.bonusAc||'').replace(/\{=dmgType\}/g,B5.DT[b.dmgType]||''));
+    const o=it5(x,b);o.id=sl5(nm);return o})}
+
+/* --------- gatunki --------- */
+function asp5(a){/* additionalSpells → {cantrips, spells:[{id,level}]} */const c=[],s=[];if(!a)return{cantrips:c,spells:s};
+  Object.entries(a.known||{}).forEach(([lv,v])=>(Array.isArray(v)?v:[]).forEach(z=>{if(typeof z==='string'){if(/#c$/.test(z)||+lv===1&&!a.innate)c.push(sl5(ref5(z)));else s.push({id:sl5(ref5(z)),level:+lv||1})}}));
+  Object.entries(a.innate||{}).forEach(([lv,v])=>{const all=Array.isArray(v)?v:Object.values(v.daily||{}).flat().concat(v.will||[]);all.forEach(z=>{if(typeof z==='string')s.push({id:sl5(ref5(z)),level:+lv||1})})});
+  Object.entries(a.prepared||{}).forEach(([lv,v])=>(Array.isArray(v)?v:[]).forEach(z=>{if(typeof z==='string')s.push({id:sl5(ref5(z)),level:+lv||1})}));return{cantrips:c,spells:s}}
+function ra5(x,dup){const sz=(x.size||['M']).map(s=>B5.SZ[s]||s);const txt=JSON.stringify(x.entries||'');const id=dup?sl5(x.name+' '+x.source):sl5(x.name);
+  const res=(x.resist||[]).filter(r=>typeof r==='string');const ch=[];const rc=(x.resist||[]).find(r=>r&&r.choose);
+  if(rc)ch.push({id:'resist',label:'Damage Resistance',options:rc.choose.from.map(d=>({id:d,name:d[0].toUpperCase()+d.slice(1),resist:[d]}))});
+  const AS=x.additionalSpells||[];let can=[];if(AS.length>1&&AS.every(a=>a.name))ch.push({id:'lineage',label:'Lineage',options:AS.map(a=>{const r=asp5(a);return{id:sl5(a.name),name:a.name,cantrips:r.cantrips,spells:r.spells}})});
+  else if(AS[0]){const r=asp5(AS[0]);can=r.cantrips;if(r.spells.length)ch.push({id:'spells',label:'Spells',options:[{id:'base',name:x.name,spells:r.spells}]})}
+  const spd=typeof x.speed==='object'?x.speed.walk||30:x.speed||30;
+  return{id,name:dup?`${x.name} (${x.source})`:x.name,size:sz.includes('Medium')?'Medium':sz[0],sizeChoice:sz.length>1?sz:[],speed:spd,darkvision:x.darkvision||0,
+    hpPerLevel:/Hit Points?(?:\|[^}]*)?\} maximum increases by 1, and it increases by 1 again whenever you gain a level/.test(txt)?1:0,resist:res,cantrips:can,extraOriginFeat:!!(x.feats&&x.feats.length),
+    traits:(x.entries||[]).filter(e=>e&&e.name).map(e=>({name:r5(e.name),text:fl5(e.entries).slice(0,1200)})),choices:ch.slice(0,4)}}
+
+/* --------- pochodzenia --------- */
+function bg5(x){const ab=((x.ability||[])[0]||{}).choose;const fr=ab&&ab.weighted?ab.weighted.from:ab&&ab.from||[];const fk=Object.keys((x.feats||[])[0]||{})[0]||'';const fn=fk.split('|')[0];
+  const eq=((x.startingEquipment||[])[0])||{};const opt=k=>{const o={items:[],gp:0};(eq[k]||[]).forEach(z=>{if(typeof z==='string')o.items.push([sl5(ref5(z)),1]);else if(z.item)o.items.push([sl5(ref5(z.item)),z.quantity||1].concat(z.displayName?[z.displayName]:[]));else if(z.value)o.gp+=z.value/100;else if(z.special)o.items.push([sl5(z.special),z.quantity||1,z.special])});return o};
+  return{id:sl5(x.name),name:x.name,abilities:fr.slice(0,3),feat:sl5(fn.split(';')[0]),featNote:(fn.split(';')[1]||'').trim().replace(/^./,c=>c.toUpperCase()),
+    skills:Object.keys((x.skillProficiencies||[])[0]||{}).filter(k=>k!=='choose').map(sl5),tool:Object.keys((x.toolProficiencies||[])[0]||{}).filter(k=>k!=='choose').map(t=>({anyArtisansTool:"Artisan's Tools (any)",anyMusicalInstrument:'Musical Instrument (any)',anyGamingSet:'Gaming Set (any)'}[t]||t.replace(/(^|\s)\w/g,c=>c.toUpperCase()))).join(', '),
+    desc:'',equipment:Object.keys(eq).filter(k=>/^[A-Z]$/.test(k)).sort().map(opt)}}
+
+/* --------- podklasy --------- */
+function sc5(x,feats){const fs=feats.filter(f=>f.className===x.className&&f.subclassShortName===x.shortName&&f.subclassSource===x.source).sort((a,b)=>a.level-b.level);
+  const lv=fs.length?fs[0].level:3;const intro=fs.find(f=>f.name===x.name&&f.level===lv);
+  const sp=[];Object.entries(((x.additionalSpells||[])[0]||{}).prepared||{}).forEach(([l,v])=>{const ids=(Array.isArray(v)?v:[]).filter(z=>typeof z==='string').map(z=>sl5(ref5(z)));if(ids.length)sp.push({level:+l,ids})});
+  return{id:sl5(x.className+' '+x.shortName),name:x.name,class:x.className.toLowerCase(),level:lv,desc:intro?fl5(intro.entries).slice(0,1500):'',
+    features:fs.filter(f=>f!==intro).map(f=>({level:f.level,name:r5(f.name),text:fl5(f.entries).slice(0,4000)})),spells:sp}}
+
+/* --------- fluff --------- */
+function fluff5(list){const m=new Map();cp5(list||[]).forEach(f=>{const t=fl5(f.entries||[]).trim();if(t)m.set((f.name+'|'+f.source).toLowerCase(),t.slice(0,4000))});return m}
+
+/* --------- całość: pliki → paczki (jedna na książkę) --------- */
+function convExt(files,opt){opt=opt||{};const J=p=>files[p];const S=new Set(opt.books||[]);
+  if(!S.size){const add=(f,k)=>((J(f)||{})[k]||[]).forEach(b=>{if((b.published||'')>='2024-09-17')S.add(b.source||b.id)});add('books.json','book');add('adventures.json','adventure');if(!S.size)B5.Y24.forEach(b=>S.add(b))}
+  const in24=x=>x&&S.has(x.source);const skip=(kind,x)=>opt.skipSrd!==false&&B5.SRD_KINDS.includes(kind)&&!!x.srd52;
+  const P={};const pk=b=>P[b]||(P[b]={format:'dndmates-pack',version:1,name:'Import: '+((typeof BOOK_NAMES!=='undefined'&&BOOK_NAMES[b])||b),source:'Import ('+b+')',book:b,spells:[],monsters:[],feats:[],species:[],backgrounds:[],items:[],subclasses:[]});
+  const stats={skipSrd:0,skipOther:0};const put=(kind,x,o)=>{o.book=x.source;if(x.page)o.fsrc=x.source+' p.'+x.page;pk(x.source)[kind].push(o)};
+  const keys=Object.keys(files);const many=re=>keys.filter(k=>re.test(k)).flatMap(k=>Object.values(files[k]||{}).filter(Array.isArray).flat());
+  /* czary */
+  const look=J('generated/gendata-spell-source-lookup.json')||{};const sFl=fluff5(many(/^spells\/fluff-spells-.*\.json$/));
+  cp5(many(/^spells\/spells-.*\.json$/)).filter(in24).forEach(x=>{if(skip('spells',x)){stats.skipSrd++;return}const o=sp5(x,look);const f=sFl.get((x.name+'|'+x.source).toLowerCase());if(f)o.fluff=f;put('spells',x,o)});
+  /* potwory */
+  const mFl=fluff5(keys.filter(k=>/^bestiary\/fluff-bestiary-.*\.json$/.test(k)).flatMap(k=>(files[k]||{}).monsterFluff||[]));
+  cp5(keys.filter(k=>/^bestiary\/bestiary-.*\.json$/.test(k)).flatMap(k=>(files[k]||{}).monster||[])).filter(in24).forEach(x=>{if(skip('monsters',x)&&!x.summonedBySpell){stats.skipSrd++;return}const o=mo5(x);const f=mFl.get((x.name+'|'+x.source).toLowerCase());if(f){o.fluff=f}put('monsters',x,o)});
+  /* przedmioty */
+  const bases=((J('items-base.json')||{}).baseitem||[]).filter(b=>b.source==='XPHB'||S.has(b.source)&&!b.reprintedAs);const bBy=new Map(bases.map(b=>[(b.name+'|'+b.source).toLowerCase(),b]));
+  const iFl=fluff5((J('fluff-items.json')||{}).itemFluff);const have=new Set(opt.haveItems||[]);
+  bases.filter(in24).forEach(x=>{const o=it5(x);if(have.has(o.id)){stats.skipOther++;return}put('items',x,o)});
+  cp5((J('items.json')||{}).item||[]).filter(in24).forEach(x=>{const b=x.baseItem?bBy.get(x.baseItem.toLowerCase().replace(/\|?$/,'')+(x.baseItem.includes('|')?'':'|phb'))||bBy.get(ref5(x.baseItem).toLowerCase()+'|xphb'):null;const o=it5(x,b);const f=iFl.get((x.name+'|'+x.source).toLowerCase());if(f)o.fluff=f;put('items',x,o)});
+  ((J('magicvariants.json')||{}).magicvariant||[]).filter(v=>v.inherits&&S.has(v.inherits.source)).forEach(v=>mv5(v,bases.filter(b=>b.source==='XPHB')).forEach(o=>{o.book=v.inherits.source;o.fsrc=v.inherits.source+(v.inherits.page?' p.'+v.inherits.page:'');pk(v.inherits.source).items.push(o)}));
+  /* gatunki */
+  const rFl=fluff5((J('fluff-races.json')||{}).raceFluff);const races=cp5((J('races.json')||{}).race||[]).filter(in24);const cntN={};races.forEach(x=>cntN[x.name]=(cntN[x.name]||0)+1);
+  races.forEach(x=>{if(skip('species',x)){stats.skipSrd++;return}const o=ra5(x,cntN[x.name]>1&&x.source!=='XPHB');const f=rFl.get((x.name+'|'+x.source).toLowerCase());if(f)o.fluff=f;put('species',x,o)});
+  /* pochodzenia */
+  const bFl=fluff5((J('fluff-backgrounds.json')||{}).backgroundFluff);
+  cp5((J('backgrounds.json')||{}).background||[]).filter(in24).forEach(x=>{if(skip('backgrounds',x)){stats.skipSrd++;return}const o=bg5(x);const f=bFl.get((x.name+'|'+x.source).toLowerCase());if(f)o.fluff=f;put('backgrounds',x,o)});
+  /* featy (konwerter featów z m42–m45) */
+  const fFl=fluff5((J('fluff-feats.json')||{}).featFluff);const fe=((J('feats.json')||{}).feat||[]).filter(in24);
+  const hf=new Set(opt.haveFeats||[]);if(fe.length&&typeof from5e==='function'){fe.forEach(x=>{if(skip('feats',x)){stats.skipSrd++;return}if(hf.has(sl5(x.name))){stats.keptFeats=(stats.keptFeats||0)+1;return}const p=from5e([x]);const o=p&&p.feats&&p.feats[0];if(!o)return;const f=fFl.get((x.name+'|'+x.source).toLowerCase());if(f)o.fluff=f;put('feats',x,o)})}
+  /* podklasy (tylko 12 klas z PHB 2024) */
+  const clsF=keys.filter(k=>/^class\/class-.*\.json$/.test(k));const scs=clsF.flatMap(k=>(files[k]||{}).subclass||[]),scf=clsF.flatMap(k=>(files[k]||{}).subclassFeature||[]);
+  cp5(scs).filter(in24).forEach(x=>{if(x.classSource!=='XPHB'||!B5.CLS.includes(String(x.className).toLowerCase())){stats.skipOther++;return}put('subclasses',x,sc5(x,scf))});
+  return{packs:Object.values(P).filter(p=>B5.SRD_KINDS.concat(['items','subclasses']).some(k=>p[k].length)),stats,books:[...S]}}
+
+/* ================= w grze: import folderu ================= */
+if(typeof document!=='undefined'){
+const N5=(()=>{try{return JSON.parse(localStorage.getItem('dmBookNames')||'{}')}catch(e){return{}}})();Object.keys(N5).forEach(k=>{if(!BOOK_NAMES[k])BOOK_NAMES[k]=N5[k]});
+const _cp46=cleanPack;cleanPack=function(raw){const out=_cp46(raw);try{if(raw&&raw.format==='dndmates-pack'){
+  ['spells','monsters','feats','species','backgrounds','items','subclasses'].forEach(k=>{if(!Array.isArray(out[k]))return;const src=Array.isArray(raw[k])?new Map(raw[k].filter(x=>x&&x.id).map(x=>[x.id,x])):new Map();
+    out[k].forEach(x=>{const r=src.get(x.id)||{};const b=typeof r.book==='string'?r.book:typeof raw.book==='string'?raw.book:'';if(b&&!x.book)x.book=b.slice(0,12);if(typeof r.fsrc==='string'&&!x.fsrc)x.fsrc=r.fsrc.slice(0,40)})});
+  if(raw.bookNames&&typeof raw.bookNames==='object'){Object.entries(raw.bookNames).slice(0,200).forEach(([k,v])=>{if(typeof v==='string'&&/^[\w-]{1,20}$/.test(k)){N5[k]=v.slice(0,80);if(!BOOK_NAMES[k])BOOK_NAMES[k]=N5[k]}});try{localStorage.setItem('dmBookNames',JSON.stringify(N5))}catch(e){}}
+  if(typeof raw.book==='string')out.book=raw.book.slice(0,12);if(typeof raw.pid==='string')out.id=raw.pid.slice(0,40)}}catch(e){console.error(e)}return out};
+const W5=k=>/^(books|adventures|items|items-base|magicvariants|races|backgrounds|feats|fluff-(items|races|backgrounds|feats))\.json$/.test(k)||k==='generated/gendata-spell-source-lookup.json'||/^class\/class-[^/]*\.json$/.test(k)||/^(spells|bestiary)\/(index|fluff-index)\.json$/.test(k);
+const extPath=f=>{const p=String(f.__path||f.webkitRelativePath||f.name).replace(/\\/g,'/').replace(/^\//,'');const i=p.lastIndexOf('data/');if(i>=0)return p.slice(i+5);
+  if(p.includes('/'))return p.split('/').slice(1).join('/');const n=p;if(/^(fluff-)?spells-.*\.json$/.test(n))return'spells/'+n;if(/^(fluff-)?bestiary-.*\.json$/.test(n))return'bestiary/'+n;if(/^class-.*\.json$/.test(n))return'class/'+n;if(/^gendata-/.test(n))return'generated/'+n;return n};
+async function impFolder(list){const all=[...list].map(f=>[extPath(f),f]);
+  const files={};const rd=async([k,f])=>{try{files[k]=JSON.parse(await f.text())}catch(e){}};
+  await Promise.all(all.filter(([k])=>W5(k)).map(rd));
+  if(!Object.keys(files).length&&!all.some(([k])=>/^(spells|bestiary)\//.test(k)))return say(tr('i5NoData'),'sys');
+  const S=new Set();[['books.json','book'],['adventures.json','adventure']].forEach(([f,k])=>((files[f]||{})[k]||[]).forEach(b=>{if((b.published||'')>='2024-09-17')S.add(b.source||b.id)}));if(!S.size)B5.Y24.forEach(b=>S.add(b));
+  const nm={};[['books.json','book'],['adventures.json','adventure']].forEach(([f,k])=>((files[f]||{})[k]||[]).forEach(b=>{if(S.has(b.source||b.id)&&!nm[b.source||b.id])nm[b.source||b.id]=b.name}));Object.assign(N5,nm);Object.keys(nm).forEach(k=>{if(!BOOK_NAMES[k])BOOK_NAMES[k]=nm[k]});try{localStorage.setItem('dmBookNames',JSON.stringify(N5))}catch(e){}
+  /* czary i potwory: tylko pliki książek 2024 (wg index.json) */
+  const idx=(d)=>Object.entries(files[d+'/index.json']||{}).filter(([s])=>S.has(s)).map(([,f])=>d+'/'+f),fidx=(d)=>Object.entries(files[d+'/fluff-index.json']||{}).filter(([s])=>S.has(s)).map(([,f])=>d+'/'+f);
+  const need=new Set(idx('spells').concat(fidx('spells'),idx('bestiary'),fidx('bestiary')));
+  ['spells','bestiary'].forEach(d=>{if(!files[d+'/index.json'])all.forEach(([k])=>{if(k.startsWith(d+'/'))need.add(k)})});await Promise.all(all.filter(([k])=>need.has(k)).map(rd));
+  say(tr('i5Read',Object.keys(files).length),'sys');
+  PK_ALL=true;let old=[];try{old=await packsOp('readonly',s=>s.getAll())}finally{PK_ALL=false}
+  const mine=old.filter(p=>!/^5e-/.test(p.id||''));const haveFeats=mine.flatMap(p=>(p.feats||[]).filter(f=>f.effects&&f.effects.length).map(f=>f.id));
+  const haveSrd=mine.some(p=>(p.monsters||[]).some(m=>m.id==='aboleth'))||CAT.monsters.some(m=>m.id==='aboleth');
+  const haveItems=(CAT.items||[]).filter(i=>!i.src||!/^Import/.test(i.src)).map(i=>i.id);
+  const R=convExt(files,{books:[...S],skipSrd:haveSrd,haveFeats,haveItems});let n=0;
+  for(const p of R.packs){p.pid='5e-'+p.book;try{const c=cleanPack(p);await packsOp('readwrite',s=>s.put(c));n++;
+    say(tr('i5Pack',esc(c.name),c.spells.length,c.monsters.length,c.feats.length,(c.items||[]).length,(c.species||[]).length,(c.backgrounds||[]).length,(c.subclasses||[]).length),'sys')}catch(x){say(tr('importFail',esc(p.name),esc(x.message)),'sys')}}
+  say(tr('i5Done',n,R.stats.skipSrd,R.stats.keptFeats||0),'sys');packsRender()}
+const lb=document.querySelector('#packModal .libh label.btn');if(lb){const l2=document.createElement('label');l2.className='btn';l2.id='l5e';l2.title='';
+  const sp=document.createElement('span');sp.dataset.i='i5Btn';const inp=document.createElement('input');inp.type='file';inp.id='f5e';inp.hidden=true;inp.multiple=true;inp.setAttribute('webkitdirectory','');inp.setAttribute('directory','');
+  inp.onchange=async e=>{const fs=e.target.files;e.target.value&&0;try{say(tr('i5Start'),'sys');await impFolder(fs)}catch(x){console.error(x);say(tr('importFail','folder',esc(x.message)),'sys')}e.target.value=''};
+  l2.append(sp,inp);lb.after(l2)}
+/* standardowy „Importuj paczkę”: paczki gry + pliki/foldery z danymi w zewnętrznym formacie */
+const EXT_KEYS=['spell','monster','feat','race','subrace','background','item','baseitem','magicvariant','class','subclass','subclassFeature','book','adventure','monsterFluff','spellFluff','featFluff','raceFluff','backgroundFluff','itemFluff'];
+const isExtName=n=>/^(books|adventures|items|items-base|magicvariants|races|backgrounds|feats|index|fluff-index|fluff-[\w-]+|(fluff-)?spells-[\w-]+|(fluff-)?bestiary-[\w-]+|class-[\w-]+|gendata-[\w-]+)\.json$/.test(n);
+const fp=$('#fPack');if(fp){const orig=fp.onchange;fp.onchange=async e=>{const list=[...e.target.files];const ext=[],own=[];
+  for(const f of list){let isExt=isExtName(f.name);if(!isExt&&f.size<40*1024*1024){try{const j=JSON.parse(await f.text());isExt=!!(j&&typeof j==='object'&&j.format!=='dndmates-pack'&&EXT_KEYS.some(k=>Array.isArray(j[k])))}catch(x){}}(isExt?ext:own).push(f)}
+  if(own.length){const dt=new DataTransfer();own.forEach(f=>dt.items.add(f));try{Object.defineProperty(e,'target',{value:{files:dt.files,set value(v){}},configurable:true})}catch(x){}await orig.call(fp,e)}
+  if(ext.length){try{say(tr('i5Start'),'sys');await impFolder(ext)}catch(x){console.error(x);say(tr('importFail','folder',esc(x.message)),'sys')}}
+  fp.value=''}}
+/* przeciągnij folder albo pliki na okno Paczki */
+async function dropFiles(dt){const out=[];const walk=(en,path)=>new Promise(ok=>{if(en.isFile)en.file(f=>{try{f.__path=path+f.name}catch(x){}out.push(f);ok()},()=>ok());
+    else if(en.isDirectory){const r=en.createReader(),acc=[];const rd=()=>r.readEntries(async es=>{if(!es.length){for(const x of acc)await walk(x,path+en.name+'/');return ok()}acc.push(...es);rd()},()=>ok());rd()}else ok()});
+  const ents=[...dt.items].map(i=>i.webkitGetAsEntry&&i.webkitGetAsEntry()).filter(Boolean);if(ents.length){for(const en of ents)await walk(en,'')}else out.push(...dt.files);return out}
+const pm=$('#packModal');if(pm){pm.addEventListener('dragover',e=>{e.preventDefault();pm.classList.add('pkDrop')});pm.addEventListener('dragleave',e=>{if(e.target===pm)pm.classList.remove('pkDrop')});
+  pm.addEventListener('drop',async e=>{e.preventDefault();pm.classList.remove('pkDrop');const fs=await dropFiles(e.dataTransfer);if(!fs.length)return;const own=[],ext=[];
+    for(const f of fs){if(!/\.json$/i.test(f.name))continue;(isExtName(f.name)||/(^|\/)data\//.test(f.__path||'')?ext:own).push(f)}
+    for(const f of own){try{const p=cleanPack(JSON.parse(await f.text()));if(p.format!=='dndmates-pack'&&!p.name)continue;await packsOp('readwrite',s=>s.put(p));say(tr('imported',esc(p.name),p.spells.length,p.monsters.length,p.feats.length),'sys')}catch(x){ext.push(f)}}
+    if(ext.length){say(tr('i5Start'),'sys');await impFolder(ext)}else packsRender()})}
+addI18n({i5Btn:'📂 Data folder',i5Hint:'Import game packs or JSON data files — or drag a whole folder here. Import only data you have the rights to; files stay in your browser.',i5Start:'Reading the data folder…',i5Read:'Read {0} files. Converting the 2024 books…',i5NoData:'No known data files found (pick the “data” folder or JSON files from it).',
+  i5Pack:'📚 {0}: {1} spells, {2} monsters, {3} feats, {4} items, {5} species, {6} backgrounds, {7} subclasses',i5Done:'Import done: {0} books. Skipped {1} SRD entries (you already have them) and {2} feats with your own mechanics.'},
+ {i5Btn:'📂 Folder z danymi',i5Hint:'Importuj paczki gry albo pliki JSON z danymi — albo przeciągnij tu cały folder. Importuj tylko dane, do których masz prawa; pliki zostają w Twojej przeglądarce.',i5Start:'Czytam folder z danymi…',i5Read:'Wczytano {0} plików. Przeliczam książki 2024…',i5NoData:'Nie znalazłem znanych plików z danymi (wskaż folder „data” albo pliki JSON z niego).',
+  i5Pack:'📚 {0}: {1} czarów, {2} potworów, {3} featów, {4} przedmiotów, {5} gatunków, {6} pochodzeń, {7} podklas',i5Done:'Import gotowy: {0} książek. Pominięto {1} wpisów z SRD (już je masz) i {2} featów z Twoją mechaniką.'});
+try{const h=$('#packModal .libh');if(h&&!$('#pkHint')){const d=document.createElement('div');d.id='pkHint';d.className='smd';d.dataset.i='i5Hint';h.after(d)}applyLang()}catch(e){}
+}
+if(typeof module!=='undefined')module.exports={convExt,r5,fl5,sp5,mo5,it5,ra5,bg5,sc5,cp5,B5};
+if(typeof document!=='undefined'&&typeof BACKGROUNDS!=='undefined'){const _lc46=loadCatalog;loadCatalog=async function(){const r=await _lc46.apply(this,arguments);try{if(BOOKS_OFF.size){const keep=BACKGROUNDS.filter(b=>!BOOKS_OFF.has(bookOf(b)));BACKGROUNDS.length=0;keep.forEach(b=>BACKGROUNDS.push(b))}}catch(e){}return r}}
 
 /* ================= m47: klocki – kości obrażeń (min/przerzut/krytyk), koncentracja, przewaga przy sojuszniku, chwyt, okazyjne, broń mistrzowska, zasięg czarów, PW tymczasowe, Kości Wytrzymałości ================= */
 const _ce47=cleanEffects;
