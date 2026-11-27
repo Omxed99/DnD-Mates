@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "prepare-site": "mkdir -p public && cp ../index.html public/index.html && cp ../srd-5.2-pack.json public/srd-5.2-pack.json",
+    "prepare-site": "mkdir -p public && cp ../index.html public/index.html && cp ../srd-5.2-pack.json public/srd-5.2-pack.json && rm -rf public/icons && cp -r ../icons public/icons",
     "dev": "npm run prepare-site && wrangler dev",
     "deploy": "npm run prepare-site && wrangler deploy"
   },

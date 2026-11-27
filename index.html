@@ -496,6 +496,17 @@ body.tpMode #map{cursor:crosshair}
 .abBtn.feAct{border-color:#8a7cff66}
 .fluff{font-style:italic;opacity:.85;border-left:2px solid #8a7cff55;padding-left:8px;margin:4px 0 8px;white-space:pre-line}
 .pkDrop{outline:3px dashed #8a7cff;outline-offset:-8px}#pkHint{margin:-4px 0 8px;opacity:.8}
+/* v33: galeria ikon */
+#icoModal{position:fixed;inset:0;background:rgba(8,10,16,.75);display:grid;place-items:center;z-index:40}
+#icoModal .icoBox{width:min(860px,96vw);max-height:92vh;display:flex;flex-direction:column}
+.icoTop{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:4px 0 8px}.icoTop input[type=search]{flex:1;min-width:200px}
+.icoTop input[type=color]{width:34px;height:26px;padding:0;border:none;background:none;vertical-align:middle}
+.icoCats{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}.icoCats button.on{background:var(--acc,#8a7cff);color:#fff}
+.icoGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(58px,1fr));gap:6px;overflow:auto;flex:1;min-height:200px;padding:2px}
+.icoCell{aspect-ratio:1;border-radius:50%;background-size:cover;background-position:center;border:2px solid transparent;padding:0;cursor:pointer;background-color:#2a2a35}
+.icoCell:hover{transform:scale(1.08)}.icoCell.on{border-color:#ffd36b;box-shadow:0 0 0 2px #ffd36b55}
+.icoFoot{display:flex;gap:12px;align-items:center;margin-top:10px}.icoPrev{width:64px;height:64px;border-radius:50%;background-size:cover;background-color:#2a2a35;flex:none}
+.icoSel{flex:1;text-transform:capitalize}.icoAttr{margin-top:8px;opacity:.6;font-size:11px}
 
 </style>
 </head>
@@ -10401,6 +10412,85 @@ if(!relayInstall()&&/^https?:$/.test(location.protocol)&&!/github\.io$|^localhos
   const ctl=new AbortController();setTimeout(()=>ctl.abort(),1500);
   fetch('/health',{cache:'no-store',signal:ctl.signal}).then(r=>r.ok?r.text():'').then(t=>{if(t.trim()==='ok'){RELAY=(location.protocol==='https:'?'wss://':'ws://')+location.host;relayInstall()}}).catch(()=>{})}
 addI18n({roomFull:'This room is full ({0} players).'},{roomFull:'Pokój jest pełny ({0} graczy).'});
+
+/* ================= m54: galeria ikon dla żetonów (game-icons.net, CC BY 3.0) + automatyczne ikony potworów ================= */
+const ICO_BASES=['icons/','https://omxed99.github.io/DnD-Mates/icons/'];
+const ICO_ATTR='Icons by Lorc, Delapouite and other contributors — game-icons.net — licensed under CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/).';
+let ICO_IDX=null,ICO_BASE=null;const ICO_CH={};
+async function icoFetch(path){for(const b of(ICO_BASE?[ICO_BASE]:ICO_BASES)){try{const r=await fetch(b+path,{cache:'force-cache'});if(r.ok){ICO_BASE=b;return await r.json()}}catch(e){}}throw new Error('icons unavailable')}
+async function icoIndex(){if(!ICO_IDX){const j=await icoFetch('index.json');ICO_IDX=j.icons.map(([n,a])=>({n,a,k:a+'/'+n,w:n.split('-')}))}return ICO_IDX}
+async function icoBody(k){const n=k.split('/')[1];const ch=/^[a-z]/.test(n)?n[0]:'0';if(!ICO_CH[ch])ICO_CH[ch]=icoFetch('i-'+ch+'.json');return(await ICO_CH[ch])[k]||''}
+const icoSvg=(body,fg,bg,pad)=>{const s=pad==null?.72:pad,o=(512-512*s)/2;return`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">${bg&&bg!=='none'?`<rect width="512" height="512" fill="${bg}"/>`:''}<g fill="${fg}" transform="translate(${o} ${o}) scale(${s})">${body}</g></svg>`};
+const icoUrl=svg=>'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+function icoPng(body,fg,bg,size){return new Promise((ok,no)=>{const im=new Image();im.onload=()=>{const c=document.createElement('canvas');c.width=c.height=size||200;const x=c.getContext('2d');x.drawImage(im,0,0,c.width,c.height);try{ok(c.toDataURL('image/png'))}catch(e){no(e)}};im.onerror=no;im.src=icoUrl(icoSvg(body,fg,bg))})}
+const lum=h=>{const m=/^#?([0-9a-f]{6})$/i.exec(h||'');if(!m)return .5;const n=parseInt(m[1],16);return(.299*(n>>16)+.587*(n>>8&255)+.114*(n&255))/255};
+const fgFor=bg=>lum(bg)>.6?'#1b1b22':'#ffffff';
+
+/* kategorie (słowa w nazwach ikon) */
+const ICO_CATS=[
+  ['icoMon',/head|face|monster|beast|dragon|troll|ogre|giant|goblin|orc|imp|demon|devil|ghost|skull|zombie|vampire|werewolf|minotaur|cyclops|hydra|medusa|harpy|gargoyle|golem|kraken|tentacle|slime|spider|scorpion|wyvern|griffin|centaur|mermaid|djinn|lizardman|sasquatch|spectre|evil|undead|reaper|mummy/],
+  ['icoPeople',/face|head|helm|hood|cowl|wizard|knight|archer|bowman|barbarian|monk|ninja|rogue|priest|queen|king|pirate|cultist|person|woman|man|elf|dwarf|warrior|mage/],
+  ['icoAnimals',/wolf|bear|cat|rat|bat|bird|eagle|owl|raven|horse|boar|fox|snake|cobra|spider|crab|octopus|shark|fish|frog|lion|tiger|deer|dog|hound|goat|cow|bull|ant|wasp|bee|beetle|scorpion|lizard|turtle|dinosaur|rabbit|monkey|ape/],
+  ['icoWeapons',/sword|axe|bow|dagger|spear|mace|hammer|halberd|scythe|crossbow|arrow|shield|flail|whip|trident|club|staff|katana|sabre|rapier/],
+  ['icoMagic',/magic|spell|wand|orb|rune|crystal|fire|ice|lightning|bolt|aura|portal|scroll|book|potion|ritual|star|sun|moon|holy|curse|skull|eye/],
+  ['icoItems',/chest|potion|ring|amulet|necklace|key|coin|gem|lantern|torch|rope|bag|backpack|book|scroll|map|helmet|armor|boot|glove|cloak|crown|bottle|flask/],
+  ['icoPlaces',/house|castle|tower|tree|forest|mountain|cave|door|gate|bridge|camp|tent|ship|boat|wagon|well|altar|tomb|grave|statue/]];
+const CLASS_ICO={barbarian:'barbarian',bard:'lyre',cleric:'holy-symbol',druid:'oak-leaf',fighter:'visored-helm',monk:'monk-face',paladin:'templar-shield',ranger:'bowman',rogue:'rogue',sorcerer:'fire-ray',warlock:'warlock-eye',wizard:'wizard-face'};
+const TYPE_ICO={aberration:'tentacles-skull',beast:'wolf-head',celestial:'angel-wings',construct:'robot-golem',dragon:'dragon-head',elemental:'fire-silhouette',fey:'fairy',fiend:'devil-mask',giant:'giant',humanoid:'hood',monstrosity:'monster-grasp',ooze:'slime',plant:'plant-roots',undead:'skull-crossed-bones',swarm:'bat'};
+function icoGuess(t){const I=ICO_IDX||[];const by=n=>I.find(x=>x.n===n);const words=String(t.name||'').toLowerCase().replace(/\s+\d+$/,'').replace(/[^a-z ]/g,' ').split(/\s+/).filter(w=>w.length>2).map(w=>w.replace(/(ies)$/,'y').replace(/s$/,''));
+  for(let i=words.length-1;i>=0;i--){const w=words[i];for(const n of[w+'-head',w+'-face',w]){const x=by(n);if(x)return x}}
+  for(let i=words.length-1;i>=0;i--){const w=words[i];const x=I.find(z=>z.w.includes(w));if(x)return x}
+  const i=t.sheet&&t.sheet.info;if(i&&i.classes&&i.classes[0]){const x=by(CLASS_ICO[i.classes[0].name]);if(x)return x}
+  const ty=String((t.sheet&&t.sheet.mon&&t.sheet.mon.type)||'').toLowerCase();for(const k in TYPE_ICO)if(ty.includes(k)){const x=by(TYPE_ICO[k]);if(x)return x}return null}
+async function icoApply(t,k,fg,bg){const body=await icoBody(k);if(!body)return;const png=await icoPng(body,fg,bg,200);send({k:'tkp',id:t.id,p:{img:png,ico:{k,fg,bg}}})}
+
+/* galeria */
+async function icoGallery(t){let idx;try{idx=await icoIndex()}catch(e){return say(tr('icoNone'),'sys')}
+  let box=$('#icoModal');if(box)box.remove();box=document.createElement('div');box.id='icoModal';
+  const bg0=(t.ico&&t.ico.bg)||t.color||'#555',fg0=(t.ico&&t.ico.fg)||fgFor(bg0);
+  box.innerHTML=`<div class="libp icoBox"><div class="libh"><h1>🎨 ${esc(tr('icoH'))}</h1><button id="icoX">${esc(tr('close'))}</button></div>
+    <div class="icoTop"><input id="icoQ" type="search" placeholder="${esc(tr('icoSearch'))}"><label>${esc(tr('icoFg'))} <input id="icoFg" type="color" value="${fg0}"></label><label>${esc(tr('icoBg'))} <input id="icoBg" type="color" value="${/^#[0-9a-f]{6}$/i.test(bg0)?bg0:'#555555'}"></label></div>
+    <div class="icoCats"></div><div class="icoGrid"></div><div class="icoFoot"><div class="icoPrev"></div><div class="icoSel smd"></div>
+    <label class="smd" ${isHost&&!isPc(t)?'':'hidden'}><input type="checkbox" id="icoAll"> ${esc(tr('icoAll'))}</label><button id="icoOk" class="primary" disabled>${esc(tr('icoSet'))}</button></div>
+    <div class="smd icoAttr">${esc(ICO_ATTR)}</div></div>`;
+  document.body.append(box);const Qe=s=>box.querySelector(s);let cat=null,sel=null,q='';const guess=icoGuess(t);
+  const cats=Qe('.icoCats');[['icoSuggest',null]].concat(ICO_CATS).forEach(([k,re])=>{const b=document.createElement('button');b.textContent=tr(k);b.onclick=()=>{cat=k;cats.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));draw()};cats.append(b)});
+  const list=()=>{let L=idx;if(q){const ws=q.toLowerCase().split(/\s+/).filter(Boolean);L=L.filter(x=>ws.every(w=>x.n.includes(w)))}
+    else if(cat==='icoSuggest'||!cat){const base=guess?guess.w.filter(w=>w.length>2&&!['head','face'].includes(w)):[];L=(guess?[guess]:[]).concat(idx.filter(x=>x!==guess&&base.some(w=>x.w.includes(w)))).slice(0,60);if(L.length<20){const pc=t.sheet&&t.sheet.info&&t.sheet.info.classes;const re=pc?ICO_CATS[1][1]:ICO_CATS[0][1];L=L.concat(idx.filter(x=>re.test(x.n)&&!/dice|faces|die-|card/.test(x.n)).slice(0,140))}}
+    else{const re=(ICO_CATS.find(c=>c[0]===cat)||[])[1];if(re)L=L.filter(x=>re.test(x.n))}return L.slice(0,180)};
+  const grid=Qe('.icoGrid');let gen=0;
+  const draw=async()=>{const my=++gen;const L=list();grid.innerHTML='';const fg=Qe('#icoFg').value,bg=Qe('#icoBg').value;
+    for(const x of L){const b=document.createElement('button');b.className='icoCell'+(sel===x.k?' on':'');b.title=x.n.replace(/-/g,' ');b.onclick=()=>{sel=x.k;grid.querySelectorAll('.icoCell').forEach(c=>c.classList.toggle('on',c===b));prev()};grid.append(b);
+      icoBody(x.k).then(body=>{if(my!==gen)return;b.style.backgroundImage=`url("${icoUrl(icoSvg(body,fg,bg,.8))}")`}).catch(()=>{})}
+    if(!L.length)grid.innerHTML=`<div class="smd">${esc(tr('icoEmpty'))}</div>`};
+  const prev=async()=>{const ok=Qe('#icoOk');ok.disabled=!sel;if(!sel)return;const body=await icoBody(sel);Qe('.icoPrev').style.backgroundImage=`url("${icoUrl(icoSvg(body,Qe('#icoFg').value,Qe('#icoBg').value))}")`;
+    const it=idx.find(x=>x.k===sel);Qe('.icoSel').textContent=`${it.n.replace(/-/g,' ')} · ${it.a}`};
+  let tm=0;Qe('#icoQ').oninput=e=>{clearTimeout(tm);tm=setTimeout(()=>{q=e.target.value.trim();draw()},180)};
+  Qe('#icoFg').oninput=Qe('#icoBg').oninput=()=>{clearTimeout(tm);tm=setTimeout(()=>{draw();prev()},120)};
+  Qe('#icoX').onclick=()=>box.remove();box.onclick=e=>{if(e.target===box)box.remove()};
+  Qe('#icoOk').onclick=async()=>{if(!sel)return;const fg=Qe('#icoFg').value,bg=Qe('#icoBg').value;const all=Qe('#icoAll')&&Qe('#icoAll').checked;
+    const base=String(t.name).replace(/\s+\d+$/,'');const targets=all?S.tokens.filter(x=>String(x.name).replace(/\s+\d+$/,'')===base):[t];
+    for(const x of targets)await icoApply(x,sel,fg,bg);box.remove()};
+  cats.querySelector('button').classList.add('on');cat='icoSuggest';if(guess)sel=guess.k;draw();prev()}
+
+/* przycisk „🎨 Ikona” obok „🖼 Obrazek” w pasku żetonu */
+const _hx54=hudExtra;hudExtra=function(){_hx54.apply(this,arguments);try{const t=selected;if(!t||!canCtl(t))return;const up=[...document.querySelectorAll('#hudSum button, #hud button')].find(b=>/^🖼/.test(b.textContent));if(!up||up.nextSibling&&up.nextSibling.id==='hudIco')return;
+  const b=document.createElement('button');b.id='hudIco';b.textContent='🎨 '+tr('icoBtn');b.onclick=()=>icoGallery(t);up.after(b)}catch(e){}};
+
+/* automatyczne ikony dla nowych potworów (DM; wyłącznik w ⚙ Zasady sesji) */
+RULE_OPTS.autoico={modes:['on','off'],def:'on'};
+const _ap54=apply;apply=function(a){const r=_ap54.apply(this,arguments);try{if(isHost&&a&&a.k==='add'&&a.t&&!a.t.img&&a.t.sheet&&a.t.sheet.mon&&rm('autoico')==='on'){const id=a.t.id;
+  icoIndex().then(()=>{const t=tokById(id);if(!t||t.img)return;const g=icoGuess(t);if(!g)return;const bg=t.color||'#8a3b3b';return icoApply(t,g.k,fgFor(bg),bg)}).catch(()=>{})}}catch(e){}return r};
+
+/* uznanie autorstwa w „O grze” */
+try{if(typeof SRD_ATTR!=='undefined'){const _ah54=attrHtml;attrHtml=function(){return _ah54()+'<br><br>'+esc(ICO_ATTR).replace(/(https:\/\/[^\s)]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>')}}}catch(e){}
+
+addI18n({icoBtn:'Icon',icoH:'Choose an icon',icoSearch:'Search (English, e.g. goblin, sword, dragon)…',icoFg:'Icon',icoBg:'Background',icoSet:'Use this icon',icoAll:'All tokens with this name',icoEmpty:'Nothing found.',
+  icoNone:'Icons are not available (no connection to the icon set).',icoSuggest:'Suggested',icoMon:'Monsters',icoPeople:'People',icoAnimals:'Animals',icoWeapons:'Weapons',icoMagic:'Magic',icoItems:'Items',icoPlaces:'Places',
+  rn_autoico:'Monster icons',rd_autoico:'New monster tokens get a matching icon automatically (you can change it with 🎨 Icon).',rm_on:'On'},
+ {icoBtn:'Ikona',icoH:'Wybierz ikonę',icoSearch:'Szukaj po angielsku (np. goblin, sword, dragon)…',icoFg:'Ikona',icoBg:'Tło',icoSet:'Użyj tej ikony',icoAll:'Wszystkie żetony o tej nazwie',icoEmpty:'Nic nie znaleziono.',
+  icoNone:'Ikony są niedostępne (brak połączenia z zestawem ikon).',icoSuggest:'Proponowane',icoMon:'Potwory',icoPeople:'Postacie',icoAnimals:'Zwierzęta',icoWeapons:'Broń',icoMagic:'Magia',icoItems:'Przedmioty',icoPlaces:'Miejsca',
+  rn_autoico:'Ikony potworów',rd_autoico:'Nowe żetony potworów dostają pasującą ikonę automatycznie (zmienisz ją przyciskiem 🎨 Ikona).',rm_on:'Włączone'});
 
 </script>
 </body>
