@@ -153,7 +153,7 @@ W zasadach 2024 **pochodzenie (Origin) = gatunek + background**. Background daje
 | `needs` | `{any:[…], min}` | wymóg cechy, np. `{ "any": ["str","dex"], "min": 13 }` |
 | `desc` | string | opis |
 | `fluff` | string | opcjonalny opis fabularny (kursywą nad opisem w katalogu i na karcie); działa też w czarach, potworach, przedmiotach, rasach, pochodzeniach i podklasach |
-| `book` | string | skrót książki (`XPHB`, `FRHoF`, …) do filtra książek; bez niego brany jest pierwszy wyraz `fsrc` |, "name": "Healer", "category": "Origin", "minLevel": 1,
+| `book` | string | skrót źródła (np. `SRD` albo nazwa Twojego dodatku) do filtra źródeł; bez niego brany jest pierwszy wyraz `fsrc` |, "name": "Healer", "category": "Origin", "minLevel": 1,
   "desc": "Battle Medic: zużyj Healer's Kit, cel wydaje Kość Wytrzymałości i leczy się. Rzuty leczenia: przerzucasz 1."
 }
 ```
@@ -256,27 +256,15 @@ Reakcje nigdy nie są zużywane bez pytania — masz jedną reakcję na rundę i
 
 Zdolności, których nie da się złożyć z klocków, trzeba dopisać w kodzie (zgłoś je z treścią featu).
 
-### Import featów z 5etools
+### Import plików z danymi (zewnętrzny format JSON)
 
-Plik w formacie 5etools (`{"feat": [ … ]}`, sama lista albo pojedynczy feat) można wczytać tak samo jak paczkę. Stare wersje featów, które mają nowszy odpowiednik (`reprintedAs`), są pomijane. Gra przelicza go automatycznie:
-- `name`, `category`, `prerequisite`, `ability` (zwiększenie cechy) i `entries` (opis);
-- `additionalSpells` zamienia na klocek `spells` (wybór z listy klasy, darmowe rzucenie raz na odpoczynek);
-- typowe zdania: „When you fail a … saving throw, you can (take a Reaction to) roll 1dN and add …” (z limitem „until you finish a Short/Long Rest”), „You have Resistance to … damage”, „Your Speed increases by N feet”, „+1 bonus to Armor Class”.
+Standardowy przycisk **Importuj paczkę** przyjmuje też pliki z danymi w popularnym zewnętrznym formacie JSON (`books.json`, `feats.json`, `races.json`, `backgrounds.json`, `items.json`, `spells/…`, `bestiary/…`, `class/…`, pliki `fluff-…`). Można też kliknąć **📂 Folder z danymi** albo przeciągnąć cały folder na okno Paczki. Gra:
+- bierze tylko źródła wydane od 17.09.2024 (lista z `books.json` / `adventures.json`),
+- przelicza czary, potwory, przedmioty, gatunki, pochodzenia, featy i podklasy na format paczki i dołącza opisy fabularne,
+- tworzy jedną paczkę na źródło (`Import: …`); ponowny import ją podmienia,
+- pomija wpisy, które masz już z paczki SRD, oraz featy z własną mechaniką.
 
-Resztę opisu widać na karcie, a brakujące efekty można dopisać ręcznie w JSON-ie.
-
-Jeśli w tym samym pliku jest lista `featFluff` (z `fluff-feats.json` w 5etools), opisy fabularne trafiają do pola `fluff`.
-
-### Import całego folderu 5etools
-
-W oknie **Paczki** jest przycisk **📂 Import folderu 5etools**. Wskaż folder `data` z 5etools (albo cały folder 5etools). Gra:
-- czyta tylko pliki potrzebne do książek wydanych od 17.09.2024 (lista z `books.json` i `adventures.json`);
-- przelicza czary, potwory (ataki, rzuty obronne, czary potworów), przedmioty (w tym magiczne warianty broni i zbroi, np. `+1 Longsword`), gatunki, pochodzenia, featy i podklasy 12 klas z PHB 2024;
-- dołącza opisy fabularne (`fluff`);
-- tworzy jedną paczkę na książkę (`5etools: …`); ponowny import podmienia te paczki;
-- pomija wpisy z SRD, jeśli masz już paczkę SRD, oraz featy, które mają już mechanikę w Twojej własnej paczce.
-
-Nic nie jest wysyłane poza przeglądarkę. Klasy spoza PHB (np. z World of Warcraft, Artificer) nie są jeszcze obsługiwane.
+Importuj tylko dane, do których masz prawa. Pliki są przetwarzane w przeglądarce i nigdzie nie są wysyłane.
 
 ### Efekty czytane z opisu (potwory i czary)
 
@@ -297,6 +285,17 @@ Gra rozpoznaje typowe zdania w formacie SRD 2024, więc własne potwory i czary 
 - leczenie i tymczasowe PW („regains Hit Points equal to 2d8 + your spellcasting ability modifier”, „gains 5 Temporary Hit Points”);
 - smite'y (akcja bonusowa po trafieniu bronią): dodatkowe kości, rzut obronny i stan;
 - dodatkowe obrażenia broni z czarów na siebie lub dotyk.
+
+**Losowe tabele, formy i przywołania**
+- akcja z tabelą („roll 1d10” + lista „• 1: Charm Ray …”) — gra losuje pozycję (bez powtórek w tej samej turze, jeśli opis tak mówi); działa też w Multiattack („uses Eye Rays three times”) i w akcjach legendarnych;
+- formy potworów: akcje oznaczone „(Wolf or Hybrid Form Only)” są dostępne tylko w danej formie; przycisk 🔄 w pasku żetonu zmienia formę albo zamienia statystyki na innego potwora z katalogu (PW bez zmian, z powrotem do prawdziwej formy);
+- przywołańce czarów: potwór z polami `summonSpell` (id czaru), `acF` i `hpF` (formuły, np. `"11 + the spell's level"`, `"40 + 10 for each spell level above 4"`) — po rzuceniu czaru gra pyta o wariant („(Air only)”), liczy KP, PW, premię do ataku, ST i obrażenia („+ the spell's level”, „your spell save DC”) z poziomu slotu i statystyk rzucającego. Przywołaniec działa zaraz po rzucającym i znika, gdy rzucający straci koncentrację.
+
+| pole potwora | typ | uwagi |
+|---|---|---|
+| `summonSpell` | id czaru | czar, który przywołuje to stworzenie |
+| `acF`, `hpF` | string | formuły KP i PW zależne od poziomu czaru |
+| `pbNote` | string | stworzenie używa premii z biegłości rzucającego |
 
 Czary i potwory z ręcznie opisaną mechaniką w grze mają pierwszeństwo przed odczytem z opisu.
 
@@ -474,6 +473,30 @@ Zastępuje wbudowane wyposażenie tej klasy.
 ```
 
 ---
+
+## Paczka portretów (`dm-art`)
+
+Portrety żetonów nie są częścią paczki z danymi. Zarządza się nimi w oknie **🧝 Portret** (sekcja „Paczki obrazów”). Własne paczki trafiają wyłącznie do pamięci przeglądarki DM-a i nie są nigdzie wysyłane. Na stół trafia tylko gotowy, zmniejszony obrazek żetonu.
+
+Import przyjmuje:
+
+- **folder albo pliki obrazów** (`.png`, `.jpg`, `.webp`, `.gif`, `.avif`): nazwa pliku to nazwa potwora, np. `Goblin Boss.png`;
+- **archiwum ZIP** z takimi obrazami;
+- opcjonalny **`map.json`**, który przypisuje pliki do potworów: `{"goblin_2.png": "Goblin Boss", "wolf.png": ["Wolf", "Dire Wolf"]}`;
+- opcjonalny **`credits.txt`** (albo `license.txt` czy `readme.md`), którego treść pojawia się jako uznanie autorstwa;
+- **plik JSON** wyeksportowany z aplikacji:
+
+```json
+{
+  "format": "dm-art", "v": 1,
+  "name": "Moje portrety", "credit": "Autor", "license": "CC BY 4.0",
+  "items": [ { "n": "Goblin Boss", "m": ["Goblin Boss"], "img": "data:image/webp;base64,..." } ]
+}
+```
+
+Obrazy z przezroczystym tłem są przycinane do sylwetki, pozostałe do kwadratu z górnej części kadru, a potem zmniejszane do 256 px. Nowy potwór dostaje portret, którego nazwa (`n` albo dowolna z `m`) pasuje do nazwy potwora. Własne paczki mają pierwszeństwo przed wbudowaną. Gdy żaden portret nie pasuje, żeton dostaje ikonę. Automatykę wyłącza się w ⚙ Zasadach sesji („Portrety potworów”).
+
+Wbudowane paczki leżą w `art/nichol/` i `art/wesnoth/` (każda: `index.json` + pliki `.webp`). Pierwsza ma pierwszeństwo przy dopasowaniu. Każdy wpis ma postać `{"k": "plik bez rozszerzenia", "n": "opis", "c": "kategoria", "m": ["nazwy potworów"]}`.
 
 ## Uwagi prawne
 

@@ -495,6 +495,27 @@ body.tpMode #map{cursor:crosshair}
 .pkBooks small{color:var(--mute)}
 .abBtn.feAct{border-color:#8a7cff66}
 .fluff{font-style:italic;opacity:.85;border-left:2px solid #8a7cff55;padding-left:8px;margin:4px 0 8px;white-space:pre-line}
+.pkDrop{outline:3px dashed #8a7cff;outline-offset:-8px}#pkHint{margin:-4px 0 8px;opacity:.8}
+/* v33: galeria ikon */
+#icoModal{position:fixed;inset:0;background:rgba(8,10,16,.75);display:grid;place-items:center;z-index:40}
+#icoModal .icoBox{width:min(860px,96vw);max-height:92vh;display:flex;flex-direction:column}
+.icoTop{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:4px 0 8px}.icoTop input[type=search]{flex:1;min-width:200px}
+.icoTop input[type=color]{width:34px;height:26px;padding:0;border:none;background:none;vertical-align:middle}
+.icoCats{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}.icoCats button.on{background:var(--acc,#8a7cff);color:#fff}
+.icoGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(58px,1fr));gap:6px;overflow:auto;flex:1;min-height:200px;padding:2px}
+.icoCell{aspect-ratio:1;border-radius:50%;background-size:cover;background-position:center;border:2px solid transparent;padding:0;cursor:pointer;background-color:#2a2a35}
+.icoCell:hover{transform:scale(1.08)}.icoCell.on{border-color:#ffd36b;box-shadow:0 0 0 2px #ffd36b55}
+.icoFoot{display:flex;gap:12px;align-items:center;margin-top:10px}.icoPrev{width:64px;height:64px;border-radius:50%;background-size:cover;background-color:#2a2a35;flex:none}
+.icoSel{flex:1;text-transform:capitalize}.icoAttr{margin-top:8px;opacity:.6;font-size:11px}
+/* v34 portrety */
+#artModal{position:fixed;inset:0;background:rgba(8,10,16,.75);display:grid;place-items:center;z-index:40}
+#artModal .artBox{width:min(900px,96vw);max-height:92vh;display:flex;flex-direction:column}
+#artModal .icoTop select{max-width:220px}
+#artModal .artGrid{grid-template-columns:repeat(auto-fill,minmax(76px,1fr))}
+#artModal .artCell{background-size:cover}
+#artModal .artMng{margin-top:6px}#artModal .artMng summary{cursor:pointer;font-weight:600}
+#artModal .artList{display:flex;flex-direction:column;gap:3px;margin:6px 0;max-height:150px;overflow:auto}
+#artModal .artList .cbRow{display:flex;align-items:center;gap:6px}#artModal .artList .cbNm{flex:1}
 
 </style>
 </head>
@@ -5400,7 +5421,7 @@ function netStatus(k,...a){try{status(k,...a)}catch(e){}const b=$('#netDot');if(
 function hostWire(c){
   c.on('open',()=>{conns.push(c);c.send({t:'state',s:redactState()});send({k:'sys',key:'joined'})});
   c.on('data',d=>{if(netDiag(d,c))return;if(d.t==='hello'){c.__name=String(d.name||'').slice(0,40);conns.filter(x=>x!==c&&x.__name===c.__name).forEach(x=>{x.__dup=1;try{x.close()}catch(e){}});conns=conns.filter(x=>!x.__dup);try{whUi()}catch(e){}send({k:'sys',text:tr('welcomeBack',c.__name)});return}
-    if(d.t==='act'){if(d.a&&(d.a.k==='music'||d.a.k==='amb'))return;apply(d.a);if(!(d.a.k==='ruler'&&S.settings.rulerVisible!=='all')){const o=redactAct(d.a);if(o)bc({t:'act',a:o},c)}}});
+    if(d.t==='act'){if(d.a&&(d.a.k==='music'||d.a.k==='amb'))return;if(typeof hostGuard==='function'&&!hostGuard(d.a,c))return;apply(d.a);if(!(d.a.k==='ruler'&&S.settings.rulerVisible!=='all')){const o=redactAct(d.a);if(o)bc({t:'act',a:o},c)}}});
   c.on('close',()=>{conns=conns.filter(x=>x!==c);if(c.__name&&!c.__dup)send({k:'sys',text:tr('playerLeft',c.__name)})});
   c.on('error',()=>{});
 }
@@ -9080,7 +9101,7 @@ addI18n({rulesB:'Session rules',rulesH:'Session rules',rulesHint:'Features that 
   gmLog:'🧠 {0}: Guarded Mind — rzut udany.',sculptQ:'Sculpt Spells: ochronić {0}? (maks. {1} stworzeń)',
   relT:'{0} spada do 0 PW',relB:'Użyć Relentless Endurance i zostać z 1 PW?',relLog:'💪 {0}: Relentless Endurance — zostaje z 1 PW!'});
 
-/* ================= m42: efekty featów z paczek (klocki) + import featów z formatu 5etools ================= */
+/* ================= m42: efekty featów z paczek (klocki) ================= */
 /* ---------- czyszczenie efektów z paczki ---------- */
 const FX_STATS=['ac','save','speed','atk','dmg','spellDc','spellAtk'];
 function cleanEffects(arr){return(Array.isArray(arr)?arr:[]).slice(0,20).map(e=>{if(!e||typeof e!=='object')return null;const t=String(e.type||'');
@@ -9096,7 +9117,8 @@ function cleanEffects(arr){return(Array.isArray(arr)?arr:[]).slice(0,20).map(e=>
     return{type:t,known:(Array.isArray(e.known)?e.known:[]).filter(x=>typeof x==='string').slice(0,10),freeKnown:(Array.isArray(e.free)?e.free:[]).filter(x=>typeof x==='string').slice(0,10),choose:ch,ability:ABIL.includes(e.ability)?e.ability:null,abilityChoice:(Array.isArray(e.abilityChoice)?e.abilityChoice:[]).filter(a=>ABIL.includes(a)),rest:e.rest==='short'?'short':'long'}}
   return null}).filter(Boolean)}
 
-/* ---------- import 5etools (feat) ---------- */
+/*5E{*/
+/* ---------- import zewnętrznego JSON (feat) ---------- */
 const FT_CAT={G:'General',O:'Origin',FS:'Fighting Style','FS:P':'Fighting Style','FS:R':'Fighting Style',EB:'Epic Boon',D:'Dragonmark'};
 const strip5e=s=>String(s).replace(/\{@\w+ ([^}|]*)(?:\|[^}]*)?\}/g,'$1');
 function flat5e(e,depth){if(e==null)return'';if(typeof e==='string')return strip5e(e);if(Array.isArray(e))return e.map(x=>flat5e(x,depth)).filter(Boolean).join('\n');
@@ -9129,10 +9151,12 @@ function conv5eFeat(f){
   if((m=/\+1 bonus to (?:your )?Armor Class/i.exec(txt)))out.effects.push({type:'bonus',stat:'ac',value:1});
   return out}
 function from5e(raw){const list=Array.isArray(raw)?raw:Array.isArray(raw.feat)?raw.feat:(raw&&raw.name&&raw.entries)?[raw]:null;if(!list)return null;
-  return{format:'dndmates-pack',version:1,name:raw._meta&&raw._meta.sources&&raw._meta.sources[0]?raw._meta.sources[0].full||'5etools import':'5etools: featy ('+list.filter(f=>f&&f.name&&!(f.reprintedAs&&list.length>1)).length+')',
-    source:'5etools',feats:list.filter(f=>f&&f.name&&!(f.reprintedAs&&list.length>1)).map(f=>conv5eFeat(f))}}
+  return{format:'dndmates-pack',version:1,name:raw._meta&&raw._meta.sources&&raw._meta.sources[0]?raw._meta.sources[0].full||'Import':'Import: featy ('+list.filter(f=>f&&f.name&&!(f.reprintedAs&&list.length>1)).length+')',
+    source:'Import',feats:list.filter(f=>f&&f.name&&!(f.reprintedAs&&list.length>1)).map(f=>conv5eFeat(f))}}
+function extImport(raw){return from5e(raw)}
+/*}5E*/
 const _cp42=cleanPack;
-cleanPack=function(raw){if(raw&&raw.format!=='dndmates-pack'){const c=from5e(raw);if(c)raw=c}
+cleanPack=function(raw){if(raw&&raw.format!=='dndmates-pack'){const c=typeof extImport==='function'?extImport(raw):null;if(c)raw=c}
   const out=_cp42(raw);const ef=new Map((Array.isArray(raw.feats)?raw.feats:[]).filter(f=>f&&f.effects).map(f=>[f.id,cleanEffects(f.effects)]));
   out.feats.forEach(f=>{const e=ef.get(f.id);if(e&&e.length)f.effects=e;const r=(raw.feats||[]).find(x=>x&&x.id===f.id);if(r&&typeof r.source==='string')f.fsrc=r.source.slice(0,40)});
   return out};
@@ -9206,7 +9230,7 @@ addI18n({feH:'Feat effects',feAb:'Spellcasting ability',feSpells:'Spells',feFree
  {feH:'Efekty featów',feAb:'Cecha czarowania',feSpells:'Czary',feFree:'za darmo',feFreeNote:'Każdy wybrany czar 1+ poziomu możesz rzucić raz na {0} bez slotu (wybierz go na liście slotów).',feReroll:'przerzut',reactionW:'reakcja',
   feAdv:'Przewaga w rzutach {0}',feRes:'Odporność: {0}',feTrig:'Nieudany rzut {0}: {1}',feLogOk:'✨ {0}: {1} — rzut udany.',feLogDie:'✨ {0}: {1} — {2}: {3} → {4} vs ST {5} {6}',feLogRe:'✨ {0}: {1} — przerzut {2} vs ST {3} {4}',shortRest:'krótki odpoczynek',longRest:'długi odpoczynek',cantrip:'sztuczka'});
 
-/* ================= m43: więcej klocków efektów (biegłości, ekspertyza, zmysły, stany, inicjatywa, PW) + pełniejszy import 5etools ================= */
+/* ================= m43: więcej klocków efektów (biegłości, ekspertyza, zmysły, stany, inicjatywa, PW) ================= */
 const SK_IDS=SKILLS.map(s=>s[0]);
 const skId=n=>String(n).toLowerCase().replace(/\s+/g,'-');
 const _ce43=cleanEffects;
@@ -9256,7 +9280,8 @@ const _fd43=feDescribe;feDescribe=function(e,i){
   if(e.type==='bonus'&&e.stat==='init')return`Initiative ${sg(fxVal(i,e.value))}`;if(e.type==='bonus'&&e.stat==='hpPerLevel')return tr('feHpL',e.value);if(e.type==='bonus'&&e.stat==='hpFlat')return tr('feHpF',e.value);
   return _fd43(e,i)};
 
-/* --- import 5etools: pola strukturalne i więcej zdań --- */
+/*5E{*/
+/* --- import zewnętrznego JSON: pola strukturalne i więcej zdań --- */
 const CI_5E=c=>String(c).toLowerCase();
 const _cv43=conv5eFeat;
 conv5eFeat=function(f){const out=_cv43(f);const E=out.effects;const keys=o=>Object.keys(o||{}).filter(k=>o[k]===true);
@@ -9282,12 +9307,13 @@ conv5eFeat=function(f){const out=_cv43(f);const E=out.effects;const keys=o=>Obje
   if((m=/When you fail an? (\w+) saving throw, you can (?:take a \{@variantrule Reaction[^}]*\} to )?reroll it/i.exec(txt))){const rid=out.id+'-reroll';E.push({type:'resource',id:rid,name:out.name,uses:1,rest:/Short or Long|Short/i.test(txt)?'short':'long'});E.push({type:'trigger',on:'failSave',abs:[m[1].slice(0,3).toLowerCase()],do:'reroll',cost:rid,reaction:/Reaction/.test(m[0]),name:out.name})}
   if((m=/When you fail a saving throw, you can (?:choose to )?succeed instead/i.exec(txt))){const rid=out.id+'-succ';E.push({type:'resource',id:rid,name:out.name,uses:1,rest:/Short or Long/i.test(txt)?'short':'long'});E.push({type:'trigger',on:'failSave',abs:'all',do:'succeed',cost:rid,name:out.name})}
   return out};
+/*}5E*/
 addI18n({ciLog:'{0} is immune: {1}.',fePick_prof:'Proficiency:',fePick_expertise:'Expertise:',fePick_resist:'Resistance:',feProf:'Proficiency: {0}',feExp:'Expertise: {0}',feCi:'Immune: {0}',feHpL:'Hit Point maximum +{0} per level',feHpF:'Hit Point maximum +{0}',
   feNoteTool:'Tool proficiency of your choice (set it on the sheet).',feNoteWpn:'Weapon proficiency of your choice (set it on the sheet).'},
  {ciLog:'{0} jest odporny: {1}.',fePick_prof:'Biegłość:',fePick_expertise:'Ekspertyza:',fePick_resist:'Odporność:',feProf:'Biegłość: {0}',feExp:'Ekspertyza: {0}',feCi:'Odporność na stan: {0}',feHpL:'Maks. PW +{0} na poziom',feHpF:'Maks. PW +{0}',
   feNoteTool:'Biegłość w wybranym narzędziu (ustaw na karcie).',feNoteWpn:'Biegłość w wybranej broni (ustaw na karcie).'});
 
-/* ================= m44: klocki onHit, dmgReduce, immune, drop0 + więcej zdań w imporcie 5etools ================= */
+/* ================= m44: klocki onHit, dmgReduce, immune, drop0 ================= */
 const _ce44=cleanEffects;
 cleanEffects=function(arr){const base=_ce44(arr);const extra=(Array.isArray(arr)?arr:[]).slice(0,30).map(e=>{if(!e||typeof e!=='object')return null;const t=String(e.type||'');
   const dmgs=v=>(Array.isArray(v)?v:[v]).filter(d=>DMG_TYPES.some(x=>x[0]===d));const val=v=>v==='prof'||/^ab:(str|dex|con|int|wis|cha)$/.test(String(v))?String(v):Number.isFinite(+v)?+v:0;
@@ -9340,7 +9366,8 @@ const _ah44=afterHit;afterHit=function(t,g,o,abm){const sel=K&&K.oh?Object.assig
     if(e.heal&&e.dice){const p=parseDmgExpr(e.dice);let n=(p.f||0)+fxVal(infoOf(t),e.bonus);for(let q=0;q<p.n;q++)n+=rnd(p.s);setTimeout(()=>healTok(t,n,e.name||e.feat.name),120)}
     send({k:'sys',text:tr('ohLog',t.name,e.name||e.feat.name,g.name)})});if(K)K.oh={}};
 
-/* --- import 5etools: kolejne zdania (na tekście bez znaczników) --- */
+/*5E{*/
+/* --- import zewnętrznego JSON: kolejne zdania (na tekście bez znaczników) --- */
 const _cv44=conv5eFeat;
 conv5eFeat=function(f){const out=_cv44(f);const E=out.effects;const txt=strip5e(JSON.stringify(f.entries||[]));let m;
   const has=(type,stat)=>E.some(e=>e.type===type&&(!stat||e.stat===stat));
@@ -9369,6 +9396,7 @@ conv5eFeat=function(f){const out=_cv44(f);const E=out.effects;const txt=strip5e(
   if(/move at least 10 feet in a straight line toward a target immediately before hitting it with a melee attack roll/i.test(txt))E.push({type:'onHit',dice:'1d8',dmgType:'weapon',when:'melee',name:'Charge Attack'});
   if((m=/Once per turn, when you make an attack roll while Bloodied, you can deal extra damage to the target equal to your Proficiency/i.exec(txt)))E.push({type:'onHit',dice:'',bonus:'prof',dmgType:'weapon',needBloodied:true,when:'any',name:'Power from Pain'});
   return out};
+/*}5E*/
 addI18n({d0Q:'Use {0} and stay up instead of dropping to 0 HP?',d0Log:'✨ {0}: {1} — stays at {2} HP!',ohLog:'✨ {0}: {1} on {2}.'},
  {d0Q:'Użyć {0} i nie spaść do 0 PW?',d0Log:'✨ {0}: {1} — zostaje z {2} PW!',ohLog:'✨ {0}: {1} na {2}.'});
 
@@ -9491,13 +9519,16 @@ const _fd45=feDescribe;feDescribe=function(e,i){const nm=e.name?e.name+': ':'';
 /* ================= filtr książek ================= */
 let BOOKS_OFF=new Set((()=>{try{return JSON.parse(localStorage.getItem('dmBooksOff')||'[]')}catch(e){return[]}})());
 const bookOf=x=>x&&(x.book||String(x.fsrc||'').split(' ')[0])||'';
-const _cp45=cleanPack;cleanPack=function(raw){if(raw&&raw.format!=='dndmates-pack'){const c=from5e(raw);if(c)raw=c}const out=_cp45(raw);const by=new Map((Array.isArray(raw.feats)?raw.feats:[]).filter(f=>f&&f.id).map(f=>[f.id,f]));
+const _cp45=cleanPack;cleanPack=function(raw){if(raw&&raw.format!=='dndmates-pack'){const c=typeof extImport==='function'?extImport(raw):null;if(c)raw=c}const out=_cp45(raw);const by=new Map((Array.isArray(raw.feats)?raw.feats:[]).filter(f=>f&&f.id).map(f=>[f.id,f]));
   out.feats.forEach(f=>{const r=by.get(f.id);if(r&&typeof r.book==='string')f.book=r.book.slice(0,12);else if(f.fsrc)f.book=String(f.fsrc).split(' ')[0]});
   ['feats','spells','monsters','items','species','backgrounds','subclasses'].forEach(k=>{if(!Array.isArray(out[k])||!Array.isArray(raw[k]))return;const m=new Map(raw[k].filter(x=>x&&(x.id||x.name)).map(x=>[x.id||x.name,x]));
     out[k].forEach(x=>{const r=m.get(x.id||x.name);if(r&&typeof r.fluff==='string'&&r.fluff.trim())x.fluff=r.fluff.trim().slice(0,4000)})});
   ['spells','monsters','items','species','backgrounds','subclasses'].forEach(k=>{const rr=new Map((Array.isArray(raw[k])?raw[k]:[]).filter(x=>x&&x.id).map(x=>[x.id,x]));(out[k]||[]).forEach(x=>{const r=rr.get(x.id);if(r&&typeof r.book==='string')x.book=r.book.slice(0,12)})});return out};
 const _lc45=loadCatalog;loadCatalog=async function(){const r=await _lc45.apply(this,arguments);if(BOOKS_OFF.size)['spells','monsters','feats','species','items','subclasses'].forEach(k=>{if(Array.isArray(CAT[k]))CAT[k]=CAT[k].filter(x=>!BOOKS_OFF.has(bookOf(x)))});return r};
+/*5E{*/
 const BOOK_NAMES={XPHB:"Player's Handbook (2024)",XDMG:"Dungeon Master's Guide (2024)",XMM:'Monster Manual (2025)',FRHoF:'Forgotten Realms: Heroes of Faerûn',EFA:'Eberron: Forge of the Artificer',ABH:"Astarion's Book of Hungers",AU:'Arcana Unleashed',WoW:'World of Warcraft',RHW:'Ravenloft: The Horrors Within',LFL:'Lorwyn: First Light',SRD:'SRD 5.2'};
+/*}5E*/
+
 const _pkr45=packsRender;packsRender=async function(){await _pkr45.apply(this,arguments);try{const l=$('#pkList');PK_ALL=true;let all=[];try{all=await packsOp('readonly',s=>s.getAll())}finally{PK_ALL=false}
   const cnt={};all.filter(p=>!p.off).forEach(p=>['feats','spells','monsters','items','species','backgrounds','subclasses'].forEach(k=>(p[k]||[]).forEach(x=>{const b=x.book||String(x.fsrc||'').split(' ')[0];if(b)cnt[b]=(cnt[b]||0)+1})));
   const books=Object.keys(cnt).sort();if(!books.length)return;const box=hE('div',{className:'pkBooks'},hE('b',{textContent:'📚 '+tr('booksH')}),hE('small',{textContent:tr('booksHint')}));
@@ -9515,11 +9546,13 @@ addI18n({faNoHd:'{0} has no Hit Point Dice left.',faWho:'{0}: choose a creature'
   feDsA:'Przewaga w rzutach przeciw śmierci',feDsD:'Utrudnienie w rzutach przeciw śmierci',feMth:'raz na turę pudło zamienia się w trafienie',feOnCast:'przy czarze szkoły {0} ze slotu',feUnarmed:'Atak bez broni: {0} + SIŁ',feRecall:'czar ze slotu 1–4: k4 równe poziomowi zwraca slot',
   booksH:'Książki',booksHint:'Wyłącz książkę, żeby ukryć wszystko z niej (ze wszystkich paczek). Zapamiętywane w tej przeglądarce.',booksCnt:'{0} wpisów'});
 
-/* --- fluff: opisy fabularne z 5etools (featFluff) --- */
+/*5E{*/
+/* --- fluff: opisy fabularne (featFluff) --- */
 const _f5e45=from5e;from5e=function(raw){const p=_f5e45(raw);try{const fl=raw&&Array.isArray(raw.featFluff)?raw.featFluff:null;if(p&&fl){const m=new Map(fl.map(x=>[slug5e(x.name)+'|'+x.source,x]));
   p.feats.forEach(f=>{const x=m.get(f.id+'|'+(f.source||String(f.fsrc||'').split(' ')[0]))||fl.find(z=>slug5e(z.name)===f.id);if(x&&x.entries)f.fluff=strip5e(flat5e(x.entries)).trim().slice(0,4000)})}}catch(e){}return p};
+/*}5E*/
 
-/* ================= m46: import z 5etools (cały folder data/) — tylko książki 2024; dane czytane z dysku użytkownika ================= */
+/* ================= m46: import folderu z danymi JSON (zewnętrzny format: books.json, spells/, bestiary/, class/ …) — tylko książki od 09.2024; dane czytane z dysku użytkownika ================= */
 const B5={
   SCH:{A:'abjuration',C:'conjuration',D:'divination',E:'enchantment',V:'evocation',I:'illusion',N:'necromancy',T:'transmutation'},
   DT:{B:'bludgeoning',P:'piercing',S:'slashing',A:'acid',C:'cold',F:'fire',O:'force',L:'lightning',N:'necrotic',I:'poison',Y:'psychic',R:'radiant',T:'thunder'},
@@ -9550,7 +9583,7 @@ function r5(s){s=String(s==null?'':s);let g=0;
       case'actSaveFail':return(p[0]?ORD5[+p[0]]+' ':'')+'Failure:';case'actSaveSuccess':return'Success:';case'actSaveSuccessOrFail':return'Failure or Success:';
       case'actTrigger':return'Trigger:';case'actResponse':return'Response:';
       case'scaledamage':case'scaledice':return p[2]||p[0];
-      case'filter':case'5etools':case'book':case'adventure':case'link':case'footnote':case'quickref':return p[0];
+      case'filter':case'book':case'adventure':case'link':case'footnote':case'quickref':return p[0];
       case'b':case'i':case'u':case's':case'bold':case'italic':case'note':case'damage':case'dice':return p[0];
       default:return p[2]||p[0]}};
   while(/\{@\w+[^{}]*\}/.test(s)&&g++<20)s=s.replace(/\{@(\w+)(?: ([^{}]*))?\}/g,(_,t,a)=>T(t,a));
@@ -9615,7 +9648,9 @@ function mo5(x){const cr=typeof x.cr==='object'?x.cr&&x.cr.cr:x.cr;const dex=Mat
     stats:{str:x.str,dex:x.dex,con:x.con,int:x.int,wis:x.wis,cha:x.cha},initiative:ini,
     senses:[].concat(x.senses||[]).map(r5).concat(['Passive Perception '+(x.passive||10)]).join(', '),languages:(x.languages||[]).map(r5).join(', '),
     resist:lst5(x.resist),vulnerable:lst5(x.vulnerable),immune:lst5(x.immune),conditionImmunities:lst5(x.conditionImmune),spells:[...new Set(ids)],
-    desc:[sv&&'Saving Throws: '+sv,sk&&'Skills: '+sk].filter(Boolean).join('\n')},out)}
+    desc:[sv&&'Saving Throws: '+sv,sk&&'Skills: '+sk].filter(Boolean).join('\n')},out,
+    x.summonedBySpell?{summonSpell:sl5(ref5(x.summonedBySpell)),summonLvl:x.summonedBySpellLevel||0}:{},x.summonedByClass?{summonClass:ref5(x.summonedByClass).toLowerCase()}:{},
+    ac&&typeof ac==='object'&&ac.special?{acF:r5(ac.special)}:{},x.hp&&x.hp.special?{hpF:r5(x.hp.special)}:{},x.pbNote?{pbNote:r5(x.pbNote)}:{})}
 
 /* --------- przedmioty --------- */
 function it5(x,base){const ty=ref5(x.type);const b=base||{};const g=k=>x[k]!=null?x[k]:b[k];const bt=ref5(g('type'));
@@ -9672,10 +9707,10 @@ function sc5(x,feats){const fs=feats.filter(f=>f.className===x.className&&f.subc
 function fluff5(list){const m=new Map();cp5(list||[]).forEach(f=>{const t=fl5(f.entries||[]).trim();if(t)m.set((f.name+'|'+f.source).toLowerCase(),t.slice(0,4000))});return m}
 
 /* --------- całość: pliki → paczki (jedna na książkę) --------- */
-function conv5etools(files,opt){opt=opt||{};const J=p=>files[p];const S=new Set(opt.books||[]);
+function convExt(files,opt){opt=opt||{};const J=p=>files[p];const S=new Set(opt.books||[]);
   if(!S.size){const add=(f,k)=>((J(f)||{})[k]||[]).forEach(b=>{if((b.published||'')>='2024-09-17')S.add(b.source||b.id)});add('books.json','book');add('adventures.json','adventure');if(!S.size)B5.Y24.forEach(b=>S.add(b))}
   const in24=x=>x&&S.has(x.source);const skip=(kind,x)=>opt.skipSrd!==false&&B5.SRD_KINDS.includes(kind)&&!!x.srd52;
-  const P={};const pk=b=>P[b]||(P[b]={format:'dndmates-pack',version:1,name:'5etools: '+((typeof BOOK_NAMES!=='undefined'&&BOOK_NAMES[b])||b),source:'5etools ('+b+')',book:b,spells:[],monsters:[],feats:[],species:[],backgrounds:[],items:[],subclasses:[]});
+  const P={};const pk=b=>P[b]||(P[b]={format:'dndmates-pack',version:1,name:'Import: '+((typeof BOOK_NAMES!=='undefined'&&BOOK_NAMES[b])||b),source:'Import ('+b+')',book:b,spells:[],monsters:[],feats:[],species:[],backgrounds:[],items:[],subclasses:[]});
   const stats={skipSrd:0,skipOther:0};const put=(kind,x,o)=>{o.book=x.source;if(x.page)o.fsrc=x.source+' p.'+x.page;pk(x.source)[kind].push(o)};
   const keys=Object.keys(files);const many=re=>keys.filter(k=>re.test(k)).flatMap(k=>Object.values(files[k]||{}).filter(Array.isArray).flat());
   /* czary */
@@ -9683,7 +9718,7 @@ function conv5etools(files,opt){opt=opt||{};const J=p=>files[p];const S=new Set(
   cp5(many(/^spells\/spells-.*\.json$/)).filter(in24).forEach(x=>{if(skip('spells',x)){stats.skipSrd++;return}const o=sp5(x,look);const f=sFl.get((x.name+'|'+x.source).toLowerCase());if(f)o.fluff=f;put('spells',x,o)});
   /* potwory */
   const mFl=fluff5(keys.filter(k=>/^bestiary\/fluff-bestiary-.*\.json$/.test(k)).flatMap(k=>(files[k]||{}).monsterFluff||[]));
-  cp5(keys.filter(k=>/^bestiary\/bestiary-.*\.json$/.test(k)).flatMap(k=>(files[k]||{}).monster||[])).filter(in24).forEach(x=>{if(skip('monsters',x)){stats.skipSrd++;return}const o=mo5(x);const f=mFl.get((x.name+'|'+x.source).toLowerCase());if(f){o.fluff=f}put('monsters',x,o)});
+  cp5(keys.filter(k=>/^bestiary\/bestiary-.*\.json$/.test(k)).flatMap(k=>(files[k]||{}).monster||[])).filter(in24).forEach(x=>{if(skip('monsters',x)&&!x.summonedBySpell){stats.skipSrd++;return}const o=mo5(x);const f=mFl.get((x.name+'|'+x.source).toLowerCase());if(f){o.fluff=f}put('monsters',x,o)});
   /* przedmioty */
   const bases=((J('items-base.json')||{}).baseitem||[]).filter(b=>b.source==='XPHB'||S.has(b.source)&&!b.reprintedAs);const bBy=new Map(bases.map(b=>[(b.name+'|'+b.source).toLowerCase(),b]));
   const iFl=fluff5((J('fluff-items.json')||{}).itemFluff);const have=new Set(opt.haveItems||[]);
@@ -9713,35 +9748,55 @@ const _cp46=cleanPack;cleanPack=function(raw){const out=_cp46(raw);try{if(raw&&r
   if(raw.bookNames&&typeof raw.bookNames==='object'){Object.entries(raw.bookNames).slice(0,200).forEach(([k,v])=>{if(typeof v==='string'&&/^[\w-]{1,20}$/.test(k)){N5[k]=v.slice(0,80);if(!BOOK_NAMES[k])BOOK_NAMES[k]=N5[k]}});try{localStorage.setItem('dmBookNames',JSON.stringify(N5))}catch(e){}}
   if(typeof raw.book==='string')out.book=raw.book.slice(0,12);if(typeof raw.pid==='string')out.id=raw.pid.slice(0,40)}}catch(e){console.error(e)}return out};
 const W5=k=>/^(books|adventures|items|items-base|magicvariants|races|backgrounds|feats|fluff-(items|races|backgrounds|feats))\.json$/.test(k)||k==='generated/gendata-spell-source-lookup.json'||/^class\/class-[^/]*\.json$/.test(k)||/^(spells|bestiary)\/(index|fluff-index)\.json$/.test(k);
-async function imp5etools(list){const all=[...list].map(f=>{const p=(f.webkitRelativePath||f.name).replace(/\\/g,'/');const i=p.lastIndexOf('data/');return[i>=0?p.slice(i+5):p.split('/').slice(1).join('/'),f]});
+const extPath=f=>{const p=String(f.__path||f.webkitRelativePath||f.name).replace(/\\/g,'/').replace(/^\//,'');const i=p.lastIndexOf('data/');if(i>=0)return p.slice(i+5);
+  if(p.includes('/'))return p.split('/').slice(1).join('/');const n=p;if(/^(fluff-)?spells-.*\.json$/.test(n))return'spells/'+n;if(/^(fluff-)?bestiary-.*\.json$/.test(n))return'bestiary/'+n;if(/^class-.*\.json$/.test(n))return'class/'+n;if(/^gendata-/.test(n))return'generated/'+n;return n};
+async function impFolder(list){const all=[...list].map(f=>[extPath(f),f]);
   const files={};const rd=async([k,f])=>{try{files[k]=JSON.parse(await f.text())}catch(e){}};
   await Promise.all(all.filter(([k])=>W5(k)).map(rd));
-  if(!files['books.json']&&!files['feats.json']&&!files['spells/index.json'])return say(tr('i5NoData'),'sys');
+  if(!Object.keys(files).length&&!all.some(([k])=>/^(spells|bestiary)\//.test(k)))return say(tr('i5NoData'),'sys');
   const S=new Set();[['books.json','book'],['adventures.json','adventure']].forEach(([f,k])=>((files[f]||{})[k]||[]).forEach(b=>{if((b.published||'')>='2024-09-17')S.add(b.source||b.id)}));if(!S.size)B5.Y24.forEach(b=>S.add(b));
   const nm={};[['books.json','book'],['adventures.json','adventure']].forEach(([f,k])=>((files[f]||{})[k]||[]).forEach(b=>{if(S.has(b.source||b.id)&&!nm[b.source||b.id])nm[b.source||b.id]=b.name}));Object.assign(N5,nm);Object.keys(nm).forEach(k=>{if(!BOOK_NAMES[k])BOOK_NAMES[k]=nm[k]});try{localStorage.setItem('dmBookNames',JSON.stringify(N5))}catch(e){}
   /* czary i potwory: tylko pliki książek 2024 (wg index.json) */
   const idx=(d)=>Object.entries(files[d+'/index.json']||{}).filter(([s])=>S.has(s)).map(([,f])=>d+'/'+f),fidx=(d)=>Object.entries(files[d+'/fluff-index.json']||{}).filter(([s])=>S.has(s)).map(([,f])=>d+'/'+f);
-  const need=new Set(idx('spells').concat(fidx('spells'),idx('bestiary'),fidx('bestiary')));await Promise.all(all.filter(([k])=>need.has(k)).map(rd));
+  const need=new Set(idx('spells').concat(fidx('spells'),idx('bestiary'),fidx('bestiary')));
+  ['spells','bestiary'].forEach(d=>{if(!files[d+'/index.json'])all.forEach(([k])=>{if(k.startsWith(d+'/'))need.add(k)})});await Promise.all(all.filter(([k])=>need.has(k)).map(rd));
   say(tr('i5Read',Object.keys(files).length),'sys');
   PK_ALL=true;let old=[];try{old=await packsOp('readonly',s=>s.getAll())}finally{PK_ALL=false}
   const mine=old.filter(p=>!/^5e-/.test(p.id||''));const haveFeats=mine.flatMap(p=>(p.feats||[]).filter(f=>f.effects&&f.effects.length).map(f=>f.id));
   const haveSrd=mine.some(p=>(p.monsters||[]).some(m=>m.id==='aboleth'))||CAT.monsters.some(m=>m.id==='aboleth');
-  const haveItems=(CAT.items||[]).filter(i=>!i.src||!/^5etools/.test(i.src)).map(i=>i.id);
-  const R=conv5etools(files,{books:[...S],skipSrd:haveSrd,haveFeats,haveItems});let n=0;
+  const haveItems=(CAT.items||[]).filter(i=>!i.src||!/^Import/.test(i.src)).map(i=>i.id);
+  const R=convExt(files,{books:[...S],skipSrd:haveSrd,haveFeats,haveItems});let n=0;
   for(const p of R.packs){p.pid='5e-'+p.book;try{const c=cleanPack(p);await packsOp('readwrite',s=>s.put(c));n++;
     say(tr('i5Pack',esc(c.name),c.spells.length,c.monsters.length,c.feats.length,(c.items||[]).length,(c.species||[]).length,(c.backgrounds||[]).length,(c.subclasses||[]).length),'sys')}catch(x){say(tr('importFail',esc(p.name),esc(x.message)),'sys')}}
   say(tr('i5Done',n,R.stats.skipSrd,R.stats.keptFeats||0),'sys');packsRender()}
 const lb=document.querySelector('#packModal .libh label.btn');if(lb){const l2=document.createElement('label');l2.className='btn';l2.id='l5e';l2.title='';
   const sp=document.createElement('span');sp.dataset.i='i5Btn';const inp=document.createElement('input');inp.type='file';inp.id='f5e';inp.hidden=true;inp.multiple=true;inp.setAttribute('webkitdirectory','');inp.setAttribute('directory','');
-  inp.onchange=async e=>{const fs=e.target.files;e.target.value&&0;try{say(tr('i5Start'),'sys');await imp5etools(fs)}catch(x){console.error(x);say(tr('importFail','5etools',esc(x.message)),'sys')}e.target.value=''};
+  inp.onchange=async e=>{const fs=e.target.files;e.target.value&&0;try{say(tr('i5Start'),'sys');await impFolder(fs)}catch(x){console.error(x);say(tr('importFail','folder',esc(x.message)),'sys')}e.target.value=''};
   l2.append(sp,inp);lb.after(l2)}
-addI18n({i5Btn:'📂 Import 5etools folder',i5Start:'Reading the 5etools folder…',i5Read:'Read {0} files. Converting the 2024 books…',i5NoData:'This does not look like a 5etools folder (pick the “data” folder or the whole 5etools folder).',
-  i5Pack:'📚 {0}: {1} spells, {2} monsters, {3} feats, {4} items, {5} species, {6} backgrounds, {7} subclasses',i5Done:'5etools import done: {0} books. Skipped {1} SRD entries (you already have them) and {2} feats with your own mechanics.'},
- {i5Btn:'📂 Import folderu 5etools',i5Start:'Czytam folder 5etools…',i5Read:'Wczytano {0} plików. Przeliczam książki 2024…',i5NoData:'To nie wygląda na folder 5etools (wskaż folder „data” albo cały folder 5etools).',
-  i5Pack:'📚 {0}: {1} czarów, {2} potworów, {3} featów, {4} przedmiotów, {5} gatunków, {6} pochodzeń, {7} podklas',i5Done:'Import 5etools gotowy: {0} książek. Pominięto {1} wpisów z SRD (już je masz) i {2} featów z Twoją mechaniką.'});
-try{applyLang()}catch(e){}
+/* standardowy „Importuj paczkę”: paczki gry + pliki/foldery z danymi w zewnętrznym formacie */
+const EXT_KEYS=['spell','monster','feat','race','subrace','background','item','baseitem','magicvariant','class','subclass','subclassFeature','book','adventure','monsterFluff','spellFluff','featFluff','raceFluff','backgroundFluff','itemFluff'];
+const isExtName=n=>/^(books|adventures|items|items-base|magicvariants|races|backgrounds|feats|index|fluff-index|fluff-[\w-]+|(fluff-)?spells-[\w-]+|(fluff-)?bestiary-[\w-]+|class-[\w-]+|gendata-[\w-]+)\.json$/.test(n);
+const fp=$('#fPack');if(fp){const orig=fp.onchange;fp.onchange=async e=>{const list=[...e.target.files];const ext=[],own=[];
+  for(const f of list){let isExt=isExtName(f.name);if(!isExt&&f.size<40*1024*1024){try{const j=JSON.parse(await f.text());isExt=!!(j&&typeof j==='object'&&j.format!=='dndmates-pack'&&EXT_KEYS.some(k=>Array.isArray(j[k])))}catch(x){}}(isExt?ext:own).push(f)}
+  if(own.length){const dt=new DataTransfer();own.forEach(f=>dt.items.add(f));try{Object.defineProperty(e,'target',{value:{files:dt.files,set value(v){}},configurable:true})}catch(x){}await orig.call(fp,e)}
+  if(ext.length){try{say(tr('i5Start'),'sys');await impFolder(ext)}catch(x){console.error(x);say(tr('importFail','folder',esc(x.message)),'sys')}}
+  fp.value=''}}
+/* przeciągnij folder albo pliki na okno Paczki */
+async function dropFiles(dt){const out=[];const walk=(en,path)=>new Promise(ok=>{if(en.isFile)en.file(f=>{try{f.__path=path+f.name}catch(x){}out.push(f);ok()},()=>ok());
+    else if(en.isDirectory){const r=en.createReader(),acc=[];const rd=()=>r.readEntries(async es=>{if(!es.length){for(const x of acc)await walk(x,path+en.name+'/');return ok()}acc.push(...es);rd()},()=>ok());rd()}else ok()});
+  const ents=[...dt.items].map(i=>i.webkitGetAsEntry&&i.webkitGetAsEntry()).filter(Boolean);if(ents.length){for(const en of ents)await walk(en,'')}else out.push(...dt.files);return out}
+const pm=$('#packModal');if(pm){pm.addEventListener('dragover',e=>{e.preventDefault();pm.classList.add('pkDrop')});pm.addEventListener('dragleave',e=>{if(e.target===pm)pm.classList.remove('pkDrop')});
+  pm.addEventListener('drop',async e=>{e.preventDefault();pm.classList.remove('pkDrop');const fs=await dropFiles(e.dataTransfer);if(!fs.length)return;const own=[],ext=[];
+    for(const f of fs){if(!/\.json$/i.test(f.name))continue;(isExtName(f.name)||/(^|\/)data\//.test(f.__path||'')?ext:own).push(f)}
+    for(const f of own){try{const p=cleanPack(JSON.parse(await f.text()));if(p.format!=='dndmates-pack'&&!p.name)continue;await packsOp('readwrite',s=>s.put(p));say(tr('imported',esc(p.name),p.spells.length,p.monsters.length,p.feats.length),'sys')}catch(x){ext.push(f)}}
+    if(ext.length){say(tr('i5Start'),'sys');await impFolder(ext)}else packsRender()})}
+addI18n({i5Btn:'📂 Data folder',i5Hint:'Import game packs or JSON data files — or drag a whole folder here. Import only data you have the rights to; files stay in your browser.',i5Start:'Reading the data folder…',i5Read:'Read {0} files. Converting the 2024 books…',i5NoData:'No known data files found (pick the “data” folder or JSON files from it).',
+  i5Pack:'📚 {0}: {1} spells, {2} monsters, {3} feats, {4} items, {5} species, {6} backgrounds, {7} subclasses',i5Done:'Import done: {0} books. Skipped {1} SRD entries (you already have them) and {2} feats with your own mechanics.'},
+ {i5Btn:'📂 Folder z danymi',i5Hint:'Importuj paczki gry albo pliki JSON z danymi — albo przeciągnij tu cały folder. Importuj tylko dane, do których masz prawa; pliki zostają w Twojej przeglądarce.',i5Start:'Czytam folder z danymi…',i5Read:'Wczytano {0} plików. Przeliczam książki 2024…',i5NoData:'Nie znalazłem znanych plików z danymi (wskaż folder „data” albo pliki JSON z niego).',
+  i5Pack:'📚 {0}: {1} czarów, {2} potworów, {3} featów, {4} przedmiotów, {5} gatunków, {6} pochodzeń, {7} podklas',i5Done:'Import gotowy: {0} książek. Pominięto {1} wpisów z SRD (już je masz) i {2} featów z Twoją mechaniką.'});
+try{const h=$('#packModal .libh');if(h&&!$('#pkHint')){const d=document.createElement('div');d.id='pkHint';d.className='smd';d.dataset.i='i5Hint';h.after(d)}applyLang()}catch(e){}
 }
-if(typeof module!=='undefined')module.exports={conv5etools,r5,fl5,sp5,mo5,it5,ra5,bg5,sc5,cp5,B5};
+if(typeof module!=='undefined')module.exports={convExt,r5,fl5,sp5,mo5,it5,ra5,bg5,sc5,cp5,B5};
 if(typeof document!=='undefined'&&typeof BACKGROUNDS!=='undefined'){const _lc46=loadCatalog;loadCatalog=async function(){const r=await _lc46.apply(this,arguments);try{if(BOOKS_OFF.size){const keep=BACKGROUNDS.filter(b=>!BOOKS_OFF.has(bookOf(b)));BACKGROUNDS.length=0;keep.forEach(b=>BACKGROUNDS.push(b))}}catch(e){}return r}}
 
 /* ================= m47: klocki – kości obrażeń (min/przerzut/krytyk), koncentracja, przewaga przy sojuszniku, chwyt, okazyjne, broń mistrzowska, zasięg czarów, PW tymczasowe, Kości Wytrzymałości ================= */
@@ -10010,8 +10065,10 @@ const _mso49=monStrikeOpts;monStrikeOpts=function(t){const o=_mso49(t);try{const
 const _ss49=startStrike;startStrike=function(t,op){try{if(op&&op.kind==='tp'){tpStart(t,op.range,op.name);return}
   if(op&&op.kind==='cast'&&op.spell){selectToken(t);activateSpell(op.spell);return}
   if(op&&op.kind==='ref'){const tg=refTargets(t,op);if(!tg.length)return say(tr('refNone',esc(t.name),esc(op.name)),'sys');
-    const go=x=>{if(x.kind==='cast'){selectToken(t);activateSpell(x.spell);return}const y=JSON.parse(JSON.stringify(x));y.name=op.name+' → '+x.name;_ss49(t,y);
-      const n=(op.ref&&op.ref.n)||1;if(n>1&&K){K.seq=Array.from({length:n-1},()=>JSON.parse(JSON.stringify(y)));K.seqN=n}try{stRender()}catch(e){}};
+    const go=x=>{if(x.kind==='cast'){selectToken(t);activateSpell(x.spell);return}const n=(op.ref&&op.ref.n)||1;
+      if(x.kind==='rand'||x.kind==='tp'){startStrike(t,x);if(n>1&&K&&x.kind==='rand'){K.seq=Array.from({length:n-1},()=>JSON.parse(JSON.stringify(x)));K.seqN=n;if(typeof seqResolve51==='function')seqResolve51(t)}try{stRender()}catch(e){}return}
+      const y=JSON.parse(JSON.stringify(x));y.name=op.name+' → '+x.name;_ss49(t,y);
+      if(n>1&&K){K.seq=Array.from({length:n-1},()=>JSON.parse(JSON.stringify(y)));K.seqN=n}try{stRender()}catch(e){}};
     if(tg.length===1)return go(tg[0]);return listPick(t.name+': '+op.name,tg.map(x=>({label:x.name,sub:x.kind==='cast'?tr('spell'):optDmgTxt(x),fn:()=>go(x)})))}}catch(e){console.error(e)}
   return _ss49.apply(this,arguments)};
 const _lu49=legUse;legUse=function(t,p){if(p&&(p.kind==='ref'||p.kind==='tp')){const mon=t.sheet.mon,cost=p.cost||1,left=legMax(mon)-(mon.leg||0);if(left<cost&&!confirm(tr('legNone',t.name)))return;
@@ -10141,6 +10198,427 @@ addI18n({sm50Log:'✨ {0}: {1} — {2} save DC {3}: {4} {5}'},{sm50Log:'✨ {0}:
 
 /* dopisz ST do obrażeń co turę z czarów (riderFx uzupełnia tylko es) */
 const _rf50=riderFx;riderFx=function(r,o){const f=_rf50.apply(this,arguments);try{if(f.sod&&f.sod.ab&&!f.sod.dc)f.sod=Object.assign({},f.sod,{dc:o.dc})}catch(e){}return f};
+
+/* ================= m51: losowe tabele akcji (Eye Rays), formy i przemiany potworów, przywołania z czarów (statystyki zależne od poziomu i rzucającego) ================= */
+
+/* ---------- 1. losowe tabele akcji: „roll 1d10” + lista „• 1: Charm Ray …” ---------- */
+const _pma51=parseMonAct;parseMonAct=function(str){const o=_pma51(str);try{const body=String(o.body||'');if(!/•\s*\d+(?:\s*[–-]\s*\d+)?:/.test(body))return o;
+  const die=/\broll (?:a )?1?d(\d+)\b/i.exec(body);if(!die)return o;const rows=[];
+  body.split(/\n|•/).forEach(l=>{const m=/^\s*(\d+)(?:\s*[–-]\s*(\d+))?:\s*([^.]+?)\s+((?:Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma) Saving Throw:[\s\S]*|(?:Melee|Ranged) Attack Roll:[\s\S]*)$/.exec(l.trim());
+    if(!m)return;const p2=parseMonAct(m[3].trim()+'. '+m[4].trim());if(!p2||!(p2.kind==='atk'||p2.kind==='save'))return;
+    const rg=/within (\d+) feet/i.exec(body);if(rg&&p2.kind==='save'&&!p2.area){p2.range=+rg[1];p2.single=1}rows.push({lo:+m[1],hi:+(m[2]||m[1]),op:p2})});
+  if(rows.length>=2){o.kind='rand';o.die=+die[1];o.rows=rows;o.noRepeat=/reroll if|reroll duplicates|already used that ray/i.test(body)}}catch(e){}return o};
+function randPick(t,p,extra){const used=((t.sheet.mon||{}).rayUsed||{});const turn=S.combat?S.combat.r+':'+S.combat.t:'x';const u=(used.turn===turn?used.list||[]:[]).concat(extra||[]);
+  let r=0,row=null,guard=0;do{r=rnd(p.die);row=p.rows.find(x=>r>=x.lo&&r<=x.hi);guard++}while((!row||(p.noRepeat&&u.includes(row.op.name)))&&guard<40);
+  if(!row)return null;const nl=u.concat([row.op.name]);monPatch(t,m=>{m.rayUsed={turn,list:nl}});send({k:'sys',text:tr('randLog',t.name,p.name,p.die,r,row.op.name)});return row.op}
+function seqResolve51(t){if(!K||!K.seq)return;const used=[K.opt&&K.opt.name?String(K.opt.name).split(': ').pop():''];K.seq=K.seq.map(x=>{if(!x||x.kind!=='rand')return x;const y=randPick(t,x,used);if(!y)return x;used.push(y.name);const z=JSON.parse(JSON.stringify(y));z.name=x.name+': '+y.name;return z})}
+const _ss51=startStrike;startStrike=function(t,op){try{if(op&&op.kind==='rand'){const x=randPick(t,op);if(!x)return;const y=JSON.parse(JSON.stringify(x));y.name=op.name+': '+x.name;return _ss51(t,y)}}catch(e){console.error(e)}return _ss51.apply(this,arguments)};
+/* odsyłacze („uses Eye Rays”) mogą prowadzić do tabeli; menu ataku pokazuje tabelę jako jedną opcję */
+const _rt51=refTargets;refTargets=function(t,p){const r=_rt51(t,p);try{const R=p.ref||{};const all=monAll49(t);R.uses.concat(R.atk).forEach(n=>{const x=all.find(z=>z.kind==='rand'&&nrm49(z.name)===nrm49(n));if(x&&!r.some(y=>nrm49(y.name)===nrm49(x.name)))r.push(x)})}catch(e){}const seen=new Set();return r.filter(x=>{const k=x.kind+'|'+nrm49(x.name);if(seen.has(k))return false;seen.add(k);return true})};
+const _mso51=monStrikeOpts;monStrikeOpts=function(t){const o=_mso51(t);try{const m=t.sheet.mon;if(m)monLines(m.actions).concat(monLines(m.bonusActions)).forEach(a=>{const p=parseMonAct(a);if(p.kind==='rand')o.push(p)})}catch(e){}return o};
+/* sekwencje (Multiattack „uses Eye Rays three times”): każdy promień losowany osobno */
+const _ss51b=startStrike;startStrike=function(t,op){const r=_ss51b.apply(this,arguments);try{if(K&&K.seq&&K.seq.some(x=>x&&x.kind==='rand'))seqResolve51(t)}catch(e){}return r};
+
+/* ---------- 2. formy potworów („(Wolf or Hybrid Form Only)”) i przemiana w innego potwora ---------- */
+function formsOf(mon){if(!mon)return{list:[],trueF:''};const set=new Set();const lines=['actions','bonusActions','reactions','legendary','traits'].flatMap(k=>mon[k]||[]);
+  lines.forEach(l=>{const m=/\(([^)]*?) Forms? Only\)/i.exec(String(l).split('.')[0]);if(m)m[1].split(/,\s*|\s+or\s+/).forEach(x=>x&&set.add(cap1(x.trim().toLowerCase())))});
+  const ss=lines.find(l=>/^Shape-?Shift/i.test(String(l)))||'';const tf=/(?:returns? to|revert(?:s|ing)? to) its true (\w+(?:[- ]\w+)?) form/i.exec(ss);const trueF=tf?cap1(tf[1].toLowerCase()):'';if(trueF)set.add(trueF);
+  return{list:[...set],trueF,ss:String(ss)}}
+const formOk=(t,name)=>{const m=/\(([^)]*?) Forms? Only\)/i.exec(String(name||''));if(!m)return true;const cur=(t.sheet.form||formsOf(t.sheet.mon).trueF||'').toLowerCase();if(!cur)return true;
+  return m[1].split(/,\s*|\s+or\s+/).some(x=>x.trim().toLowerCase()===cur)};
+const _mso51b=monStrikeOpts;monStrikeOpts=function(t){const o=_mso51b(t);try{if(t.sheet&&t.sheet.mon&&formsOf(t.sheet.mon).list.length)return o.filter(x=>formOk(t,x.name))}catch(e){}return o};
+const _ml51=monLegendary;monLegendary=function(t){const o=_ml51(t);try{return o.filter(x=>formOk(t,x.name))}catch(e){return o}};
+function formMenu(t){const mon=t.sheet.mon;if(!mon)return;const F=formsOf(mon),cur=t.sheet.form||F.trueF;const items=F.list.map(f=>({label:(f===cur?'● ':'')+f,sub:f===F.trueF?tr('trueForm'):'',fn:()=>{send({k:'sp',id:t.id,p:{form:f===F.trueF?null:f}});send({k:'sys',text:tr('formLog',t.name,f)})}}));
+  items.push({label:'🐾 '+tr('formOther'),sub:tr('formOtherS'),fn:()=>{const q=prompt(tr('formOtherQ'),'');if(!q)return;const m=CAT.monsters.find(x=>x.name.toLowerCase()===q.toLowerCase())||CAT.monsters.find(x=>x.name.toLowerCase().includes(q.toLowerCase()));if(!m)return say(tr('compNone'),'sys');shapeInto(t,m)}});
+  if(t.sheet.monOrig)items.unshift({label:'↩ '+tr('formBack',t.sheet.monOrig.name),sub:'',fn:()=>shapeBack(t)});listPick('🔄 '+t.name,items)}
+function shapeInto(t,m){const s=t.sheet;const orig=s.monOrig||{mon:s.mon,ac:s.ac,resist:s.resist,vulnerable:s.vulnerable,immune:s.immune,name:s.mon&&s.mon.name,info:s.info};
+  send({k:'sp',id:t.id,p:{monOrig:orig,mon:monSnap(m),ac:m.ac,resist:(m.resist||[]).slice(),vulnerable:(m.vulnerable||[]).slice(),immune:(m.immune||[]).slice(),form:null,info:m.stats?Object.assign({},s.info||{},{abilities:Object.assign({},m.stats)}):s.info}});
+  send({k:'sys',text:tr('shapeLog',t.name,m.name)})}
+function shapeBack(t){const o=t.sheet.monOrig;if(!o)return;send({k:'sp',id:t.id,p:{mon:o.mon,ac:o.ac,resist:o.resist,vulnerable:o.vulnerable,immune:o.immune,info:o.info,monOrig:null,form:null}});send({k:'sys',text:tr('shapeBackLog',t.name)})}
+const _mh51=monHud;monHud=function(h){_mh51.apply(this,arguments);try{let b=$('#hudForm');if(!b){b=document.createElement('button');b.id='hudForm';h.insertBefore(b,$('#hudEdit'))}
+  const t=selected,mon=t&&t.sheet&&t.sheet.mon;const F=mon?formsOf(mon):{list:[]};const show=!!mon&&isHost&&(F.list.length||F.ss||t.sheet.monOrig);b.hidden=!show;
+  if(show){b.textContent='🔄 '+(t.sheet.monOrig?t.sheet.mon.name:(t.sheet.form||F.trueF||tr('formBtn')));b.onclick=()=>formMenu(t)}}catch(e){}};
+
+/* ---------- 3. przywołania z czarów: statystyki z formuł (poziom czaru, modyfikatory rzucającego) ---------- */
+const SPIRIT=()=>(CAT.monsters||[]).filter(m=>m.summonSpell);
+function spiritReg(){SPIRIT().forEach(m=>{if(!SUMMON_SP[m.summonSpell]||SUMMON_SP[m.summonSpell].kind==='spirit'){SUMMON_SP[m.summonSpell]={kind:'spirit'};const s=getSpell(m.summonSpell);if(s){s.__augs=0;summonAug(s)}}})}
+spiritReg();const _lc51=loadCatalog;loadCatalog=async function(){const r=await _lc51.apply(this,arguments);try{spiritReg()}catch(e){}return r};
+const variantsOf=m=>{const set=new Set();const txt=[m.hpF,m.acF].concat(m.traits||[],m.actions||[],m.bonusActions||[],m.reactions||[]).join('\n');[...txt.matchAll(/\(([A-Z][\w ,]*?)(?: and ([A-Z]\w+))? Only\)/gi)].forEach(x=>{x[1].split(/,\s*|\s+or\s+|\s+and\s+/).forEach(v=>{v=v.trim();if(v&&!/Form$/i.test(v))set.add(cap1(v.toLowerCase()))});if(x[2])set.add(cap1(x[2].toLowerCase()))});return[...set]};
+function spiritMon(m,variant,L,caster){const i=(caster&&caster.sheet&&caster.sheet.info)||{};const pb=i.prof||2,atk=i.spellAtk!=null?i.spellAtk:pb+abMod((i.abilities||{})[i.spellAb||'wis']||10),dc=i.spellDc||(8+atk);
+  const amod=a=>abMod((i.abilities||{})[a]||10);const V=String(variant||'').toLowerCase();const okV=s=>{const m2=/\(([^)]*?) Only\)/i.exec(String(s));if(!m2||/Form/i.test(m2[1]))return true;return !V||m2[1].toLowerCase().split(/,\s*|\s+or\s+|\s+and\s+/).some(x=>x.trim()===V)};
+  const evalF=(f,def)=>{let s=String(f||'');if(!s)return def;const parts=s.split(/\s+or\s+/);let base=null;
+    parts.forEach(p=>{const n=/^\s*(\d+)/.exec(p);if(!n)return;const vm=/\(([^)]*?) only\)/i.exec(p);if(base==null&&(!vm||(V&&vm[1].toLowerCase().split(/,\s*|\s+and\s+|\s+or\s+/).some(x=>x.trim()===V))))base=+n[1]});if(base==null){const n=/(\d+)/.exec(s);base=n?+n[1]:def}
+    let v=base;if(/\+ the spell's level|plus the spell's level|\+ \d+ per spell level|\d+ per spell level/i.test(s)){const k=/(\d+) per spell level/i.exec(s);v+=k?+k[1]*L:/the spell's level/i.test(s)?L:0}
+    const each=/\+ (\d+) for each spell level above (\d+)/i.exec(s);if(each)v+=+each[1]*Math.max(0,L-+each[2]);
+    const ex=/\+ (\d+) \(([^)]*?) only\)/i.exec(s);if(ex&&V&&ex[2].toLowerCase().split(/,\s*|\s+and\s+/).some(x=>x.trim()===V))v+=+ex[1];
+    const tl=/(?:plus |\+ )?(\w+) times your (\w+) level/i.exec(s);if(tl&&caster){const k=NUMW[tl[1].toLowerCase()]||+tl[1]||1;v+=k*clsLv(i,tl[2].toLowerCase())}
+    const am=/(?:plus|\+) your (\w+) modifier/i.exec(s);if(am){const a=({strength:'str',dexterity:'dex',constitution:'con',intelligence:'int',wisdom:'wis',charisma:'cha'})[am[1].toLowerCase()];if(a)v+=amod(a)}
+    return Math.max(1,v)};
+  const fixLine=l=>{let s=String(l);s=s.replace(/\s*\([^)]*? Only\)\s*/i,m=>/Form/i.test(m)?m:'').replace(/\s+\./,'.');s=s.replace(/\s*\+\s*summonSpellLevel/gi," + the spell's level");
+    s=s.replace(/Bonus equals your spell attack modifier/gi,sg(atk)).replace(/your spell save DC/gi,'DC '+dc).replace(/equals your spell save DC/gi,dc).replace(/DC equals your spell save DC/gi,'DC '+dc);
+    s=s.replace(/a number of ((?:[A-Z][\w']* )*)attacks equal to half this spell's level(?: \(round down\))?/i,(a,w)=>{const n=Math.max(1,Math.floor(L/2));return['','one','two','three','four','five'][n]+' '+(w||'')+(n>1?'attacks':'attack')});
+    s=s.replace(/(\d+)d(\d+)((?:\s*\+\s*\d+)*)((?:\s*(?:\+|plus)\s*(?:the spell's level|this spell's level|your \w+ modifier|your Proficiency Bonus))+)/gi,(all,n,d,flat,ext)=>{let k=0;(flat.match(/\d+/g)||[]).forEach(x=>k+=+x);
+      if(/spell's level/i.test(ext))k+=L;const am=/your (\w+) modifier/i.exec(ext);if(am){const a=({strength:'str',dexterity:'dex',constitution:'con',intelligence:'int',wisdom:'wis',charisma:'cha'})[am[1].toLowerCase()];if(a)k+=amod(a)}if(/Proficiency Bonus/i.test(ext))k+=pb;
+      const avg=Math.floor(+n*(+d+1)/2)+k;return`${avg} (${n}d${d}${k?(k>0?' + ':' - ')+Math.abs(k):''})`});
+    s=s.replace(/Hit: (?!\d+ \()(\d+d\d+(?: [+-] \d+)?)/g,(a,x)=>{const p=parseDmgExpr(x.replace(/\s/g,''));return p?`Hit: ${Math.floor(p.n*(p.s+1)/2)+(p.f||0)} (${x})`:a});
+    s=s.replace(/((?:Bludgeoning|Piercing|Slashing|Acid|Cold|Fire|Force|Lightning|Necrotic|Poison|Psychic|Radiant|Thunder))(?:, (?:Bludgeoning|Piercing|Slashing|Acid|Cold|Fire|Force|Lightning|Necrotic|Poison|Psychic|Radiant|Thunder))*,? or (?:Bludgeoning|Piercing|Slashing|Acid|Cold|Fire|Force|Lightning|Necrotic|Poison|Psychic|Radiant|Thunder) damage(?: \(your choice[^)]*\))?/g,'$1 damage');
+    return s};
+  const c=JSON.parse(JSON.stringify(m));['traits','actions','bonusActions','reactions','legendary'].forEach(k=>{c[k]=(c[k]||[]).filter(okV).map(fixLine)});
+  c.ac=evalF(m.acF,m.ac||10);c.hp=evalF(m.hpF,m.hp||10);c.name=m.name+(variant?' ('+variant+')':'');c.desc=(c.desc?c.desc+'\n':'')+tr('spiritDesc',L);if(m.pbNote)c.traits=(c.traits||[]).concat([`Proficiency. ${tr('spiritPb',pb)}`]);
+  return c}
+const _sp51=summonPanel;summonPanel=function(t,sid,slot){try{const def=SUMMON_SP[sid];if(def&&def.kind==='spirit'){const sp=getSpell(sid)||{},L=Math.max(slot||0,sp.level||1);
+    const mons=SPIRIT().filter(m=>m.summonSpell===sid);const items=[];mons.forEach(m=>{const vs=variantsOf(m);(vs.length?vs:['']).forEach(v=>items.push({label:m.name+(v?' — '+v:''),sub:`${tr('level')} ${L}`,fn:()=>{
+        S.tokens.filter(x=>x.sheet&&x.sheet.summoner===t.id&&x.sheet.summonSid===sid).forEach(x=>send({k:'del',id:x.id}));
+        const c=spiritMon(m,v,L,t);const id=summonPlace(t,c,`${c.name} (${t.name})`,{kind:'spirit',conc:!!sp.concentration,color:'#a8e0ff'});
+        setTimeout(()=>{const k=tokById(id);if(k)send({k:'sp',id,p:{summonSid:sid,hp:c.hp,maxHp:c.hp,ac:c.ac}})},120);send({k:'sys',text:tr('spiritLog',t.name,c.name,L)})}}))});
+    if(items.length)return listPick('🐾 '+(sp.name||sid),items)}}catch(e){console.error(e)}return _sp51.apply(this,arguments)};
+/* koncentracja: gdy rzucający ją traci, przywołaniec znika */
+const _ap51=apply;apply=function(a){let before=null;try{if(isHost&&a&&a.k==='sp'&&a.p&&'conc' in a.p){const t=tokById(a.id);before=t&&t.sheet&&t.sheet.conc&&t.sheet.conc.sid}}catch(e){}
+  const r=_ap51.apply(this,arguments);
+  try{if(before){const t=tokById(a.id);const now=t&&t.sheet&&t.sheet.conc&&t.sheet.conc.sid;if(now!==before)S.tokens.filter(x=>x.sheet&&x.sheet.summoner===a.id&&x.sheet.summonConc&&(!x.sheet.summonSid||x.sheet.summonSid===before)).forEach(x=>{send({k:'del',id:x.id});send({k:'sys',text:tr('spiritGone',x.name)})})}}catch(e){}
+  return r};
+
+/* zachowaj pola przywołań i form w paczkach */
+const _cp51=cleanPack;cleanPack=function(raw){const out=_cp51(raw);try{const src=new Map(((raw&&raw.monsters)||[]).filter(x=>x&&x.id).map(x=>[x.id,x]));
+  (out.monsters||[]).forEach(m=>{const r=src.get(m.id);if(!r)return;['summonSpell','summonClass','acF','hpF','pbNote'].forEach(k=>{if(typeof r[k]==='string')m[k]=r[k].slice(0,300)});['traits','actions','bonusActions','reactions','legendary'].forEach(k=>{if(Array.isArray(r[k])&&r[k].some(x=>typeof x==='string'&&x.length>1990))m[k]=r[k].filter(x=>typeof x==='string').slice(0,60).map(x=>x.slice(0,6000))});if(r.summonLvl)m.summonLvl=+r.summonLvl||0})}catch(e){}return out};
+
+addI18n({randLog:'🎲 {0}: {1} — d{2} = {3} → {4}',trueForm:'true form',formLog:'🔄 {0} changes into its {1} form.',formOther:'Another creature…',formOtherS:'stat block from the catalog, HP kept',formOtherQ:'Change into which creature? (name from the catalog)',
+  formBack:'Back to {0}',shapeLog:'🔄 {0} shape-shifts into {1} (Hit Points stay the same).',shapeBackLog:'🔄 {0} returns to its true form.',formBtn:'Form',
+  spiritDesc:'Summoned with a level {0} slot. Acts right after its summoner; obeys commands (Bonus Action).',spiritPb:'Uses your Proficiency Bonus (+{0}).',spiritLog:'🐾 {0} summons {1} (level {2}).',spiritGone:'🐾 {0} disappears (Concentration ended).'},
+ {randLog:'🎲 {0}: {1} — k{2} = {3} → {4}',trueForm:'prawdziwa forma',formLog:'🔄 {0} przybiera formę: {1}.',formOther:'Inne stworzenie…',formOtherS:'statystyki z katalogu, PW bez zmian',formOtherQ:'W jakie stworzenie się zmienia? (nazwa z katalogu)',
+  formBack:'Powrót do: {0}',shapeLog:'🔄 {0} zmienia się w: {1} (PW bez zmian).',shapeBackLog:'🔄 {0} wraca do prawdziwej formy.',formBtn:'Forma',
+  spiritDesc:'Przywołany slotem {0}. poziomu. Działa zaraz po przywołującym; słucha poleceń (akcja bonusowa).',spiritPb:'Używa twojej premii z biegłości (+{0}).',spiritLog:'🐾 {0} przywołuje: {1} (poziom {2}).',spiritGone:'🐾 {0} znika (koniec koncentracji).'});
+/* Multiattack z tabelą (Eye Rays ×3): losuj każdy promień, także gdy sekwencję ustawiono po starcie */
+const _str51=stRender;stRender=function(){try{if(K&&K.att){if(K.opt&&K.opt.kind==='rand'){const x=randPick(K.att,K.opt);if(x){const nm=K.opt.name;K.opt=JSON.parse(JSON.stringify(x));K.opt.name=nm+': '+x.name;K.rid={};(K.opt.riders||[]).forEach((r,i)=>K.rid[i]=!r.opt)}}
+  if(K.seq&&K.seq.some(x=>x&&x.kind==='rand'))seqResolve51(K.att)}}catch(e){console.error(e)}return _str51.apply(this,arguments)};
+/* Multiattack: „uses Eye Rays three times”, „uses Frightful Presence and makes two Claw attacks” */
+const _mp51=multiPlan;multiPlan=function(t){const r=_mp51.apply(this,arguments);try{const mon=t.sheet&&t.sheet.mon;const ma=mon&&(mon.actions||[]).find(a=>/^Multiattack/i.test(a));if(!ma)return r;
+  const all=monStrikeOpts(t);const by=n=>all.find(o=>nrm49(o.name)===nrm49(n));const T={once:1,twice:2,'two times':2,'three times':3,'four times':4};const uses=[];
+  [...String(ma).matchAll(/\buses (?!Spellcasting)([A-Z][\w'’ -]+?)(?:\s+(once|twice|two times|three times|four times|\d+ times))?(?=[.,;]| and | or |$)/g)].forEach(m=>{const o=by(m[1]);if(!o)return;const n=T[m[2]]||parseInt(m[2])||1;for(let i=0;i<n;i++)uses.push(o)});
+  if(!uses.length)return r;const expl=[];const re=/\b(one|two|three|four|five|six|\d+)\s+([A-Z][\w'’ -]*?)\s+attacks?\b/g;let m;while((m=re.exec(ma))){const n=NUMW[m[1].toLowerCase()]||+m[1]||1,o=by(m[2]);if(o)for(let i=0;i<n;i++)expl.push(o)}
+  return{plan:uses.concat(expl),text:ma,alts:(r&&r.alts)||all}}catch(e){return r}};
+
+/* ================= m52: przywołania tylko dla tych, którzy mogą; Rage bez ciężkiej zbroi; pilnowanie akcji w walce; drzwi tylko przez DM-a ================= */
+RULE_OPTS.econ={modes:['block','warn','off'],def:'block'};
+RULE_OPTS.doors={modes:['dm','near'],def:'dm'};
+
+/* ---------- 1. przywołania ---------- */
+function summonSources(t){const i=(t&&t.sheet&&t.sheet.info)||{};const out={spells:[],wild:false,beast:false};
+  Object.keys(SUMMON_SP).forEach(id=>{if(knows(t,id))out.spells.push(id)});
+  out.wild=clsLv(i,'druid')>=2;out.beast=clsLv(i,'ranger')>=3&&/beast/i.test(String(i.subclass||''));return out}
+const canSummon=t=>{if(isHost)return true;const s=summonSources(t);return s.spells.length||s.wild||s.beast};
+const _hx52=hudExtra;hudExtra=function(){_hx52.apply(this,arguments);try{const t=selected,row=$('#hudSum');if(!row||!t||!isPc(t))return;
+  const b=[...row.querySelectorAll('button')].find(x=>x.textContent.startsWith('🐾'));if(b&&!canSummon(t))b.remove()}catch(e){}};
+const _sp52=summonPanel;summonPanel=function(t,sid,slot){if(sid||isHost)return _sp52.apply(this,arguments);try{const s=summonSources(t),items=[];
+    s.spells.forEach(id=>{const sp=getSpell(id);if(sp)items.push({label:'✨ '+sp.name,sub:tr('sumCast'),fn:()=>{selectToken(t);activateSpell(sp)}})});
+    if(s.wild)wildForms(t).forEach(m=>items.push({label:'🐻 '+m.name,sub:'Wild Shape · CR '+m.cr,fn:()=>wildShape(t,m)}));
+    if(s.beast)(CAT.monsters||[]).filter(m=>m.summonClass==='ranger').forEach(m=>items.push({label:'🐾 '+m.name,sub:tr('sumBeast'),fn:()=>{
+      S.tokens.filter(x=>x.sheet&&x.sheet.summoner===t.id&&x.sheet.summonKind==='beast').forEach(x=>send({k:'del',id:x.id}));const c=spiritMon(m,'',0,t);summonPlace(t,c,`${m.name} (${t.name})`,{kind:'beast',color:'#c8e6a0'})}}));
+    if(!items.length)return say(tr('sumNone',esc(t.name)),'sys');return listPick('🐾 '+t.name,items)}catch(e){console.error(e)}};
+
+/* ---------- 2. Rage nie w ciężkiej zbroi ---------- */
+const heavyOn=t=>((t&&t.sheet&&t.sheet.info&&t.sheet.info.items)||[]).some(w=>w.equipped&&w.kind==='armor'&&w.cat==='heavy');
+const _ru52=resUse;resUse=function(ctx,d){try{if(d&&d.act==='rage'&&ctx&&ctx.t&&!hasC(ctx.t,'raging')&&heavyOn(ctx.t))return say(tr('rageHeavy',esc(ctx.t.name)),'sys')}catch(e){}return _ru52.apply(this,arguments)};
+const _ap52=apply;apply=function(a){const r=_ap52.apply(this,arguments);try{if(isHost&&a&&a.k==='sp'&&a.p&&a.p.info){const t=tokById(a.id);if(t&&hasC(t,'raging')&&heavyOn(t)){const f=fxOf(t).find(x=>x.c==='raging');if(f){removeFx(t.id,f.id);send({k:'sys',text:tr('rageHeavyEnd',t.name)})}}}}catch(e){}return r};
+
+/* ---------- 3. akcje w walce: gracze nie mogą zrobić więcej, niż pozwalają zasady ---------- */
+const fightOn=()=>!!(S.combat&&S.combat.started);
+function econGate(t,use,what){try{if(!t||!t.sheet||!fightOn())return true;const mode=rm('econ');if(mode==='off')return true;const e=econOf(t),cur=curTurnTok()===t;
+  let bad='';if(use==='free')return true;
+  if(use==='reaction'){if(!e.r)bad=tr('egNoR')}
+  else if(!cur)bad=tr('egNotTurn');
+  else if(use==='bonus'){if(!e.b)bad=tr('egNoB')}
+  else if(use==='attack'){if(!(e.atk>0||e.a))bad=tr('egNoA')}
+  else if(use==='action'){if(!e.a)bad=tr('egNoA')}
+  if(!bad)return true;const msg=`⛔ ${esc(t.name)}: ${bad}${what?' ('+esc(what)+')':''}`;
+  if(isHost||mode==='warn'){say(msg+(isHost?' — '+tr('egDm'):''),'sys');return true}say(msg,'sys');return false}catch(x){return true}}
+const _sr52=strikeRoll;strikeRoll=function(){try{if(K&&K.att&&K.opt&&isPc(K.att)){const k=K.opt.kind;if(k==='atk'||k==='grapple'||k==='shove'){const u=K.uses==='bonus'?'bonus':K.uses==='reaction'?'reaction':K.uses==='free'?'free':'attack';
+  if(!econGate(K.att,u,K.opt.name))return}}}catch(e){}return _sr52.apply(this,arguments)};
+const ctUse=sp=>{const c=String((sp&&sp.castingTime)||'').toLowerCase();return/reaction/.test(c)?'reaction':/bonus/.test(c)?'bonus':/^\s*(1 )?action|^action/.test(c)?'action':'free'};
+const _as52=activateSpell;activateSpell=function(def){try{if(def&&selected&&isPc(selected)&&fightOn()){if(!econGate(selected,ctUse(def),def.name))return}}catch(e){}return _as52.apply(this,arguments)};
+/* rzucenie czaru zużywa akcję / akcję bonusową / reakcję */
+const _sd52=send;send=function(a){try{if(a&&a.k==='cast'&&fightOn()&&!a.econ52){const t=tokById(a.cid),sp=getSpell(a.sid);if(t&&isPc(t)&&sp&&!(a.rep||a.sustain)){const u=ctUse(sp),e=econOf(t);a.econ52=1;
+  if(u==='action'&&e.a)setTimeout(()=>econSet(t,{a:0,atk:0}),30);else if(u==='bonus'&&e.b)setTimeout(()=>econSet(t,{b:0}),30);else if(u==='reaction'&&e.r)setTimeout(()=>econSet(t,{r:0}),30)}}}catch(e){}return _sd52.apply(this,arguments)};
+/* pasek akcji: Dash/Dodge/… tylko z wolną akcją; gracz nie przywraca sam zużytych akcji */
+const _abr52=actBarRender;actBarRender=function(){_abr52.apply(this,arguments);try{const ab=$('#actBar'),t=actTarget();if(!ab||ab.hidden||!t||!canCtl(t)||!isPc(t)||!fightOn())return;
+  ab.querySelectorAll('.abBtn').forEach(b=>{if(b.classList.contains('big')||b.dataset.g52)return;const txt=b.textContent;const use=/Dash|Dodge|Disengage|Help|Hide|Search|Study|Influence|Utilize|Ready|Magic/i.test(txt)?'action':null;if(!use)return;
+    b.dataset.g52=1;const fn=b.onclick;b.onclick=e=>{if(!econGate(t,use,txt.replace(/^\W+/,'')))return;return fn&&fn.call(b,e)}});
+  if(!isHost&&rm('econ')==='block')ab.querySelectorAll('.abPip.used').forEach(b=>{b.onclick=()=>say(tr('egRestore'),'sys')})}catch(e){}};
+
+/* ---------- 4. drzwi: gracze proszą DM-a ---------- */
+function doorAsk(w,who){if(!isHost)return;let box=$('#doorAsk');if(box)box.remove();box=document.createElement('div');box.id='doorAsk';box.className='rxBox';
+  box.innerHTML=`<b>🚪 ${esc(tr('doorReqT',who||'?'))}</b><div class="smd">${esc(tr(w.open?'doorReqClose':'doorReqOpen'))}</div>`;const row=document.createElement('div');row.className='rxBtns';
+  const y=document.createElement('button');y.textContent=w.open?tr('doorClose'):tr('doorOpen');y.onclick=()=>{box.remove();send({k:'wall',op:'upd',id:w.id,p:{open:!w.open}});send({k:'sys',text:tr('doorDone',who||'?',tr(w.open?'doorClosedW':'doorOpenedW'))})};
+  const n=document.createElement('button');n.textContent=tr('doorNo');n.onclick=()=>{box.remove();send({k:'sys',text:tr('doorDenied',who||'?')})};row.append(y,n);box.append(row);document.body.append(box)}
+function hostGuard(a,c){try{if(!a)return true;
+  if(a.k==='doorReq'){const w=walls().find(x=>x.id===a.id);if(w)doorAsk(w,a.who);return false}
+  if(a.k==='wall'&&rm('doors')==='dm'){/* gracz nie przełącza drzwi bez zgody DM-a */if(a.op==='upd'&&a.p&&'open' in a.p){const w=walls().find(x=>x.id===a.id);if(w)doorAsk(w,a.who||tr('player'));return false}if(a.op!=='upd')return false}
+  }catch(e){}return true}
+document.addEventListener('click',e=>{try{const b=e.target.closest&&e.target.closest('.doorB');if(!b||isHost||rm('doors')!=='dm')return;e.stopPropagation();e.preventDefault();
+  const mx=parseFloat(b.style.left),my=parseFloat(b.style.top);const w=walls().filter(x=>x.type==='door').find(x=>Math.abs((x.x1+x.x2)/2-mx)<1&&Math.abs((x.y1+x.y2)/2-my)<1);if(!w)return;
+  const mine=S.tokens.find(t=>t.owner===me&&t.sheet);send({k:'doorReq',id:w.id,who:mine?mine.name:((typeof myName!=='undefined'&&myName)||tr('player'))});say(tr('doorAsked'),'sys')}catch(x){}},true);
+
+addI18n({sumCast:'cast the spell (uses a slot)',sumBeast:'Beast Master companion',sumNone:'{0} has nothing to summon (no summoning spell, Wild Shape or companion).',
+  rageHeavy:'{0} cannot Rage while wearing Heavy armor.',rageHeavyEnd:'{0} put on Heavy armor — Rage ends.',
+  egNotTurn:'not your turn',egNoA:'no Action left this turn',egNoB:'no Bonus Action left',egNoR:'Reaction already used this round',egDm:'allowed because you are the DM',egRestore:'Only the DM can restore a spent action.',
+  rn_econ:'Action limits in combat',rd_econ:'Players cannot attack, cast or Dash more than their Action / Bonus Action / Reaction allow, nor act outside their turn.',rm_block:'Block',rm_warn:'Warn only',
+  rn_doors:'Doors',rd_doors:'Who opens doors: only the DM (players send a request) or a player standing next to the door.',rm_dm:'DM only',rm_near:'Player next to it',
+  doorReqT:'{0} wants to use a door',doorReqOpen:'Open this door?',doorReqClose:'Close this door?',doorOpen:'Open',doorClose:'Close',doorNo:'Not now',doorDone:'🚪 DM: the door is {1} ({0}).',doorOpenedW:'open',doorClosedW:'closed',
+  doorDenied:'🚪 The DM keeps the door as it is ({0}).',doorAsked:'🚪 Asked the DM to open the door.',player:'player'},
+ {sumCast:'rzuć czar (zużywa slot)',sumBeast:'towarzysz Beast Mastera',sumNone:'{0} nie ma kogo przywołać (brak czaru przywołania, Wild Shape ani towarzysza).',
+  rageHeavy:'{0} nie może wpaść w szał w ciężkiej zbroi.',rageHeavyEnd:'{0} założył ciężką zbroję — szał się kończy.',
+  egNotTurn:'to nie twoja tura',egNoA:'brak akcji w tej turze',egNoB:'brak akcji bonusowej',egNoR:'reakcja już zużyta w tej rundzie',egDm:'dozwolone, bo jesteś DM-em',egRestore:'Tylko DM może przywrócić zużytą akcję.',
+  rn_econ:'Limity akcji w walce',rd_econ:'Gracze nie mogą atakować, rzucać czarów ani robić Dash ponad to, na co pozwala akcja / akcja bonusowa / reakcja, ani działać poza swoją turą.',rm_block:'Blokuj',rm_warn:'Tylko ostrzegaj',
+  rn_doors:'Drzwi',rd_doors:'Kto otwiera drzwi: tylko DM (gracze wysyłają prośbę) albo gracz stojący obok.',rm_dm:'Tylko DM',rm_near:'Gracz obok',
+  doorReqT:'{0} chce użyć drzwi',doorReqOpen:'Otworzyć te drzwi?',doorReqClose:'Zamknąć te drzwi?',doorOpen:'Otwórz',doorClose:'Zamknij',doorNo:'Nie teraz',doorDone:'🚪 DM: drzwi są {1} ({0}).',doorOpenedW:'otwarte',doorClosedW:'zamknięte',
+  doorDenied:'🚪 DM zostawia drzwi bez zmian ({0}).',doorAsked:'🚪 Poproszono DM-a o otwarcie drzwi.',player:'gracz'});
+
+/* ================= m53: połączenie przez serwer pokoi (WebSocket) zamiast PeerJS, gdy gra stoi na własnym serwerze =================
+   Ten sam interfejs co PeerJS (new Peer(id), on('open'|'connection'|'error'|'disconnected'), connect(), conn.on/send/close),
+   więc reszta gry nic nie wie o zmianie. Gdy serwera nie ma (np. GitHub Pages) — zostaje PeerJS. */
+const RELAY_CHUNK=4*1024*1024;
+function relayUrlGuess(){try{const m=document.querySelector('meta[name="dm-relay"]');if(m&&m.content)return m.content.replace(/\/$/,'');
+  if(window.DM_RELAY)return String(window.DM_RELAY).replace(/\/$/,'')}catch(e){}return''}
+class RelayEm{constructor(){this._h={}}on(e,f){(this._h[e]=this._h[e]||[]).push(f);return this}_emit(e,...a){(this._h[e]||[]).forEach(f=>{try{f(...a)}catch(x){console.error(x)}})}}
+class RelayConn extends RelayEm{
+  constructor(peer,pid,ws){super();this.peer=pid;this.open=false;this._p=peer;this._ws=ws;this._parts={}}
+  send(d){const s=JSON.stringify(d);if(s.length<=RELAY_CHUNK)return this._raw(s);const id=Math.random().toString(36).slice(2),n=Math.ceil(s.length/RELAY_CHUNK);
+    for(let i=0;i<n;i++)this._raw(null,{id,i,n,s:s.slice(i*RELAY_CHUNK,(i+1)*RELAY_CHUNK)})}
+  _raw(s,c){const ws=this._ws||this._p._ws;if(!ws||ws.readyState!==1)return;const o=c?{t:'msg',c}:{t:'msg',d:s};if(this._p._host)o.pid=this.peer;try{ws.send(JSON.stringify(o))}catch(e){}}
+  _in(m){if(m.c){const c=m.c,b=this._parts[c.id]||(this._parts[c.id]=[]);b[c.i]=c.s;if(b.filter(x=>x!=null).length<c.n)return;delete this._parts[c.id];m={d:b.join('')}}
+    let d;try{d=JSON.parse(m.d)}catch(e){return}this._emit('data',d)}
+  close(){if(!this.open)return;this.open=false;if(this._p._host){try{this._p._ws.send(JSON.stringify({t:'kick',pid:this.peer}))}catch(e){}}else{try{this._ws.close(1000)}catch(e){}}this._emit('close')}
+}
+class RelayPeer extends RelayEm{
+  constructor(id){super();this.id=id||('p'+Math.random().toString(36).slice(2,10));this.open=false;this.destroyed=false;this.disconnected=false;this._host=!!id;this._conns={};
+    if(this._host)this._dialHost();else setTimeout(()=>{this.open=true;this._emit('open',this.id)},0)}
+  _url(room,role){return`${RELAY}/room/${encodeURIComponent(room)}?role=${role}&pid=${encodeURIComponent(this.id)}`}
+  _dialHost(){let ws;try{ws=new WebSocket(this._url(this.id,'host'))}catch(e){return this._emit('error',{type:'network'})}this._ws=ws;
+    ws.onmessage=ev=>{let m;try{m=JSON.parse(ev.data)}catch(e){return}
+      if(m.t==='ready'){const first=!this.open;this.open=true;this.disconnected=false;if(first)this._emit('open',this.id)}
+      else if(m.t==='join'){const old=this._conns[m.pid];if(old&&old.open){old.open=false;old._emit('close')}const c=new RelayConn(this,m.pid,null);this._conns[m.pid]=c;this._emit('connection',c);setTimeout(()=>{c.open=true;c._emit('open')},0)}
+      else if(m.t==='leave'){const c=this._conns[m.pid];if(c&&c.open){c.open=false;c._emit('close')}delete this._conns[m.pid]}
+      else if(m.t==='msg'){const c=this._conns[m.pid];if(c)c._in(m)}};
+    ws.onclose=ev=>{if(this.destroyed||ws!==this._ws)return;if(ev.code===4001)return;this.disconnected=true;Object.values(this._conns).forEach(c=>{if(c.open){c.open=false;c._emit('close')}});this._conns={};this._emit('disconnected')};
+    ws.onerror=()=>{}}
+  reconnect(){if(this.destroyed)return;if(this._host){if(!this._ws||this._ws.readyState>1)this._dialHost()}else{this.disconnected=false}}
+  destroy(){this.destroyed=true;try{this._ws&&this._ws.close(1000)}catch(e){}Object.values(this._conns).forEach(c=>{try{c._ws&&c._ws.close(1000)}catch(e){}})}
+  connect(room){let ws;const c=new RelayConn(this,room,null);try{ws=new WebSocket(this._url(room,'peer'))}catch(e){setTimeout(()=>this._emit('error',{type:'network'}),0);return c}c._ws=ws;
+    ws.onmessage=ev=>{let m;try{m=JSON.parse(ev.data)}catch(e){return}
+      if(m.t==='open'){c.open=true;c._emit('open')}
+      else if(m.t==='err'){this._emit('error',{type:m.type||'peer-unavailable',max:m.max});if(m.type==='room-full')try{status('roomFull',m.max)}catch(e){}}
+      else if(m.t==='hostgone'){if(c.open){c.open=false;c._emit('close')}try{ws.close(1000)}catch(e){}}
+      else if(m.t==='msg')c._in(m)};
+    ws.onclose=()=>{if(c.open){c.open=false;c._emit('close')}};ws.onerror=()=>{};
+    /* podtrzymanie (proxy potrafią zrywać ciche połączenia) */
+    const iv=setInterval(()=>{if(ws.readyState!==1)return clearInterval(iv);try{ws.send('{"t":"ping"}')}catch(e){}},25000);
+    return c}
+}
+let RELAY=relayUrlGuess();
+function relayInstall(){if(!RELAY)return false;window.Peer=RelayPeer;try{Peer=RelayPeer}catch(e){}document.documentElement.dataset.net='relay';return true}
+if(!relayInstall()&&/^https?:$/.test(location.protocol)&&!/github\.io$|^localhost$|^127\./.test(location.hostname)){
+  /* ta sama domena ma serwer pokoi? (Cloudflare Worker odpowiada na /health) */
+  const ctl=new AbortController();setTimeout(()=>ctl.abort(),1500);
+  fetch('/health',{cache:'no-store',signal:ctl.signal}).then(r=>r.ok?r.text():'').then(t=>{if(t.trim()==='ok'){RELAY=(location.protocol==='https:'?'wss://':'ws://')+location.host;relayInstall()}}).catch(()=>{})}
+addI18n({roomFull:'This room is full ({0} players).'},{roomFull:'Pokój jest pełny ({0} graczy).'});
+
+/* ================= m54: galeria ikon dla żetonów (game-icons.net, CC BY 3.0) + automatyczne ikony potworów ================= */
+const ICO_BASES=['icons/','https://omxed99.github.io/DnD-Mates/icons/'];
+const ICO_ATTR='Icons by Lorc, Delapouite and other contributors — game-icons.net — licensed under CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/).';
+let ICO_IDX=null,ICO_BASE=null;const ICO_CH={};
+async function icoFetch(path){for(const b of(ICO_BASE?[ICO_BASE]:ICO_BASES)){try{const r=await fetch(b+path,{cache:'force-cache'});if(r.ok){ICO_BASE=b;return await r.json()}}catch(e){}}throw new Error('icons unavailable')}
+async function icoIndex(){if(!ICO_IDX){const j=await icoFetch('index.json');ICO_IDX=j.icons.map(([n,a])=>({n,a,k:a+'/'+n,w:n.split('-')}))}return ICO_IDX}
+async function icoBody(k){const n=k.split('/')[1];const ch=/^[a-z]/.test(n)?n[0]:'0';if(!ICO_CH[ch])ICO_CH[ch]=icoFetch('i-'+ch+'.json');return(await ICO_CH[ch])[k]||''}
+const icoSvg=(body,fg,bg,pad)=>{const s=pad==null?.72:pad,o=(512-512*s)/2;return`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">${bg&&bg!=='none'?`<rect width="512" height="512" fill="${bg}"/>`:''}<g fill="${fg}" transform="translate(${o} ${o}) scale(${s})">${body}</g></svg>`};
+const icoUrl=svg=>'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+function icoPng(body,fg,bg,size){return new Promise((ok,no)=>{const im=new Image();im.onload=()=>{const c=document.createElement('canvas');c.width=c.height=size||200;const x=c.getContext('2d');x.drawImage(im,0,0,c.width,c.height);try{ok(c.toDataURL('image/png'))}catch(e){no(e)}};im.onerror=no;im.src=icoUrl(icoSvg(body,fg,bg))})}
+const lum=h=>{const m=/^#?([0-9a-f]{6})$/i.exec(h||'');if(!m)return .5;const n=parseInt(m[1],16);return(.299*(n>>16)+.587*(n>>8&255)+.114*(n&255))/255};
+const fgFor=bg=>lum(bg)>.6?'#1b1b22':'#ffffff';
+
+/* kategorie (słowa w nazwach ikon) */
+const ICO_CATS=[
+  ['icoMon',/head|face|monster|beast|dragon|troll|ogre|giant|goblin|orc|imp|demon|devil|ghost|skull|zombie|vampire|werewolf|minotaur|cyclops|hydra|medusa|harpy|gargoyle|golem|kraken|tentacle|slime|spider|scorpion|wyvern|griffin|centaur|mermaid|djinn|lizardman|sasquatch|spectre|evil|undead|reaper|mummy/],
+  ['icoPeople',/face|head|helm|hood|cowl|wizard|knight|archer|bowman|barbarian|monk|ninja|rogue|priest|queen|king|pirate|cultist|person|woman|man|elf|dwarf|warrior|mage/],
+  ['icoAnimals',/wolf|bear|cat|rat|bat|bird|eagle|owl|raven|horse|boar|fox|snake|cobra|spider|crab|octopus|shark|fish|frog|lion|tiger|deer|dog|hound|goat|cow|bull|ant|wasp|bee|beetle|scorpion|lizard|turtle|dinosaur|rabbit|monkey|ape/],
+  ['icoWeapons',/sword|axe|bow|dagger|spear|mace|hammer|halberd|scythe|crossbow|arrow|shield|flail|whip|trident|club|staff|katana|sabre|rapier/],
+  ['icoMagic',/magic|spell|wand|orb|rune|crystal|fire|ice|lightning|bolt|aura|portal|scroll|book|potion|ritual|star|sun|moon|holy|curse|skull|eye/],
+  ['icoItems',/chest|potion|ring|amulet|necklace|key|coin|gem|lantern|torch|rope|bag|backpack|book|scroll|map|helmet|armor|boot|glove|cloak|crown|bottle|flask/],
+  ['icoPlaces',/house|castle|tower|tree|forest|mountain|cave|door|gate|bridge|camp|tent|ship|boat|wagon|well|altar|tomb|grave|statue/]];
+const CLASS_ICO={barbarian:'barbarian',bard:'lyre',cleric:'holy-symbol',druid:'oak-leaf',fighter:'visored-helm',monk:'monk-face',paladin:'templar-shield',ranger:'bowman',rogue:'rogue',sorcerer:'fire-ray',warlock:'warlock-eye',wizard:'wizard-face'};
+const TYPE_ICO={aberration:'tentacles-skull',beast:'wolf-head',celestial:'angel-wings',construct:'robot-golem',dragon:'dragon-head',elemental:'fire-silhouette',fey:'fairy',fiend:'devil-mask',giant:'giant',humanoid:'hood',monstrosity:'monster-grasp',ooze:'slime',plant:'plant-roots',undead:'skull-crossed-bones',swarm:'bat'};
+function icoGuess(t){const I=ICO_IDX||[];const by=n=>I.find(x=>x.n===n);const words=String(t.name||'').toLowerCase().replace(/\s+\d+$/,'').replace(/[^a-z ]/g,' ').split(/\s+/).filter(w=>w.length>2).map(w=>w.replace(/(ies)$/,'y').replace(/s$/,''));
+  for(let i=words.length-1;i>=0;i--){const w=words[i];for(const n of[w+'-head',w+'-face',w]){const x=by(n);if(x)return x}}
+  for(let i=words.length-1;i>=0;i--){const w=words[i];const x=I.find(z=>z.w.includes(w));if(x)return x}
+  const i=t.sheet&&t.sheet.info;if(i&&i.classes&&i.classes[0]){const x=by(CLASS_ICO[i.classes[0].name]);if(x)return x}
+  const ty=String((t.sheet&&t.sheet.mon&&t.sheet.mon.type)||'').toLowerCase();for(const k in TYPE_ICO)if(ty.includes(k)){const x=by(TYPE_ICO[k]);if(x)return x}return null}
+async function icoApply(t,k,fg,bg){const body=await icoBody(k);if(!body)return;const png=await icoPng(body,fg,bg,200);send({k:'tkp',id:t.id,p:{img:png,ico:{k,fg,bg},art:null}})}
+
+/* galeria */
+async function icoGallery(t){let idx;try{idx=await icoIndex()}catch(e){return say(tr('icoNone'),'sys')}
+  let box=$('#icoModal');if(box)box.remove();box=document.createElement('div');box.id='icoModal';
+  const bg0=(t.ico&&t.ico.bg)||t.color||'#555',fg0=(t.ico&&t.ico.fg)||fgFor(bg0);
+  box.innerHTML=`<div class="libp icoBox"><div class="libh"><h1>🎨 ${esc(tr('icoH'))}</h1><button id="icoX">${esc(tr('close'))}</button></div>
+    <div class="icoTop"><input id="icoQ" type="search" placeholder="${esc(tr('icoSearch'))}"><label>${esc(tr('icoFg'))} <input id="icoFg" type="color" value="${fg0}"></label><label>${esc(tr('icoBg'))} <input id="icoBg" type="color" value="${/^#[0-9a-f]{6}$/i.test(bg0)?bg0:'#555555'}"></label></div>
+    <div class="icoCats"></div><div class="icoGrid"></div><div class="icoFoot"><div class="icoPrev"></div><div class="icoSel smd"></div>
+    <label class="smd" ${isHost&&!isPc(t)?'':'hidden'}><input type="checkbox" id="icoAll"> ${esc(tr('icoAll'))}</label><button id="icoOk" class="primary" disabled>${esc(tr('icoSet'))}</button></div>
+    <div class="smd icoAttr">${esc(ICO_ATTR)}</div></div>`;
+  document.body.append(box);const Qe=s=>box.querySelector(s);let cat=null,sel=null,q='';const guess=icoGuess(t);
+  const cats=Qe('.icoCats');[['icoSuggest',null]].concat(ICO_CATS).forEach(([k,re])=>{const b=document.createElement('button');b.textContent=tr(k);b.onclick=()=>{cat=k;cats.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));draw()};cats.append(b)});
+  const list=()=>{let L=idx;if(q){const ws=q.toLowerCase().split(/\s+/).filter(Boolean);L=L.filter(x=>ws.every(w=>x.n.includes(w)))}
+    else if(cat==='icoSuggest'||!cat){const base=guess?guess.w.filter(w=>w.length>2&&!['head','face'].includes(w)):[];L=(guess?[guess]:[]).concat(idx.filter(x=>x!==guess&&base.some(w=>x.w.includes(w)))).slice(0,60);if(L.length<20){const pc=t.sheet&&t.sheet.info&&t.sheet.info.classes;const re=pc?ICO_CATS[1][1]:ICO_CATS[0][1];L=L.concat(idx.filter(x=>re.test(x.n)&&!/dice|faces|die-|card/.test(x.n)).slice(0,140))}}
+    else{const re=(ICO_CATS.find(c=>c[0]===cat)||[])[1];if(re)L=L.filter(x=>re.test(x.n))}return L.slice(0,180)};
+  const grid=Qe('.icoGrid');let gen=0;
+  const draw=async()=>{const my=++gen;const L=list();grid.innerHTML='';const fg=Qe('#icoFg').value,bg=Qe('#icoBg').value;
+    for(const x of L){const b=document.createElement('button');b.className='icoCell'+(sel===x.k?' on':'');b.title=x.n.replace(/-/g,' ');b.onclick=()=>{sel=x.k;grid.querySelectorAll('.icoCell').forEach(c=>c.classList.toggle('on',c===b));prev()};grid.append(b);
+      icoBody(x.k).then(body=>{if(my!==gen)return;b.style.backgroundImage=`url("${icoUrl(icoSvg(body,fg,bg,.8))}")`}).catch(()=>{})}
+    if(!L.length)grid.innerHTML=`<div class="smd">${esc(tr('icoEmpty'))}</div>`};
+  const prev=async()=>{const ok=Qe('#icoOk');ok.disabled=!sel;if(!sel)return;const body=await icoBody(sel);Qe('.icoPrev').style.backgroundImage=`url("${icoUrl(icoSvg(body,Qe('#icoFg').value,Qe('#icoBg').value))}")`;
+    const it=idx.find(x=>x.k===sel);Qe('.icoSel').textContent=`${it.n.replace(/-/g,' ')} · ${it.a}`};
+  let tm=0;Qe('#icoQ').oninput=e=>{clearTimeout(tm);tm=setTimeout(()=>{q=e.target.value.trim();draw()},180)};
+  Qe('#icoFg').oninput=Qe('#icoBg').oninput=()=>{clearTimeout(tm);tm=setTimeout(()=>{draw();prev()},120)};
+  Qe('#icoX').onclick=()=>box.remove();box.onclick=e=>{if(e.target===box)box.remove()};
+  Qe('#icoOk').onclick=async()=>{if(!sel)return;const fg=Qe('#icoFg').value,bg=Qe('#icoBg').value;const all=Qe('#icoAll')&&Qe('#icoAll').checked;
+    const base=String(t.name).replace(/\s+\d+$/,'');const targets=all?S.tokens.filter(x=>String(x.name).replace(/\s+\d+$/,'')===base):[t];
+    for(const x of targets)await icoApply(x,sel,fg,bg);box.remove()};
+  cats.querySelector('button').classList.add('on');cat='icoSuggest';if(guess)sel=guess.k;draw();prev()}
+
+/* przycisk „🎨 Ikona” obok „🖼 Obrazek” w pasku żetonu */
+const _hx54=hudExtra;hudExtra=function(){_hx54.apply(this,arguments);try{const t=selected;if(!t||!canCtl(t))return;const up=[...document.querySelectorAll('#hudSum button, #hud button')].find(b=>/^🖼/.test(b.textContent));if(!up||up.nextSibling&&up.nextSibling.id==='hudIco')return;
+  const b=document.createElement('button');b.id='hudIco';b.textContent='🎨 '+tr('icoBtn');b.onclick=()=>icoGallery(t);up.after(b)}catch(e){}};
+
+/* automatyczne ikony dla nowych potworów (DM; wyłącznik w ⚙ Zasady sesji) */
+RULE_OPTS.autoico={modes:['on','off'],def:'on'};
+const _ap54=apply;apply=function(a){const r=_ap54.apply(this,arguments);try{if(isHost&&a&&a.k==='add'&&a.t&&!a.t.img&&a.t.sheet&&a.t.sheet.mon&&rm('autoico')==='on'){const id=a.t.id;
+  (typeof artFirst==='function'?artFirst(tokById(id)||a.t):Promise.resolve(false)).then(done=>done?null:icoIndex()).then(ix=>{if(!ix)return;const t=tokById(id);if(!t||t.img)return;const g=icoGuess(t);if(!g)return;const bg=t.color||'#8a3b3b';return icoApply(t,g.k,fgFor(bg),bg)}).catch(()=>{})}}catch(e){}return r};
+
+/* uznanie autorstwa w „O grze” */
+try{if(typeof SRD_ATTR!=='undefined'){const _ah54=attrHtml;attrHtml=function(){return _ah54()+'<br><br>'+esc(ICO_ATTR).replace(/(https:\/\/[^\s)]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>')}}}catch(e){}
+
+addI18n({icoBtn:'Icon',icoH:'Choose an icon',icoSearch:'Search (English, e.g. goblin, sword, dragon)…',icoFg:'Icon',icoBg:'Background',icoSet:'Use this icon',icoAll:'All tokens with this name',icoEmpty:'Nothing found.',
+  icoNone:'Icons are not available (no connection to the icon set).',icoSuggest:'Suggested',icoMon:'Monsters',icoPeople:'People',icoAnimals:'Animals',icoWeapons:'Weapons',icoMagic:'Magic',icoItems:'Items',icoPlaces:'Places',
+  rn_autoico:'Monster icons',rd_autoico:'New monster tokens get a matching icon automatically (you can change it with 🎨 Icon).',rm_on:'On'},
+ {icoBtn:'Ikona',icoH:'Wybierz ikonę',icoSearch:'Szukaj po angielsku (np. goblin, sword, dragon)…',icoFg:'Ikona',icoBg:'Tło',icoSet:'Użyj tej ikony',icoAll:'Wszystkie żetony o tej nazwie',icoEmpty:'Nic nie znaleziono.',
+  icoNone:'Ikony są niedostępne (brak połączenia z zestawem ikon).',icoSuggest:'Proponowane',icoMon:'Potwory',icoPeople:'Postacie',icoAnimals:'Zwierzęta',icoWeapons:'Broń',icoMagic:'Magia',icoItems:'Przedmioty',icoPlaces:'Miejsca',
+  rn_autoico:'Ikony potworów',rd_autoico:'Nowe żetony potworów dostają pasującą ikonę automatycznie (zmienisz ją przyciskiem 🎨 Ikona).',rm_on:'Włączone'});
+
+/* ================= m55: portrety żetonów — wbudowana paczka obrazów (art/) + własne paczki trzymane lokalnie ================= */
+const ART_BASES=['art/','https://omxed99.github.io/DnD-Mates/art/'];
+const ART_ATTR='Creature portraits from Battle for Wesnoth (https://www.wesnoth.org) by the Wesnoth artists — GNU GPL v2+ / CC BY-SA 4.0. “The Free Monsters” by Justin Nichol (https://opengameart.org/content/the-free-monsters) — CC BY-SA 4.0.';
+const ART_BG='#2d3240';let ART_BI=null,ART_USER=null;const ART_IMG={};
+const artNorm=s=>String(s||'').toLowerCase().replace(/\([^)]*\)/g,' ').replace(/[’'`]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+const artBase=t=>String((t.sheet&&t.sheet.mon&&t.sheet.mon.name)||t.name||'').replace(/\s+\d+$/,'');
+
+/* wbudowana paczka: art/<pakiet>/index.json + obrazki webp, ładowane leniwie */
+const ART_BI_IDS=['nichol','wesnoth'];
+async function artBuiltin(){if(ART_BI)return ART_BI;const out=[];for(const id of ART_BI_IDS){for(const b of ART_BASES){try{const r=await fetch(b+id+'/index.json',{cache:'force-cache'});if(r.ok){const j=await r.json();j.id='bi-'+id;j.base=b+id+'/';j.builtin=true;out.push(j);break}}catch(e){}}}return ART_BI=out}
+/* własne paczki: lista w kv 'artPacks', obrazy w kv 'art:<id>' */
+async function artUser(){if(!ART_USER)ART_USER=(await kvGet('artPacks'))||[];return ART_USER}
+async function artPackImgs(id){if(!ART_IMG[id])ART_IMG[id]=(await kvGet('art:'+id))||{};return ART_IMG[id]}
+async function artPacks(){const u=await artUser(),bi=await artBuiltin(),off=(await kvGet('artOff'))||[];return u.concat(bi).map(p=>Object.assign(p,{on:!off.includes(p.id)}))}
+async function artSrc(p,it){if(p.builtin)return p.base+it.k+'.webp';return(await artPackImgs(p.id))[it.k]||''}
+
+/* dopasowanie po nazwie potwora: własne paczki mają pierwszeństwo, potem wbudowana */
+async function artFind(t){const want=artNorm(artBase(t));if(!want)return null;const sing=want.replace(/ies$/,'y').replace(/s$/,'');
+  for(const p of await artPacks()){if(!p.on)continue;for(const it of p.items||[]){const keys=(it.m||[]).map(artNorm).concat(p.builtin?[]:[artNorm(it.n)]);if(keys.includes(want)||keys.includes(sing))return{p,it}}}return null}
+
+/* żeton: okrągłe tło w kolorze żetonu + portret */
+function artCompose(src,bg){return new Promise((ok,no)=>{const im=new Image();im.crossOrigin='anonymous';im.onload=()=>{const S=200,c=document.createElement('canvas');c.width=c.height=S;const x=c.getContext('2d');
+  const g=x.createRadialGradient(S/2,S*.38,S*.05,S/2,S/2,S*.72);g.addColorStop(0,artShade(bg,.35));g.addColorStop(1,artShade(bg,-.45));x.fillStyle=g;x.fillRect(0,0,S,S);
+  x.drawImage(im,0,0,S,S);try{ok(c.toDataURL('image/webp',.86))}catch(e){no(e)}};im.onerror=no;im.src=src})}
+function artShade(hex,f){const m=/^#?([0-9a-f]{6})$/i.exec(hex||'');const n=m?parseInt(m[1],16):0x555555;const ch=[16,8,0].map(s=>(n>>s)&255).map(v=>Math.round(f>0?v+(255-v)*f:v*(1+f)));return'rgb('+ch.join(',')+')'}
+async function artApply(t,p,it,bg){const src=await artSrc(p,it);if(!src)return;const img=await artCompose(src,bg||ART_BG);send({k:'tkp',id:t.id,p:{img,art:{p:p.id,k:it.k,bg:bg||null},ico:null}})}
+async function artFirst(t){try{if(rm('autoart')!=='on')return false;const f=await artFind(t);if(!f)return false;const cur=tokById(t.id);if(!cur||cur.img)return true;await artApply(cur,f.p,f.it);return true}catch(e){return false}}
+
+/* przygotowanie obrazka do paczki: przycięcie do sylwetki (przezroczystość) albo kwadrat z górnej części, 256 px */
+function artPrep(blob){return new Promise((ok,no)=>{const u=URL.createObjectURL(blob),im=new Image();im.onload=()=>{try{const W=im.naturalWidth,H=im.naturalHeight,k=Math.min(1,600/Math.max(W,H)),w=Math.round(W*k),h=Math.round(H*k);
+  const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');x.drawImage(im,0,0,w,h);const d=x.getImageData(0,0,w,h).data;let x0=w,y0=h,x1=-1,y1=-1,tr=0;
+  for(let y=0;y<h;y++)for(let i=0;i<w;i++){const a=d[(y*w+i)*4+3];if(a<250)tr++;if(a>24){if(i<x0)x0=i;if(i>x1)x1=i;if(y<y0)y0=y;if(y>y1)y1=y}}
+  let bx,by,s;if(x1<0||tr<w*h*.04){s=Math.min(w,h);bx=(w-s)/2;by=(h-s)*.25}else{const bw=x1-x0+1,bh=y1-y0+1;s=Math.round(Math.min(Math.max(bw,bh),Math.max(bw*.92,bh*.62)));bx=(x0+x1)/2-s/2;by=bh>s?y0-s*.03:(y0+y1)/2-s/2}
+  const o=document.createElement('canvas');o.width=o.height=256;o.getContext('2d').drawImage(c,bx,by,s,s,0,0,256,256);URL.revokeObjectURL(u);ok(o.toDataURL('image/webp',.84))}catch(e){no(e)}};im.onerror=()=>{URL.revokeObjectURL(u);no(new Error('img'))};im.src=u})}
+
+/* najprostszy czytnik ZIP (przeglądarkowe DecompressionStream) */
+async function artUnzip(buf){const v=new DataView(buf),u8=new Uint8Array(buf),out=[];let e=buf.byteLength-22;while(e>=0&&v.getUint32(e,true)!==0x06054b50)e--;if(e<0)throw new Error('zip');
+  let p=v.getUint32(e+16,true);const n=v.getUint16(e+10,true),dec=new TextDecoder();
+  for(let i=0;i<n;i++){if(v.getUint32(p,true)!==0x02014b50)break;const m=v.getUint16(p+10,true),cs=v.getUint32(p+20,true),nl=v.getUint16(p+28,true),xl=v.getUint16(p+30,true),cl=v.getUint16(p+32,true),lo=v.getUint32(p+42,true);
+    const name=dec.decode(u8.subarray(p+46,p+46+nl));p+=46+nl+xl+cl;if(name.endsWith('/'))continue;
+    const ds=lo+30+v.getUint16(lo+26,true)+v.getUint16(lo+28,true),raw=u8.slice(ds,ds+cs);
+    out.push({name,get:async()=>m===0?new Blob([raw]):await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).blob()})}return out}
+
+/* import: pliki, folder, ZIP albo paczka JSON {format:'dm-art',name,credit,license,items:[{n,m,img}]} */
+const ART_RX=/\.(png|jpe?g|webp|gif|avif)$/i;
+async function artImport(files,meta,prog){const ents=[];let map=null,credit='',name=meta.name||'';
+  for(const f of files){const nm=f.webkitRelativePath||f.name;
+    if(/\.zip$/i.test(nm)){for(const z of await artUnzip(await f.arrayBuffer()))ents.push({name:z.name,get:z.get});if(!name)name=f.name.replace(/\.zip$/i,'')}
+    else if(/\.json$/i.test(nm)){let j=null;try{j=JSON.parse(await f.text())}catch(e){}if(j&&j.format==='dm-art'&&Array.isArray(j.items))return artSavePack({name:j.name||f.name,credit:j.credit||'',license:j.license||''},j.items.filter(x=>x&&x.img&&/^data:image\//.test(x.img)).map(x=>({n:String(x.n||'?'),m:[].concat(x.m||[]).map(String),img:x.img})));
+      if(j&&!Array.isArray(j)&&typeof j==='object')map=j}
+    else ents.push({name:nm,get:async()=>f});if(!name&&f.webkitRelativePath)name=f.webkitRelativePath.split('/')[0]}
+  for(const e of ents){if(/(^|\/)map\.json$/i.test(e.name)){try{map=JSON.parse(await(await e.get()).text())}catch(x){}}if(/(^|\/)(credits?|license|licen[cs]e|readme|attribution)[^/]*\.(txt|md)$/i.test(e.name)&&!credit){try{credit=(await(await e.get()).text()).replace(/\s+/g,' ').trim().slice(0,400)}catch(x){}}}
+  const imgs=ents.filter(e=>ART_RX.test(e.name)&&!/(^|\/)(__MACOSX|\.)/.test(e.name)),items=[];let i=0;
+  for(const e of imgs){i++;if(prog)prog(i,imgs.length);try{const base=e.name.split('/').pop().replace(ART_RX,''),n=base.replace(/[_]+/g,' ').replace(/\s*-\s*token$/i,'').trim();
+      const mm=map&&(map[e.name.split('/').pop()]||map[base]);items.push({n,m:mm?[].concat(mm).map(String):[],img:await artPrep(await e.get())})}catch(x){}}
+  if(!items.length)throw new Error('empty');return artSavePack({name:name||tr('artMine'),credit:meta.credit||credit,license:meta.license||''},items)}
+async function artSavePack(meta,items){const id='u'+Date.now().toString(36),img={},its=items.map((x,i)=>{const k='i'+i;img[k]=x.img;return{k,n:x.n,m:x.m||[]}});
+  await kvPut('art:'+id,img);ART_IMG[id]=img;const l=await artUser();l.unshift({id,name:String(meta.name).slice(0,80),credit:String(meta.credit||'').slice(0,400),license:String(meta.license||'').slice(0,120),items:its});await kvPut('artPacks',l.map(p=>({id:p.id,name:p.name,credit:p.credit,license:p.license,items:p.items})));return{id,n:its.length}}
+async function artDelPack(id){const l=(await artUser()).filter(p=>p.id!==id);ART_USER=l;await kvPut('artPacks',l.map(p=>({id:p.id,name:p.name,credit:p.credit,license:p.license,items:p.items})));await kvPut('art:'+id,null);delete ART_IMG[id]}
+async function artToggle(id,on){const off=new Set((await kvGet('artOff'))||[]);on?off.delete(id):off.add(id);await kvPut('artOff',[...off])}
+async function artExport(p){const img=await artPackImgs(p.id);const j={format:'dm-art',v:1,name:p.name,credit:p.credit,license:p.license,items:p.items.map(it=>({n:it.n,m:it.m,img:img[it.k]}))};
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(j)],{type:'application/json'}));a.download=(p.name||'portrety').replace(/[^\w\-]+/g,'_')+'.dm-art.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4000)}
+
+/* galeria portretów */
+async function artGallery(t){let box=$('#artModal');if(box)box.remove();box=document.createElement('div');box.id='artModal';
+  const bg0=(t.art&&t.art.bg)||ART_BG;
+  box.innerHTML=`<div class="libp artBox"><div class="libh"><h1>🧝 ${esc(tr('artH'))}</h1><button id="artX">${esc(tr('close'))}</button></div>
+    <div class="icoTop"><input id="artQ" type="search" placeholder="${esc(tr('artSearch'))}"><select id="artP"></select><label>${esc(tr('icoBg'))} <input id="artBg" type="color" value="${/^#[0-9a-f]{6}$/i.test(bg0)?bg0:ART_BG}"></label></div>
+    <div class="artGrid icoGrid"></div>
+    <div class="icoFoot"><div class="icoPrev"></div><div class="icoSel smd"></div><label class="smd" ${isHost&&!isPc(t)?'':'hidden'}><input type="checkbox" id="artAll"> ${esc(tr('icoAll'))}</label><button id="artOk" class="primary" disabled>${esc(tr('artSet'))}</button></div>
+    <details class="artMng" ${isHost?'':'hidden'}><summary>📦 ${esc(tr('artPacksH'))}</summary><div class="artList"></div>
+      <div class="cbBtns"><button id="artDir">📂 ${esc(tr('artDir'))}</button><button id="artFiles">🗂 ${esc(tr('artFiles'))}</button></div>
+      <div class="smd">${esc(tr('artHint'))}</div><div class="smd artProg"></div></details>
+    <div class="smd icoAttr artAttr"></div></div>`;
+  document.body.append(box);const Qe=s=>box.querySelector(s);let packs=await artPacks(),sel=null,q='',pf='';const guess=await artFind(t);
+  const fillPacks=()=>{Qe('#artP').innerHTML=`<option value="">${esc(tr('artAllPacks'))}</option>`+packs.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');Qe('#artP').value=pf;
+    Qe('.artAttr').textContent=packs.filter(p=>p.on).map(p=>[p.builtin?p.credit:p.name+(p.credit?': '+p.credit:''),p.license].filter(Boolean).join(' — ')).join(' · ');
+    Qe('.artList').innerHTML=packs.map(p=>`<div class="cbRow" data-id="${p.id}"><label class="cbNm"><input type="checkbox" class="on" ${p.on?'checked':''}> ${esc(p.name)} <span class="smd">(${(p.items||[]).length})</span></label>${p.builtin?`<span class="smd">${esc(tr('artBuiltin'))}</span>`:`<button class="ex" title="${esc(tr('artExport'))}">⬇</button><button class="del" title="${esc(tr('artDel'))}">×</button>`}</div>`).join('')||`<div class="smd">—</div>`;
+    Qe('.artList').querySelectorAll('.cbRow').forEach(r=>{const p=packs.find(x=>x.id===r.dataset.id);r.querySelector('.on').onchange=async e=>{await artToggle(p.id,e.target.checked);p.on=e.target.checked;fillPacks();draw()};
+      const ex=r.querySelector('.ex');if(ex)ex.onclick=()=>artExport(p);const d=r.querySelector('.del');if(d)d.onclick=async()=>{if(!confirm(tr('artDelQ').replace('{n}',p.name)))return;await artDelPack(p.id);packs=await artPacks();fillPacks();draw()}})};
+  const list=()=>{const out=[];const ws=q.toLowerCase().split(/\s+/).filter(Boolean);
+    for(const p of packs){if(!p.on||(pf&&p.id!==pf))continue;for(const it of p.items||[]){const hay=(it.n+' '+(it.m||[]).join(' ')+' '+(it.c||'')).toLowerCase();if(ws.length&&!ws.every(w=>hay.includes(w)))continue;out.push({p,it})}}
+    if(!ws.length&&guess){const i=out.findIndex(x=>x.p===guess.p&&x.it===guess.it);if(i>0)out.unshift(out.splice(i,1)[0])}return out.slice(0,400)};
+  const grid=Qe('.artGrid');let gen=0;const bgv=()=>Qe('#artBg').value;
+  const draw=()=>{const my=++gen;grid.innerHTML='';const L=list();const io=new IntersectionObserver(es=>es.forEach(e=>{if(!e.isIntersecting)return;io.unobserve(e.target);const x=e.target._x;artSrc(x.p,x.it).then(s=>{if(my===gen&&s)e.target.style.backgroundImage=`url("${s}")`})}),{root:grid});
+    for(const x of L){const b=document.createElement('button');b.className='icoCell artCell'+(sel&&sel.it===x.it?' on':'');b._x=x;b.title=(x.it.m&&x.it.m.length?x.it.m.join(', '):x.it.n)+' · '+x.p.name;b.style.backgroundColor=bgv();
+      b.onclick=()=>{sel=x;grid.querySelectorAll('.artCell').forEach(c=>c.classList.toggle('on',c===b));prev()};grid.append(b);io.observe(b)}
+    if(!L.length)grid.innerHTML=`<div class="smd">${esc(packs.length?tr('icoEmpty'):tr('artNone'))}</div>`};
+  const prev=async()=>{Qe('#artOk').disabled=!sel;if(!sel)return;try{Qe('.icoPrev').style.backgroundImage=`url("${await artCompose(await artSrc(sel.p,sel.it),bgv())}")`}catch(e){}
+    Qe('.icoSel').textContent=`${sel.it.n}${sel.it.m&&sel.it.m.length?' → '+sel.it.m.join(', '):''} · ${sel.p.name}`};
+  let tm=0;Qe('#artQ').oninput=e=>{clearTimeout(tm);tm=setTimeout(()=>{q=e.target.value.trim();draw()},180)};
+  Qe('#artP').onchange=e=>{pf=e.target.value;draw()};Qe('#artBg').oninput=()=>{clearTimeout(tm);tm=setTimeout(()=>{grid.querySelectorAll('.artCell').forEach(c=>c.style.backgroundColor=bgv());prev()},100)};
+  Qe('#artX').onclick=()=>box.remove();box.onclick=e=>{if(e.target===box)box.remove()};
+  Qe('#artOk').onclick=async()=>{if(!sel)return;const all=Qe('#artAll')&&Qe('#artAll').checked;const base=artBase(t);const targets=all?S.tokens.filter(x=>artBase(x)===base):[t];
+    for(const x of targets)await artApply(x,sel.p,sel.it,bgv());box.remove()};
+  const pick=dir=>{const i=document.createElement('input');i.type='file';i.multiple=true;if(dir)i.webkitdirectory=true;else i.accept='image/*,.zip,.json';
+    i.onchange=async()=>{const fs=[...i.files];if(!fs.length)return;const pr=Qe('.artProg');try{const r=await artImport(fs,{},(a,b)=>{pr.textContent=tr('artProg').replace('{a}',a).replace('{b}',b)});pr.textContent=tr('artDone').replace('{n}',r.n);packs=await artPacks();fillPacks();draw()}
+      catch(e){pr.textContent=tr('artErr')}};i.click()};
+  Qe('#artDir').onclick=()=>pick(true);Qe('#artFiles').onclick=()=>pick(false);
+  if(guess)sel=guess;fillPacks();draw();prev()}
+
+/* przycisk w pasku żetonu */
+const _hx55=hudExtra;hudExtra=function(){_hx55.apply(this,arguments);try{const t=selected;if(!t||!canCtl(t))return;const ico=$('#hudIco');if(!ico||ico.previousSibling&&ico.previousSibling.id==='hudArt')return;
+  const b=document.createElement('button');b.id='hudArt';b.textContent='🧝 '+tr('artBtn');b.onclick=()=>artGallery(t);ico.before(b)}catch(e){}};
+
+RULE_OPTS.autoart={modes:['on','off'],def:'on'};
+try{if(typeof SRD_ATTR!=='undefined'){const _ah55=attrHtml;attrHtml=function(){return _ah55()+'<br><br>'+esc(ART_ATTR).replace(/(https:\/\/[^\s)]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>')}}}catch(e){}
+
+addI18n({artBtn:'Portrait',artH:'Choose a portrait',artSearch:'Search (e.g. goblin, knight, wolf)…',artSet:'Use this portrait',artAllPacks:'All packs',artPacksH:'Image packs',artBuiltin:'built-in',
+  artDir:'Import folder',artFiles:'Import files / ZIP',artExport:'Export pack (JSON)',artDel:'Remove pack',artDelQ:'Remove the pack “{n}” from this browser?',artMine:'My portraits',
+  artHint:'Images stay only in this browser. File name = monster name (e.g. “Goblin Boss.png”); optional map.json {"file.png":"Monster"} and credits.txt. Only use images you have the right to use.',
+  artProg:'Preparing images… {a}/{b}',artDone:'Imported {n} images.',artErr:'Nothing imported — no supported images found.',artNone:'No image packs available.',
+  rn_autoart:'Monster portraits',rd_autoart:'New monster tokens get a matching portrait from your image packs (if there is none, an icon is used).'},
+ {artBtn:'Portret',artH:'Wybierz portret',artSearch:'Szukaj (np. goblin, knight, wolf)…',artSet:'Użyj tego portretu',artAllPacks:'Wszystkie paczki',artPacksH:'Paczki obrazów',artBuiltin:'wbudowana',
+  artDir:'Importuj folder',artFiles:'Importuj pliki / ZIP',artExport:'Eksportuj paczkę (JSON)',artDel:'Usuń paczkę',artDelQ:'Usunąć paczkę „{n}” z tej przeglądarki?',artMine:'Moje portrety',
+  artHint:'Obrazy zostają tylko w tej przeglądarce. Nazwa pliku = nazwa potwora (np. „Goblin Boss.png”); opcjonalnie map.json {"plik.png":"Potwór"} i credits.txt. Używaj tylko obrazów, do których masz prawa.',
+  artProg:'Przygotowuję obrazy… {a}/{b}',artDone:'Zaimportowano {n} obrazów.',artErr:'Nic nie zaimportowano — brak obsługiwanych obrazów.',artNone:'Brak paczek obrazów.',
+  rn_autoart:'Portrety potworów',rd_autoart:'Nowe żetony potworów dostają pasujący portret z paczek obrazów (gdy brak — ikonę).'});
 
 </script>
 </body>
