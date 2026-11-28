@@ -1,0 +1,12 @@
+Creature and character portraits in this folder come from Battle for Wesnoth
+(https://www.wesnoth.org, https://github.com/wesnoth/wesnoth), created by the
+Wesnoth artists (see data/core/about.cfg and copyrights.csv in the Wesnoth
+repository for individual credits).
+
+They are distributed under the GNU General Public License, version 2 or later
+(full text: COPYING.txt); newer Wesnoth contributions are also available under
+Creative Commons Attribution-ShareAlike 4.0.
+
+Modifications: the original portraits were cropped to a square around the
+figure, resized to 256x256 and re-encoded as WebP. The unmodified originals are
+available in the Wesnoth repository under data/core/images/portraits/.
