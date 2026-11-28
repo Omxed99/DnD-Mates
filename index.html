@@ -9583,7 +9583,7 @@ function r5(s){s=String(s==null?'':s);let g=0;
       case'actSaveFail':return(p[0]?ORD5[+p[0]]+' ':'')+'Failure:';case'actSaveSuccess':return'Success:';case'actSaveSuccessOrFail':return'Failure or Success:';
       case'actTrigger':return'Trigger:';case'actResponse':return'Response:';
       case'scaledamage':case'scaledice':return p[2]||p[0];
-      case'filter':case'5etools':case'book':case'adventure':case'link':case'footnote':case'quickref':return p[0];
+      case'filter':case'book':case'adventure':case'link':case'footnote':case'quickref':return p[0];
       case'b':case'i':case'u':case's':case'bold':case'italic':case'note':case'damage':case'dice':return p[0];
       default:return p[2]||p[0]}};
   while(/\{@\w+[^{}]*\}/.test(s)&&g++<20)s=s.replace(/\{@(\w+)(?: ([^{}]*))?\}/g,(_,t,a)=>T(t,a));
