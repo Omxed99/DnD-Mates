@@ -474,6 +474,20 @@ Zastępuje wbudowane wyposażenie tej klasy.
 
 ---
 
+## Cechy klas (`classes`)
+
+Aplikacja ma wbudowane cechy wszystkich 12 klas (poziomy 1–20) oraz po jednej podklasie SRD 5.2 na klasę. Paczka może podmienić listę cech wybranej klasy:
+
+```json
+"classes": [
+  { "id": "fighter", "features": [ { "level": 5, "name": "Extra Attack", "text": "…" } ] }
+]
+```
+
+`id` to jedna z 12 klas. Lista z paczki zastępuje wbudowaną w całości. Cechy pokazują się w kroku „Nowe cechy” podczas awansu i na karcie postaci (zakładka cech).
+
+Podklasy z paczek (`subclasses`) uzupełniają wbudowane. Wpis o tym samym `id` nadpisuje wbudowany. Gdy klasa osiąga poziom podklasy, awans wymaga jej wyboru. Postać z kilkoma klasami może mieć osobną podklasę dla każdej z nich.
+
 ## Paczka portretów (`dm-art`)
 
 Portrety żetonów nie są częścią paczki z danymi. Zarządza się nimi w oknie **🧝 Portret** (sekcja „Paczki obrazów”). Własne paczki trafiają wyłącznie do pamięci przeglądarki DM-a i nie są nigdzie wysyłane. Na stół trafia tylko gotowy, zmniejszony obrazek żetonu.
