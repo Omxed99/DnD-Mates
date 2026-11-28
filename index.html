@@ -507,6 +507,15 @@ body.tpMode #map{cursor:crosshair}
 .icoCell:hover{transform:scale(1.08)}.icoCell.on{border-color:#ffd36b;box-shadow:0 0 0 2px #ffd36b55}
 .icoFoot{display:flex;gap:12px;align-items:center;margin-top:10px}.icoPrev{width:64px;height:64px;border-radius:50%;background-size:cover;background-color:#2a2a35;flex:none}
 .icoSel{flex:1;text-transform:capitalize}.icoAttr{margin-top:8px;opacity:.6;font-size:11px}
+/* v34 portrety */
+#artModal{position:fixed;inset:0;background:rgba(8,10,16,.75);display:grid;place-items:center;z-index:40}
+#artModal .artBox{width:min(900px,96vw);max-height:92vh;display:flex;flex-direction:column}
+#artModal .icoTop select{max-width:220px}
+#artModal .artGrid{grid-template-columns:repeat(auto-fill,minmax(76px,1fr))}
+#artModal .artCell{background-size:cover}
+#artModal .artMng{margin-top:6px}#artModal .artMng summary{cursor:pointer;font-weight:600}
+#artModal .artList{display:flex;flex-direction:column;gap:3px;margin:6px 0;max-height:150px;overflow:auto}
+#artModal .artList .cbRow{display:flex;align-items:center;gap:6px}#artModal .artList .cbNm{flex:1}
 
 </style>
 </head>
@@ -10442,7 +10451,7 @@ function icoGuess(t){const I=ICO_IDX||[];const by=n=>I.find(x=>x.n===n);const wo
   for(let i=words.length-1;i>=0;i--){const w=words[i];const x=I.find(z=>z.w.includes(w));if(x)return x}
   const i=t.sheet&&t.sheet.info;if(i&&i.classes&&i.classes[0]){const x=by(CLASS_ICO[i.classes[0].name]);if(x)return x}
   const ty=String((t.sheet&&t.sheet.mon&&t.sheet.mon.type)||'').toLowerCase();for(const k in TYPE_ICO)if(ty.includes(k)){const x=by(TYPE_ICO[k]);if(x)return x}return null}
-async function icoApply(t,k,fg,bg){const body=await icoBody(k);if(!body)return;const png=await icoPng(body,fg,bg,200);send({k:'tkp',id:t.id,p:{img:png,ico:{k,fg,bg}}})}
+async function icoApply(t,k,fg,bg){const body=await icoBody(k);if(!body)return;const png=await icoPng(body,fg,bg,200);send({k:'tkp',id:t.id,p:{img:png,ico:{k,fg,bg},art:null}})}
 
 /* galeria */
 async function icoGallery(t){let idx;try{idx=await icoIndex()}catch(e){return say(tr('icoNone'),'sys')}
@@ -10480,7 +10489,7 @@ const _hx54=hudExtra;hudExtra=function(){_hx54.apply(this,arguments);try{const t
 /* automatyczne ikony dla nowych potworów (DM; wyłącznik w ⚙ Zasady sesji) */
 RULE_OPTS.autoico={modes:['on','off'],def:'on'};
 const _ap54=apply;apply=function(a){const r=_ap54.apply(this,arguments);try{if(isHost&&a&&a.k==='add'&&a.t&&!a.t.img&&a.t.sheet&&a.t.sheet.mon&&rm('autoico')==='on'){const id=a.t.id;
-  icoIndex().then(()=>{const t=tokById(id);if(!t||t.img)return;const g=icoGuess(t);if(!g)return;const bg=t.color||'#8a3b3b';return icoApply(t,g.k,fgFor(bg),bg)}).catch(()=>{})}}catch(e){}return r};
+  (typeof artFirst==='function'?artFirst(tokById(id)||a.t):Promise.resolve(false)).then(done=>done?null:icoIndex()).then(ix=>{if(!ix)return;const t=tokById(id);if(!t||t.img)return;const g=icoGuess(t);if(!g)return;const bg=t.color||'#8a3b3b';return icoApply(t,g.k,fgFor(bg),bg)}).catch(()=>{})}}catch(e){}return r};
 
 /* uznanie autorstwa w „O grze” */
 try{if(typeof SRD_ATTR!=='undefined'){const _ah54=attrHtml;attrHtml=function(){return _ah54()+'<br><br>'+esc(ICO_ATTR).replace(/(https:\/\/[^\s)]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>')}}}catch(e){}
@@ -10491,6 +10500,124 @@ addI18n({icoBtn:'Icon',icoH:'Choose an icon',icoSearch:'Search (English, e.g. go
  {icoBtn:'Ikona',icoH:'Wybierz ikonę',icoSearch:'Szukaj po angielsku (np. goblin, sword, dragon)…',icoFg:'Ikona',icoBg:'Tło',icoSet:'Użyj tej ikony',icoAll:'Wszystkie żetony o tej nazwie',icoEmpty:'Nic nie znaleziono.',
   icoNone:'Ikony są niedostępne (brak połączenia z zestawem ikon).',icoSuggest:'Proponowane',icoMon:'Potwory',icoPeople:'Postacie',icoAnimals:'Zwierzęta',icoWeapons:'Broń',icoMagic:'Magia',icoItems:'Przedmioty',icoPlaces:'Miejsca',
   rn_autoico:'Ikony potworów',rd_autoico:'Nowe żetony potworów dostają pasującą ikonę automatycznie (zmienisz ją przyciskiem 🎨 Ikona).',rm_on:'Włączone'});
+
+/* ================= m55: portrety żetonów — wbudowana paczka obrazów (art/) + własne paczki trzymane lokalnie ================= */
+const ART_BASES=['art/','https://omxed99.github.io/DnD-Mates/art/'];
+const ART_ATTR='Creature portraits from Battle for Wesnoth (https://www.wesnoth.org) by the Wesnoth artists — GNU GPL v2+ / CC BY-SA 4.0.';
+const ART_BG='#2d3240';let ART_BI=null,ART_USER=null;const ART_IMG={};
+const artNorm=s=>String(s||'').toLowerCase().replace(/\([^)]*\)/g,' ').replace(/[’'`]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+const artBase=t=>String((t.sheet&&t.sheet.mon&&t.sheet.mon.name)||t.name||'').replace(/\s+\d+$/,'');
+
+/* wbudowana paczka: art/<pakiet>/index.json + obrazki webp, ładowane leniwie */
+async function artBuiltin(){if(ART_BI)return ART_BI;for(const b of ART_BASES){try{const r=await fetch(b+'wesnoth/index.json',{cache:'force-cache'});if(r.ok){const j=await r.json();j.id='bi';j.base=b+'wesnoth/';j.builtin=true;return ART_BI=j}}catch(e){}}return ART_BI={id:'bi',builtin:true,items:[],off:true}}
+/* własne paczki: lista w kv 'artPacks', obrazy w kv 'art:<id>' */
+async function artUser(){if(!ART_USER)ART_USER=(await kvGet('artPacks'))||[];return ART_USER}
+async function artPackImgs(id){if(!ART_IMG[id])ART_IMG[id]=(await kvGet('art:'+id))||{};return ART_IMG[id]}
+async function artPacks(){const u=await artUser(),bi=await artBuiltin(),off=(await kvGet('artOff'))||[];return u.concat(bi.items.length?[bi]:[]).map(p=>Object.assign(p,{on:!off.includes(p.id)}))}
+async function artSrc(p,it){if(p.builtin)return p.base+it.k+'.webp';return(await artPackImgs(p.id))[it.k]||''}
+
+/* dopasowanie po nazwie potwora: własne paczki mają pierwszeństwo, potem wbudowana */
+async function artFind(t){const want=artNorm(artBase(t));if(!want)return null;const sing=want.replace(/ies$/,'y').replace(/s$/,'');
+  for(const p of await artPacks()){if(!p.on)continue;for(const it of p.items||[]){const keys=(it.m||[]).map(artNorm).concat(p.builtin?[]:[artNorm(it.n)]);if(keys.includes(want)||keys.includes(sing))return{p,it}}}return null}
+
+/* żeton: okrągłe tło w kolorze żetonu + portret */
+function artCompose(src,bg){return new Promise((ok,no)=>{const im=new Image();im.crossOrigin='anonymous';im.onload=()=>{const S=200,c=document.createElement('canvas');c.width=c.height=S;const x=c.getContext('2d');
+  const g=x.createRadialGradient(S/2,S*.38,S*.05,S/2,S/2,S*.72);g.addColorStop(0,artShade(bg,.35));g.addColorStop(1,artShade(bg,-.45));x.fillStyle=g;x.fillRect(0,0,S,S);
+  x.drawImage(im,0,0,S,S);try{ok(c.toDataURL('image/webp',.86))}catch(e){no(e)}};im.onerror=no;im.src=src})}
+function artShade(hex,f){const m=/^#?([0-9a-f]{6})$/i.exec(hex||'');const n=m?parseInt(m[1],16):0x555555;const ch=[16,8,0].map(s=>(n>>s)&255).map(v=>Math.round(f>0?v+(255-v)*f:v*(1+f)));return'rgb('+ch.join(',')+')'}
+async function artApply(t,p,it,bg){const src=await artSrc(p,it);if(!src)return;const img=await artCompose(src,bg||ART_BG);send({k:'tkp',id:t.id,p:{img,art:{p:p.id,k:it.k,bg:bg||null},ico:null}})}
+async function artFirst(t){try{if(rm('autoart')!=='on')return false;const f=await artFind(t);if(!f)return false;const cur=tokById(t.id);if(!cur||cur.img)return true;await artApply(cur,f.p,f.it);return true}catch(e){return false}}
+
+/* przygotowanie obrazka do paczki: przycięcie do sylwetki (przezroczystość) albo kwadrat z górnej części, 256 px */
+function artPrep(blob){return new Promise((ok,no)=>{const u=URL.createObjectURL(blob),im=new Image();im.onload=()=>{try{const W=im.naturalWidth,H=im.naturalHeight,k=Math.min(1,600/Math.max(W,H)),w=Math.round(W*k),h=Math.round(H*k);
+  const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');x.drawImage(im,0,0,w,h);const d=x.getImageData(0,0,w,h).data;let x0=w,y0=h,x1=-1,y1=-1,tr=0;
+  for(let y=0;y<h;y++)for(let i=0;i<w;i++){const a=d[(y*w+i)*4+3];if(a<250)tr++;if(a>24){if(i<x0)x0=i;if(i>x1)x1=i;if(y<y0)y0=y;if(y>y1)y1=y}}
+  let bx,by,s;if(x1<0||tr<w*h*.04){s=Math.min(w,h);bx=(w-s)/2;by=(h-s)*.25}else{const bw=x1-x0+1,bh=y1-y0+1;s=Math.round(Math.min(Math.max(bw,bh),Math.max(bw*.92,bh*.62)));bx=(x0+x1)/2-s/2;by=bh>s?y0-s*.03:(y0+y1)/2-s/2}
+  const o=document.createElement('canvas');o.width=o.height=256;o.getContext('2d').drawImage(c,bx,by,s,s,0,0,256,256);URL.revokeObjectURL(u);ok(o.toDataURL('image/webp',.84))}catch(e){no(e)}};im.onerror=()=>{URL.revokeObjectURL(u);no(new Error('img'))};im.src=u})}
+
+/* najprostszy czytnik ZIP (przeglądarkowe DecompressionStream) */
+async function artUnzip(buf){const v=new DataView(buf),u8=new Uint8Array(buf),out=[];let e=buf.byteLength-22;while(e>=0&&v.getUint32(e,true)!==0x06054b50)e--;if(e<0)throw new Error('zip');
+  let p=v.getUint32(e+16,true);const n=v.getUint16(e+10,true),dec=new TextDecoder();
+  for(let i=0;i<n;i++){if(v.getUint32(p,true)!==0x02014b50)break;const m=v.getUint16(p+10,true),cs=v.getUint32(p+20,true),nl=v.getUint16(p+28,true),xl=v.getUint16(p+30,true),cl=v.getUint16(p+32,true),lo=v.getUint32(p+42,true);
+    const name=dec.decode(u8.subarray(p+46,p+46+nl));p+=46+nl+xl+cl;if(name.endsWith('/'))continue;
+    const ds=lo+30+v.getUint16(lo+26,true)+v.getUint16(lo+28,true),raw=u8.slice(ds,ds+cs);
+    out.push({name,get:async()=>m===0?new Blob([raw]):await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).blob()})}return out}
+
+/* import: pliki, folder, ZIP albo paczka JSON {format:'dm-art',name,credit,license,items:[{n,m,img}]} */
+const ART_RX=/\.(png|jpe?g|webp|gif|avif)$/i;
+async function artImport(files,meta,prog){const ents=[];let map=null,credit='',name=meta.name||'';
+  for(const f of files){const nm=f.webkitRelativePath||f.name;
+    if(/\.zip$/i.test(nm)){for(const z of await artUnzip(await f.arrayBuffer()))ents.push({name:z.name,get:z.get});if(!name)name=f.name.replace(/\.zip$/i,'')}
+    else if(/\.json$/i.test(nm)){let j=null;try{j=JSON.parse(await f.text())}catch(e){}if(j&&j.format==='dm-art'&&Array.isArray(j.items))return artSavePack({name:j.name||f.name,credit:j.credit||'',license:j.license||''},j.items.filter(x=>x&&x.img&&/^data:image\//.test(x.img)).map(x=>({n:String(x.n||'?'),m:[].concat(x.m||[]).map(String),img:x.img})));
+      if(j&&!Array.isArray(j)&&typeof j==='object')map=j}
+    else ents.push({name:nm,get:async()=>f});if(!name&&f.webkitRelativePath)name=f.webkitRelativePath.split('/')[0]}
+  for(const e of ents){if(/(^|\/)map\.json$/i.test(e.name)){try{map=JSON.parse(await(await e.get()).text())}catch(x){}}if(/(^|\/)(credits?|license|licen[cs]e|readme|attribution)[^/]*\.(txt|md)$/i.test(e.name)&&!credit){try{credit=(await(await e.get()).text()).replace(/\s+/g,' ').trim().slice(0,400)}catch(x){}}}
+  const imgs=ents.filter(e=>ART_RX.test(e.name)&&!/(^|\/)(__MACOSX|\.)/.test(e.name)),items=[];let i=0;
+  for(const e of imgs){i++;if(prog)prog(i,imgs.length);try{const base=e.name.split('/').pop().replace(ART_RX,''),n=base.replace(/[_]+/g,' ').replace(/\s*-\s*token$/i,'').trim();
+      const mm=map&&(map[e.name.split('/').pop()]||map[base]);items.push({n,m:mm?[].concat(mm).map(String):[],img:await artPrep(await e.get())})}catch(x){}}
+  if(!items.length)throw new Error('empty');return artSavePack({name:name||tr('artMine'),credit:meta.credit||credit,license:meta.license||''},items)}
+async function artSavePack(meta,items){const id='u'+Date.now().toString(36),img={},its=items.map((x,i)=>{const k='i'+i;img[k]=x.img;return{k,n:x.n,m:x.m||[]}});
+  await kvPut('art:'+id,img);ART_IMG[id]=img;const l=await artUser();l.unshift({id,name:String(meta.name).slice(0,80),credit:String(meta.credit||'').slice(0,400),license:String(meta.license||'').slice(0,120),items:its});await kvPut('artPacks',l.map(p=>({id:p.id,name:p.name,credit:p.credit,license:p.license,items:p.items})));return{id,n:its.length}}
+async function artDelPack(id){const l=(await artUser()).filter(p=>p.id!==id);ART_USER=l;await kvPut('artPacks',l.map(p=>({id:p.id,name:p.name,credit:p.credit,license:p.license,items:p.items})));await kvPut('art:'+id,null);delete ART_IMG[id]}
+async function artToggle(id,on){const off=new Set((await kvGet('artOff'))||[]);on?off.delete(id):off.add(id);await kvPut('artOff',[...off])}
+async function artExport(p){const img=await artPackImgs(p.id);const j={format:'dm-art',v:1,name:p.name,credit:p.credit,license:p.license,items:p.items.map(it=>({n:it.n,m:it.m,img:img[it.k]}))};
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(j)],{type:'application/json'}));a.download=(p.name||'portrety').replace(/[^\w\-]+/g,'_')+'.dm-art.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4000)}
+
+/* galeria portretów */
+async function artGallery(t){let box=$('#artModal');if(box)box.remove();box=document.createElement('div');box.id='artModal';
+  const bg0=(t.art&&t.art.bg)||ART_BG;
+  box.innerHTML=`<div class="libp artBox"><div class="libh"><h1>🧝 ${esc(tr('artH'))}</h1><button id="artX">${esc(tr('close'))}</button></div>
+    <div class="icoTop"><input id="artQ" type="search" placeholder="${esc(tr('artSearch'))}"><select id="artP"></select><label>${esc(tr('icoBg'))} <input id="artBg" type="color" value="${/^#[0-9a-f]{6}$/i.test(bg0)?bg0:ART_BG}"></label></div>
+    <div class="artGrid icoGrid"></div>
+    <div class="icoFoot"><div class="icoPrev"></div><div class="icoSel smd"></div><label class="smd" ${isHost&&!isPc(t)?'':'hidden'}><input type="checkbox" id="artAll"> ${esc(tr('icoAll'))}</label><button id="artOk" class="primary" disabled>${esc(tr('artSet'))}</button></div>
+    <details class="artMng" ${isHost?'':'hidden'}><summary>📦 ${esc(tr('artPacksH'))}</summary><div class="artList"></div>
+      <div class="cbBtns"><button id="artDir">📂 ${esc(tr('artDir'))}</button><button id="artFiles">🗂 ${esc(tr('artFiles'))}</button></div>
+      <div class="smd">${esc(tr('artHint'))}</div><div class="smd artProg"></div></details>
+    <div class="smd icoAttr artAttr"></div></div>`;
+  document.body.append(box);const Qe=s=>box.querySelector(s);let packs=await artPacks(),sel=null,q='',pf='';const guess=await artFind(t);
+  const fillPacks=()=>{Qe('#artP').innerHTML=`<option value="">${esc(tr('artAllPacks'))}</option>`+packs.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');Qe('#artP').value=pf;
+    Qe('.artAttr').textContent=packs.filter(p=>p.on).map(p=>p.builtin?ART_ATTR:[p.name,p.credit,p.license].filter(Boolean).join(' — ')).join(' · ');
+    Qe('.artList').innerHTML=packs.map(p=>`<div class="cbRow" data-id="${p.id}"><label class="cbNm"><input type="checkbox" class="on" ${p.on?'checked':''}> ${esc(p.name)} <span class="smd">(${(p.items||[]).length})</span></label>${p.builtin?`<span class="smd">${esc(tr('artBuiltin'))}</span>`:`<button class="ex" title="${esc(tr('artExport'))}">⬇</button><button class="del" title="${esc(tr('artDel'))}">×</button>`}</div>`).join('')||`<div class="smd">—</div>`;
+    Qe('.artList').querySelectorAll('.cbRow').forEach(r=>{const p=packs.find(x=>x.id===r.dataset.id);r.querySelector('.on').onchange=async e=>{await artToggle(p.id,e.target.checked);p.on=e.target.checked;fillPacks();draw()};
+      const ex=r.querySelector('.ex');if(ex)ex.onclick=()=>artExport(p);const d=r.querySelector('.del');if(d)d.onclick=async()=>{if(!confirm(tr('artDelQ').replace('{n}',p.name)))return;await artDelPack(p.id);packs=await artPacks();fillPacks();draw()}})};
+  const list=()=>{const out=[];const ws=q.toLowerCase().split(/\s+/).filter(Boolean);
+    for(const p of packs){if(!p.on||(pf&&p.id!==pf))continue;for(const it of p.items||[]){const hay=(it.n+' '+(it.m||[]).join(' ')+' '+(it.c||'')).toLowerCase();if(ws.length&&!ws.every(w=>hay.includes(w)))continue;out.push({p,it})}}
+    if(!ws.length&&guess){const i=out.findIndex(x=>x.p===guess.p&&x.it===guess.it);if(i>0)out.unshift(out.splice(i,1)[0])}return out.slice(0,400)};
+  const grid=Qe('.artGrid');let gen=0;const bgv=()=>Qe('#artBg').value;
+  const draw=()=>{const my=++gen;grid.innerHTML='';const L=list();const io=new IntersectionObserver(es=>es.forEach(e=>{if(!e.isIntersecting)return;io.unobserve(e.target);const x=e.target._x;artSrc(x.p,x.it).then(s=>{if(my===gen&&s)e.target.style.backgroundImage=`url("${s}")`})}),{root:grid});
+    for(const x of L){const b=document.createElement('button');b.className='icoCell artCell'+(sel&&sel.it===x.it?' on':'');b._x=x;b.title=(x.it.m&&x.it.m.length?x.it.m.join(', '):x.it.n)+' · '+x.p.name;b.style.backgroundColor=bgv();
+      b.onclick=()=>{sel=x;grid.querySelectorAll('.artCell').forEach(c=>c.classList.toggle('on',c===b));prev()};grid.append(b);io.observe(b)}
+    if(!L.length)grid.innerHTML=`<div class="smd">${esc(packs.length?tr('icoEmpty'):tr('artNone'))}</div>`};
+  const prev=async()=>{Qe('#artOk').disabled=!sel;if(!sel)return;try{Qe('.icoPrev').style.backgroundImage=`url("${await artCompose(await artSrc(sel.p,sel.it),bgv())}")`}catch(e){}
+    Qe('.icoSel').textContent=`${sel.it.n}${sel.it.m&&sel.it.m.length?' → '+sel.it.m.join(', '):''} · ${sel.p.name}`};
+  let tm=0;Qe('#artQ').oninput=e=>{clearTimeout(tm);tm=setTimeout(()=>{q=e.target.value.trim();draw()},180)};
+  Qe('#artP').onchange=e=>{pf=e.target.value;draw()};Qe('#artBg').oninput=()=>{clearTimeout(tm);tm=setTimeout(()=>{grid.querySelectorAll('.artCell').forEach(c=>c.style.backgroundColor=bgv());prev()},100)};
+  Qe('#artX').onclick=()=>box.remove();box.onclick=e=>{if(e.target===box)box.remove()};
+  Qe('#artOk').onclick=async()=>{if(!sel)return;const all=Qe('#artAll')&&Qe('#artAll').checked;const base=artBase(t);const targets=all?S.tokens.filter(x=>artBase(x)===base):[t];
+    for(const x of targets)await artApply(x,sel.p,sel.it,bgv());box.remove()};
+  const pick=dir=>{const i=document.createElement('input');i.type='file';i.multiple=true;if(dir)i.webkitdirectory=true;else i.accept='image/*,.zip,.json';
+    i.onchange=async()=>{const fs=[...i.files];if(!fs.length)return;const pr=Qe('.artProg');try{const r=await artImport(fs,{},(a,b)=>{pr.textContent=tr('artProg').replace('{a}',a).replace('{b}',b)});pr.textContent=tr('artDone').replace('{n}',r.n);packs=await artPacks();fillPacks();draw()}
+      catch(e){pr.textContent=tr('artErr')}};i.click()};
+  Qe('#artDir').onclick=()=>pick(true);Qe('#artFiles').onclick=()=>pick(false);
+  if(guess)sel=guess;fillPacks();draw();prev()}
+
+/* przycisk w pasku żetonu */
+const _hx55=hudExtra;hudExtra=function(){_hx55.apply(this,arguments);try{const t=selected;if(!t||!canCtl(t))return;const ico=$('#hudIco');if(!ico||ico.previousSibling&&ico.previousSibling.id==='hudArt')return;
+  const b=document.createElement('button');b.id='hudArt';b.textContent='🧝 '+tr('artBtn');b.onclick=()=>artGallery(t);ico.before(b)}catch(e){}};
+
+RULE_OPTS.autoart={modes:['on','off'],def:'on'};
+try{if(typeof SRD_ATTR!=='undefined'){const _ah55=attrHtml;attrHtml=function(){return _ah55()+'<br><br>'+esc(ART_ATTR).replace(/(https:\/\/[^\s)]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>')}}}catch(e){}
+
+addI18n({artBtn:'Portrait',artH:'Choose a portrait',artSearch:'Search (e.g. goblin, knight, wolf)…',artSet:'Use this portrait',artAllPacks:'All packs',artPacksH:'Image packs',artBuiltin:'built-in',
+  artDir:'Import folder',artFiles:'Import files / ZIP',artExport:'Export pack (JSON)',artDel:'Remove pack',artDelQ:'Remove the pack “{n}” from this browser?',artMine:'My portraits',
+  artHint:'Images stay only in this browser. File name = monster name (e.g. “Goblin Boss.png”); optional map.json {"file.png":"Monster"} and credits.txt. Only use images you have the right to use.',
+  artProg:'Preparing images… {a}/{b}',artDone:'Imported {n} images.',artErr:'Nothing imported — no supported images found.',artNone:'No image packs available.',
+  rn_autoart:'Monster portraits',rd_autoart:'New monster tokens get a matching portrait from your image packs (if there is none, an icon is used).'},
+ {artBtn:'Portret',artH:'Wybierz portret',artSearch:'Szukaj (np. goblin, knight, wolf)…',artSet:'Użyj tego portretu',artAllPacks:'Wszystkie paczki',artPacksH:'Paczki obrazów',artBuiltin:'wbudowana',
+  artDir:'Importuj folder',artFiles:'Importuj pliki / ZIP',artExport:'Eksportuj paczkę (JSON)',artDel:'Usuń paczkę',artDelQ:'Usunąć paczkę „{n}” z tej przeglądarki?',artMine:'Moje portrety',
+  artHint:'Obrazy zostają tylko w tej przeglądarce. Nazwa pliku = nazwa potwora (np. „Goblin Boss.png”); opcjonalnie map.json {"plik.png":"Potwór"} i credits.txt. Używaj tylko obrazów, do których masz prawa.',
+  artProg:'Przygotowuję obrazy… {a}/{b}',artDone:'Zaimportowano {n} obrazów.',artErr:'Nic nie zaimportowano — brak obsługiwanych obrazów.',artNone:'Brak paczek obrazów.',
+  rn_autoart:'Portrety potworów',rd_autoart:'Nowe żetony potworów dostają pasujący portret z paczek obrazów (gdy brak — ikonę).'});
 
 </script>
 </body>

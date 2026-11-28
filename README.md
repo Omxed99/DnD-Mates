@@ -56,3 +56,7 @@ Dane SRD 5.2: © Wizards of the Coast, licencja CC-BY-4.0.
 D&D Mates to nieoficjalny projekt fanowski, kompatybilny z piątą edycją (5E compatible).
 
 This work includes material from the System Reference Document 5.2.1 ("SRD 5.2.1") by Wizards of the Coast LLC, available at https://www.dndbeyond.com/srd. The SRD 5.2.1 is licensed under the Creative Commons Attribution 4.0 International License, available at https://creativecommons.org/licenses/by/4.0/legalcode.
+
+Ikony żetonów (folder `icons/`): game-icons.net, autorzy Lorc, Delapouite i inni, licencja CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/).
+
+Portrety potworów i postaci (folder `art/wesnoth/`): Battle for Wesnoth (https://www.wesnoth.org), autorzy z zespołu Wesnoth, licencja GNU GPL v2+ (nowsze prace także CC BY-SA 4.0). Obrazy zostały przycięte i zmniejszone; szczegóły w `art/wesnoth/LICENSE.txt`.

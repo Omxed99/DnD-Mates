@@ -474,6 +474,30 @@ Zastępuje wbudowane wyposażenie tej klasy.
 
 ---
 
+## Paczka portretów (`dm-art`)
+
+Portrety żetonów nie są częścią paczki z danymi. Zarządza się nimi w oknie **🧝 Portret** (sekcja „Paczki obrazów”). Własne paczki trafiają wyłącznie do pamięci przeglądarki DM-a i nie są nigdzie wysyłane. Na stół trafia tylko gotowy, zmniejszony obrazek żetonu.
+
+Import przyjmuje:
+
+- **folder albo pliki obrazów** (`.png`, `.jpg`, `.webp`, `.gif`, `.avif`): nazwa pliku to nazwa potwora, np. `Goblin Boss.png`;
+- **archiwum ZIP** z takimi obrazami;
+- opcjonalny **`map.json`**, który przypisuje pliki do potworów: `{"goblin_2.png": "Goblin Boss", "wolf.png": ["Wolf", "Dire Wolf"]}`;
+- opcjonalny **`credits.txt`** (albo `license.txt` czy `readme.md`), którego treść pojawia się jako uznanie autorstwa;
+- **plik JSON** wyeksportowany z aplikacji:
+
+```json
+{
+  "format": "dm-art", "v": 1,
+  "name": "Moje portrety", "credit": "Autor", "license": "CC BY 4.0",
+  "items": [ { "n": "Goblin Boss", "m": ["Goblin Boss"], "img": "data:image/webp;base64,..." } ]
+}
+```
+
+Obrazy z przezroczystym tłem są przycinane do sylwetki, pozostałe do kwadratu z górnej części kadru, a potem zmniejszane do 256 px. Nowy potwór dostaje portret, którego nazwa (`n` albo dowolna z `m`) pasuje do nazwy potwora. Własne paczki mają pierwszeństwo przed wbudowaną. Gdy żaden portret nie pasuje, żeton dostaje ikonę. Automatykę wyłącza się w ⚙ Zasadach sesji („Portrety potworów”).
+
+Wbudowana paczka leży w `art/wesnoth/` (`index.json` + pliki `.webp`). Każdy wpis ma postać `{"k": "plik bez rozszerzenia", "n": "opis", "c": "kategoria", "m": ["nazwy potworów"]}`.
+
 ## Uwagi prawne
 
 Wgrywaj tylko dane, do których masz prawo. SRD 5.2 (CC-BY-4.0) można publikować z uznaniem autorstwa. Treści z płatnych podręczników trzymaj lokalnie i importuj ręcznie, bez wrzucania do publicznego repozytorium.
