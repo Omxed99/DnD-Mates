@@ -1,0 +1,9 @@
+"The Free Monsters" by Justin Nichol
+https://opengameart.org/content/the-free-monsters
+
+Licensed under Creative Commons Attribution-ShareAlike 4.0 International
+(https://creativecommons.org/licenses/by-sa/4.0/).
+
+Modifications: the background (grey gradient and brush stroke) was removed,
+the figures were cropped to a square and resized to 256x256 WebP. These
+modified images are shared under the same license (CC BY-SA 4.0).

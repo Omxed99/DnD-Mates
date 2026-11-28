@@ -10503,17 +10503,18 @@ addI18n({icoBtn:'Icon',icoH:'Choose an icon',icoSearch:'Search (English, e.g. go
 
 /* ================= m55: portrety żetonów — wbudowana paczka obrazów (art/) + własne paczki trzymane lokalnie ================= */
 const ART_BASES=['art/','https://omxed99.github.io/DnD-Mates/art/'];
-const ART_ATTR='Creature portraits from Battle for Wesnoth (https://www.wesnoth.org) by the Wesnoth artists — GNU GPL v2+ / CC BY-SA 4.0.';
+const ART_ATTR='Creature portraits from Battle for Wesnoth (https://www.wesnoth.org) by the Wesnoth artists — GNU GPL v2+ / CC BY-SA 4.0. “The Free Monsters” by Justin Nichol (https://opengameart.org/content/the-free-monsters) — CC BY-SA 4.0.';
 const ART_BG='#2d3240';let ART_BI=null,ART_USER=null;const ART_IMG={};
 const artNorm=s=>String(s||'').toLowerCase().replace(/\([^)]*\)/g,' ').replace(/[’'`]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
 const artBase=t=>String((t.sheet&&t.sheet.mon&&t.sheet.mon.name)||t.name||'').replace(/\s+\d+$/,'');
 
 /* wbudowana paczka: art/<pakiet>/index.json + obrazki webp, ładowane leniwie */
-async function artBuiltin(){if(ART_BI)return ART_BI;for(const b of ART_BASES){try{const r=await fetch(b+'wesnoth/index.json',{cache:'force-cache'});if(r.ok){const j=await r.json();j.id='bi';j.base=b+'wesnoth/';j.builtin=true;return ART_BI=j}}catch(e){}}return ART_BI={id:'bi',builtin:true,items:[],off:true}}
+const ART_BI_IDS=['nichol','wesnoth'];
+async function artBuiltin(){if(ART_BI)return ART_BI;const out=[];for(const id of ART_BI_IDS){for(const b of ART_BASES){try{const r=await fetch(b+id+'/index.json',{cache:'force-cache'});if(r.ok){const j=await r.json();j.id='bi-'+id;j.base=b+id+'/';j.builtin=true;out.push(j);break}}catch(e){}}}return ART_BI=out}
 /* własne paczki: lista w kv 'artPacks', obrazy w kv 'art:<id>' */
 async function artUser(){if(!ART_USER)ART_USER=(await kvGet('artPacks'))||[];return ART_USER}
 async function artPackImgs(id){if(!ART_IMG[id])ART_IMG[id]=(await kvGet('art:'+id))||{};return ART_IMG[id]}
-async function artPacks(){const u=await artUser(),bi=await artBuiltin(),off=(await kvGet('artOff'))||[];return u.concat(bi.items.length?[bi]:[]).map(p=>Object.assign(p,{on:!off.includes(p.id)}))}
+async function artPacks(){const u=await artUser(),bi=await artBuiltin(),off=(await kvGet('artOff'))||[];return u.concat(bi).map(p=>Object.assign(p,{on:!off.includes(p.id)}))}
 async function artSrc(p,it){if(p.builtin)return p.base+it.k+'.webp';return(await artPackImgs(p.id))[it.k]||''}
 
 /* dopasowanie po nazwie potwora: własne paczki mają pierwszeństwo, potem wbudowana */
@@ -10576,7 +10577,7 @@ async function artGallery(t){let box=$('#artModal');if(box)box.remove();box=docu
     <div class="smd icoAttr artAttr"></div></div>`;
   document.body.append(box);const Qe=s=>box.querySelector(s);let packs=await artPacks(),sel=null,q='',pf='';const guess=await artFind(t);
   const fillPacks=()=>{Qe('#artP').innerHTML=`<option value="">${esc(tr('artAllPacks'))}</option>`+packs.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');Qe('#artP').value=pf;
-    Qe('.artAttr').textContent=packs.filter(p=>p.on).map(p=>p.builtin?ART_ATTR:[p.name,p.credit,p.license].filter(Boolean).join(' — ')).join(' · ');
+    Qe('.artAttr').textContent=packs.filter(p=>p.on).map(p=>[p.builtin?p.credit:p.name+(p.credit?': '+p.credit:''),p.license].filter(Boolean).join(' — ')).join(' · ');
     Qe('.artList').innerHTML=packs.map(p=>`<div class="cbRow" data-id="${p.id}"><label class="cbNm"><input type="checkbox" class="on" ${p.on?'checked':''}> ${esc(p.name)} <span class="smd">(${(p.items||[]).length})</span></label>${p.builtin?`<span class="smd">${esc(tr('artBuiltin'))}</span>`:`<button class="ex" title="${esc(tr('artExport'))}">⬇</button><button class="del" title="${esc(tr('artDel'))}">×</button>`}</div>`).join('')||`<div class="smd">—</div>`;
     Qe('.artList').querySelectorAll('.cbRow').forEach(r=>{const p=packs.find(x=>x.id===r.dataset.id);r.querySelector('.on').onchange=async e=>{await artToggle(p.id,e.target.checked);p.on=e.target.checked;fillPacks();draw()};
       const ex=r.querySelector('.ex');if(ex)ex.onclick=()=>artExport(p);const d=r.querySelector('.del');if(d)d.onclick=async()=>{if(!confirm(tr('artDelQ').replace('{n}',p.name)))return;await artDelPack(p.id);packs=await artPacks();fillPacks();draw()}})};

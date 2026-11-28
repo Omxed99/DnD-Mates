@@ -496,7 +496,7 @@ Import przyjmuje:
 
 Obrazy z przezroczystym tłem są przycinane do sylwetki, pozostałe do kwadratu z górnej części kadru, a potem zmniejszane do 256 px. Nowy potwór dostaje portret, którego nazwa (`n` albo dowolna z `m`) pasuje do nazwy potwora. Własne paczki mają pierwszeństwo przed wbudowaną. Gdy żaden portret nie pasuje, żeton dostaje ikonę. Automatykę wyłącza się w ⚙ Zasadach sesji („Portrety potworów”).
 
-Wbudowana paczka leży w `art/wesnoth/` (`index.json` + pliki `.webp`). Każdy wpis ma postać `{"k": "plik bez rozszerzenia", "n": "opis", "c": "kategoria", "m": ["nazwy potworów"]}`.
+Wbudowane paczki leżą w `art/nichol/` i `art/wesnoth/` (każda: `index.json` + pliki `.webp`). Pierwsza ma pierwszeństwo przy dopasowaniu. Każdy wpis ma postać `{"k": "plik bez rozszerzenia", "n": "opis", "c": "kategoria", "m": ["nazwy potworów"]}`.
 
 ## Uwagi prawne
 

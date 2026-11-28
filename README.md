@@ -60,3 +60,5 @@ This work includes material from the System Reference Document 5.2.1 ("SRD 5.2.1
 Ikony żetonów (folder `icons/`): game-icons.net, autorzy Lorc, Delapouite i inni, licencja CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/).
 
 Portrety potworów i postaci (folder `art/wesnoth/`): Battle for Wesnoth (https://www.wesnoth.org), autorzy z zespołu Wesnoth, licencja GNU GPL v2+ (nowsze prace także CC BY-SA 4.0). Obrazy zostały przycięte i zmniejszone; szczegóły w `art/wesnoth/LICENSE.txt`.
+
+Portrety potworów (folder `art/nichol/`): „The Free Monsters”, autor Justin Nichol (https://opengameart.org/content/the-free-monsters), licencja CC BY-SA 4.0. Usunięto tło, obrazy przycięto i zmniejszono; szczegóły w `art/nichol/LICENSE.txt`.
